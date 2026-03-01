@@ -1,3 +1,4 @@
+// /src/hooks/useAppSettings.ts
 import { useAppSettingsStore } from "@/src/store/appSettings.store";
 import * as React from "react";
 

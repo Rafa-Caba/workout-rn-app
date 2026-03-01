@@ -4,9 +4,11 @@ import React from "react";
 import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { useMe } from "@/src/hooks/auth/useMe";
+import { useSettings } from "@/src/hooks/auth/useSettings";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import { Units } from "@/src/types/auth.types";
+import type { AuthUser, Units } from "@/src/types/auth.types";
+import type { WeekStartsOn } from "@/src/types/settings.types";
 import { formatWeirdUsDateTime } from "@/src/utils/dates/formatWeirdDate";
 
 function initialsFromName(name: string): string {
@@ -36,7 +38,6 @@ function formatDateTime(iso: string | null | undefined): string {
 function formatBirthDate(iso: string | null | undefined): string {
     const s = String(iso ?? "").trim();
     if (!s) return "—";
-    // keep YYYY-MM-DD format (server format) as-is for now
     return s;
 }
 
@@ -63,7 +64,17 @@ function formatUnits(units: Units | null | undefined): string {
     return `${units.weight}/${units.distance}`;
 }
 
-function Row(props: { label: string; value: string; colors: any }) {
+function weekStartsOnLabel(v: WeekStartsOn): string {
+    return v === 1 ? "Lunes" : "Domingo";
+}
+
+function rpeLabel(v: number | null | undefined): string {
+    return typeof v === "number" && Number.isFinite(v) ? String(v) : "—";
+}
+
+type ThemeColors = ReturnType<typeof useTheme>["colors"];
+
+function Row(props: { label: string; value: string; colors: ThemeColors }) {
     const { colors } = props;
     return (
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
@@ -73,7 +84,7 @@ function Row(props: { label: string; value: string; colors: any }) {
     );
 }
 
-function Card(props: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Card(props: { children: React.ReactNode }) {
     const { colors } = useTheme();
     return (
         <View
@@ -86,11 +97,17 @@ function Card(props: { title: string; subtitle?: string; children: React.ReactNo
                 gap: 12,
             }}
         >
-            {/* <View style={{ gap: 2 }}>
-                <Text style={{ fontSize: 14, fontWeight: "900", color: colors.text }}>{props.title}</Text>
-                {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
-            </View> */}
             {props.children}
+        </View>
+    );
+}
+
+function CardHeader(props: { title: string; subtitle?: string }) {
+    const { colors } = useTheme();
+    return (
+        <View style={{ gap: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>{props.title}</Text>
+            {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
         </View>
     );
 }
@@ -103,8 +120,12 @@ export default function ProfileScreen() {
 
     const { me, loading, error, refetch } = useMe(true);
 
-    const avatarUrl = String((me as any)?.profilePicUrl ?? "").trim() || null;
-    const initials = initialsFromName(me?.name ?? "User");
+    const { settings, loading: settingsLoading, error: settingsError, lastLoadedAt } = useSettings(true);
+
+    const profile: AuthUser | null = me;
+
+    const avatarUrl = (profile?.profilePicUrl ?? "").trim() || null;
+    const initials = initialsFromName(profile?.name ?? "User");
 
     const onLogout = async () => {
         try {
@@ -115,13 +136,10 @@ export default function ProfileScreen() {
     };
 
     const onEditProfile = () => {
-        // Placeholder route (creamos luego el edit modal o screen)
-        // Si prefieres modal, lo hacemos en el siguiente paso.
-        router.push("/(app)/me/edit" as any);
+        router.push("/(app)/me/edit");
     };
 
     const onAvatarPress = () => {
-        // Placeholder until we wire ImagePicker + useUserStore().uploadProfilePic/deleteProfilePic
         const hasPic = Boolean(avatarUrl);
 
         Alert.alert("Foto de perfil", "¿Qué deseas hacer?", [
@@ -132,25 +150,25 @@ export default function ProfileScreen() {
                 },
             },
             ...(hasPic
-                ? ([
+                ? [
                     {
                         text: "Eliminar foto",
                         style: "destructive",
                         onPress: () => {
                             Alert.alert("Próximamente", "Aquí conectaremos deleteProfilePic().");
                         },
-                    },
-                ] as any)
+                    } as const,
+                ]
                 : []),
             { text: "Cancelar", style: "cancel" },
         ]);
     };
 
-    const roleLabel = safeText(me?.role);
-    const coachModeLabel = safeText(me?.coachMode) === "NONE" ? "REGULAR" : safeText(me?.coachMode);
-    const trainingLevelLabel = safeText((me as any)?.trainingLevel);
-    const goalLabel = safeText((me as any)?.activityGoal);
-    const unitsLabel = safeText((me as any)?.units);
+    const roleLabel = safeText(profile?.role);
+    const coachModeLabel = safeText(profile?.coachMode) === "NONE" ? "REGULAR" : safeText(profile?.coachMode);
+
+    const goalLabel = safeText(profile?.activityGoal);
+    const trainingLevelLabel = safeText(profile?.trainingLevel);
 
     return (
         <ScrollView
@@ -182,7 +200,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Loading / Error */}
-            {loading && !me ? (
+            {loading && !profile ? (
                 <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center", gap: 10 }}>
                     <ActivityIndicator />
                     <Text style={{ color: colors.mutedText }}>Cargando perfil...</Text>
@@ -190,7 +208,8 @@ export default function ProfileScreen() {
             ) : null}
 
             {error ? (
-                <Card title="Error" subtitle="No se pudo cargar tu perfil">
+                <Card>
+                    <CardHeader title="Error" subtitle="No se pudo cargar tu perfil" />
                     <Text style={{ color: colors.mutedText }}>{safeText(error)}</Text>
                     <Pressable
                         onPress={() => void refetch()}
@@ -208,8 +227,10 @@ export default function ProfileScreen() {
                 </Card>
             ) : null}
 
-            {/* Main card */}
-            <Card title="Mi Perfil" subtitle="Gestiona tu información personal y preferencias.">
+            {/* Cuenta */}
+            <Card>
+                <CardHeader title="Cuenta" subtitle="Información de tu cuenta y perfil." />
+
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                     <Pressable
                         onPress={onAvatarPress}
@@ -227,32 +248,21 @@ export default function ProfileScreen() {
                         })}
                     >
                         {avatarUrl ? (
-                            <Image
-                                source={{ uri: avatarUrl }}
-                                style={{ width: "100%", height: "100%" }}
-                                resizeMode="cover"
-                                fadeDuration={0}
-                                onError={() => {
-                                    // If image fails, we just show initials fallback next render by clearing url visually is more work.
-                                    // Keep it simple and non-destructive.
-                                }}
-                            />
+                            <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} resizeMode="cover" fadeDuration={0} />
                         ) : (
                             <Text style={{ fontWeight: "900", color: colors.mutedText, fontSize: 20 }}>{initials}</Text>
                         )}
                     </Pressable>
 
                     <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={{ fontWeight: "900", color: colors.text, fontSize: 18 }}>
-                            {safeText(me?.name)}
-                        </Text>
-                        <Text style={{ color: colors.mutedText, fontWeight: "700" }}>{safeText(me?.email)}</Text>
+                        <Text style={{ fontWeight: "900", color: colors.text, fontSize: 18 }}>{safeText(profile?.name)}</Text>
+                        <Text style={{ color: colors.mutedText, fontWeight: "700" }}>{safeText(profile?.email)}</Text>
 
                         <Text style={{ color: colors.mutedText }}>
                             {roleLabel} · {coachModeLabel}
                         </Text>
 
-                        <Text style={{ color: colors.mutedText, fontSize: 11, fontStyle: 'italic', fontWeight: "500" }}>
+                        <Text style={{ color: colors.mutedText, fontSize: 11, fontStyle: "italic", fontWeight: "500" }}>
                             Tip: toca tu foto para cambiarla o eliminarla.
                         </Text>
                     </View>
@@ -268,14 +278,14 @@ export default function ProfileScreen() {
                         gap: 10,
                     }}
                 >
-                    <Row colors={colors} label="Altura" value={formatHeightCm((me as any)?.heightCm)} />
-                    <Row colors={colors} label="Peso actual" value={formatWeight((me as any)?.currentWeightKg, (me as any)?.units)} />
-                    <Row colors={colors} label="Unidades" value={formatUnits(me?.units)} />
-                    <Row colors={colors} label="Fecha de nacimiento" value={formatBirthDate((me as any)?.birthDate)} />
+                    <Row colors={colors} label="Altura" value={formatHeightCm(profile?.heightCm)} />
+                    <Row colors={colors} label="Peso actual" value={formatWeight(profile?.currentWeightKg, profile?.units)} />
+                    <Row colors={colors} label="Unidades" value={formatUnits(profile?.units)} />
+                    <Row colors={colors} label="Fecha de nacimiento" value={formatBirthDate(profile?.birthDate)} />
                     <Row colors={colors} label="Objetivo" value={goalLabel} />
                     <Row colors={colors} label="Nivel de entrenamiento" value={trainingLevelLabel} />
-                    <Row colors={colors} label="Notas de salud" value={safeText((me as any)?.healthNotes)} />
-                    <Row colors={colors} label="Último inicio" value={formatDateTime((me as any)?.lastLoginAt)} />
+                    <Row colors={colors} label="Notas de salud" value={safeText(profile?.healthNotes)} />
+                    <Row colors={colors} label="Último inicio" value={formatDateTime(profile?.lastLoginAt)} />
                 </View>
 
                 <Pressable
@@ -291,6 +301,55 @@ export default function ProfileScreen() {
                     })}
                 >
                     <Text style={{ fontWeight: "900", color: colors.text }}>Editar perfil</Text>
+                </Pressable>
+            </Card>
+
+            {/* Aplicación (read-only) */}
+            <Card>
+                <CardHeader title="Aplicación" subtitle="Preferencias de comportamiento y visualización." />
+
+                <View
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 14,
+                        padding: 12,
+                        backgroundColor: colors.background,
+                        gap: 10,
+                    }}
+                >
+                    <Row colors={colors} label="Semana inicia en" value={weekStartsOnLabel(settings.weekStartsOn)} />
+                    <Row colors={colors} label="RPE por defecto" value={rpeLabel(settings.defaults?.defaultRpe ?? null)} />
+                </View>
+
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                        Última actualización: {lastLoadedAt ? formatDateTime(lastLoadedAt) : "—"}
+                    </Text>
+
+                    {settingsLoading ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <ActivityIndicator size="small" />
+                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>Cargando...</Text>
+                        </View>
+                    ) : null}
+                </View>
+
+                {settingsError ? <Text style={{ color: colors.mutedText, fontSize: 12 }}>{safeText(settingsError)}</Text> : null}
+
+                <Pressable
+                    onPress={onEditProfile}
+                    style={({ pressed }) => ({
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: pressed ? colors.background : colors.surface,
+                        alignItems: "center",
+                        opacity: pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ fontWeight: "900", color: colors.text }}>Editar preferencias</Text>
                 </Pressable>
             </Card>
 

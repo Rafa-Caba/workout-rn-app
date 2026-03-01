@@ -1,6 +1,6 @@
 // src/features/components/topbar/TopBarMenus.tsx
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import React from "react";
 import { Image, Modal, Pressable, Text, View } from "react-native";
 
@@ -133,10 +133,15 @@ function Divider() {
 }
 
 function PreferencesMenu(props: { visible: boolean; onClose: () => void }) {
-    const { mode, palette, setMode, setPalette, colors } = useTheme();
+    const { mode, resolvedScheme, palette, setMode, setPalette, colors } = useTheme();
+
+    // ✅ UX: icon shows the ACTION (what you'll switch to)
+    const modeIcon: MciName = resolvedScheme === "dark" ? "white-balance-sunny" : "moon-waning-crescent";
+    const modeRightText = resolvedScheme; // "light" | "dark"
 
     const toggleMode = () => {
-        setMode(mode === "dark" ? "light" : "dark");
+        // If system, toggle based on resolved scheme too
+        setMode(resolvedScheme === "dark" ? "light" : "dark");
         props.onClose();
     };
 
@@ -154,9 +159,9 @@ function PreferencesMenu(props: { visible: boolean; onClose: () => void }) {
                 <Pressable onPress={() => undefined} style={{ alignSelf: "flex-end", marginTop: 64, marginRight: 12 }}>
                     <MenuCard title="Preferencias">
                         <MenuItem
-                            leftIcon={mode === "dark" ? "moon-waning-crescent" : "white-balance-sunny"}
+                            leftIcon={modeIcon}
                             title="Cambiar claro/oscuro"
-                            rightText={String(mode ?? "system")}
+                            rightText={modeRightText}
                             onPress={toggleMode}
                         />
 
@@ -194,6 +199,9 @@ function PreferencesMenu(props: { visible: boolean; onClose: () => void }) {
                                 );
                             })}
                         </View>
+
+                        {/* Optional: show actual mode setting (system/light/dark) for debugging */}
+                        <Text style={{ textAlign: 'right', color: colors.mutedText, fontSize: 12, paddingHorizontal: 6, fontStyle: 'italic' }}>Mode: {mode}</Text>
                     </MenuCard>
                 </Pressable>
             </Pressable>
@@ -206,9 +214,9 @@ function ProfileMenu(props: { visible: boolean; onClose: () => void }) {
     const user = useAuthStore((s) => s.user);
     const logout = useAuthStore((s) => s.logout);
 
-    const go = (href: string) => {
+    const go = (href: Href) => {
         props.onClose();
-        router.push(href as any);
+        router.push(href);
     };
 
     const onLogout = async () => {
@@ -248,7 +256,7 @@ export function TopBarMenus() {
     const [showPrefs, setShowPrefs] = React.useState(false);
     const [showProfile, setShowProfile] = React.useState(false);
 
-    const avatarUrl = String((user as any)?.profilePicUrl ?? "").trim() || null;
+    const avatarUrl = user?.profilePicUrl?.trim() ? user.profilePicUrl.trim() : null;
     const initials = initialsFromName(String(user?.name ?? "").trim() || "User");
 
     return (

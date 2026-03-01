@@ -1,6 +1,7 @@
-// /src/services/admin/adminSettings.service.ts
+// src/services/admin/adminSettings.service.ts
 import { api } from "@/src/services/http.client";
 import type { AdminSettings, AdminSettingsPalette, AdminSettingsThemeMode } from "@/src/types/adminSettings.types";
+import type { RNFile } from "@/src/types/upload.types";
 
 export interface AdminSettingsUpdatePayload {
     appName: string;
@@ -8,29 +9,6 @@ export interface AdminSettingsUpdatePayload {
     debugShowJson: boolean;
     themeMode: AdminSettingsThemeMode;
     themePalette: AdminSettingsPalette;
-}
-
-export type UploadAsset = {
-    uri: string;
-    name?: string;
-    type?: string;
-};
-
-function guessFileName(uri: string): string {
-    const clean = uri.split("?")[0];
-    const last = clean.split("/").pop();
-    if (last && last.trim().length > 0) return last;
-    return `logo_${Date.now()}.jpg`;
-}
-
-function guessMimeType(uri: string): string {
-    const clean = uri.split("?")[0].toLowerCase();
-    if (clean.endsWith(".png")) return "image/png";
-    if (clean.endsWith(".webp")) return "image/webp";
-    if (clean.endsWith(".jpg") || clean.endsWith(".jpeg")) return "image/jpeg";
-    if (clean.endsWith(".heic")) return "image/heic";
-    if (clean.endsWith(".heif")) return "image/heif";
-    return "image/jpeg";
 }
 
 /**
@@ -61,22 +39,19 @@ export async function updateAdminSettingsJson(payload: AdminSettingsUpdatePayloa
  * POST /admin/settings/logo
  * field name: "image"
  *
- * RN: pass UploadAsset { uri, name?, type? }
- * IMPORTANT: do NOT set Content-Type manually (boundary issues on RN).
+ * IMPORTANT (RN): do NOT set Content-Type manually (boundary issues).
  */
-export async function uploadAdminSettingsLogo(file: UploadAsset): Promise<AdminSettings> {
-    if (!file?.uri || typeof file.uri !== "string") {
-        throw new Error("Invalid file uri");
+export async function uploadAdminSettingsLogo(file: RNFile): Promise<AdminSettings> {
+    if (!file?.uri || !file?.name || !file?.type) {
+        throw new Error("Invalid RNFile");
     }
 
-    const uri = file.uri;
-    const name = file.name?.trim() && file.name.trim().length > 0 ? file.name.trim() : guessFileName(uri);
-    const type = file.type?.trim() && file.type.trim().length > 0 ? file.type.trim() : guessMimeType(uri);
-
     const fd = new FormData();
-    // RN FormData file shape: { uri, name, type }
+
+    // RN FormData expects a file-like object: { uri, name, type }.
+    // TypeScript's lib.dom definitions don't model this RN shape -> this cast is unavoidable in RN.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    fd.append("image", { uri, name, type } as any);
+    fd.append("image", { uri: file.uri, name: file.name, type: file.type } as any);
 
     const res = await api.post<AdminSettings>("/admin/settings/logo", fd);
     return res.data;

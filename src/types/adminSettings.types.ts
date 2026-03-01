@@ -2,6 +2,7 @@
 export type AdminSettingsThemeMode = "light" | "dark" | "system";
 
 export type AdminSettingsPalette =
+    | "neutral"
     | "blue"
     | "emerald"
     | "violet"

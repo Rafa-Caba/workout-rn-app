@@ -14,6 +14,7 @@ import {
     secondsToHhMm,
 } from "@/src/utils/dashboard/format";
 
+import { AppBrandFooter } from "@/src/features/components/branding/AppBrandFooter";
 import { DashboardMediaViewerModal } from "@/src/features/dashboard/components/DashboardMediaViewerModal";
 
 function Card(props: {
@@ -45,11 +46,7 @@ function Card(props: {
     );
 }
 
-function StatRow(props: {
-    label: string;
-    value: string | number;
-    colors: ReturnType<typeof useTheme>["colors"];
-}) {
+function StatRow(props: { label: string; value: string | number; colors: ReturnType<typeof useTheme>["colors"] }) {
     const { colors } = props;
 
     return (
@@ -109,7 +106,7 @@ export default function DashboardScreen() {
         <>
             <ScrollView
                 style={{ flex: 1, backgroundColor: colors.background }}
-                contentContainerStyle={{ padding: 16, gap: 12 }}
+                contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 26 }}
             >
                 <View style={{ gap: 4 }}>
                     <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
@@ -139,7 +136,8 @@ export default function DashboardScreen() {
                         <View style={{ gap: 10 }}>
                             <Text style={{ color: colors.mutedText }}>
                                 Fecha: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{day.date}</Text> ·
-                                WeekKey: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{day.weekKey ?? "—"}</Text>
+                                WeekKey:{" "}
+                                <Text style={{ fontFamily: "Menlo", color: colors.text }}>{day.weekKey ?? "—"}</Text>
                             </Text>
 
                             <SectionBox title="Entrenamiento" colors={colors}>
@@ -204,8 +202,10 @@ export default function DashboardScreen() {
                                     <Text style={{ color: colors.mutedText }}>Sin trend.</Text>
                                 ) : (
                                     <Text style={{ color: colors.mutedText }}>
-                                        Días loggeados: <Text style={{ fontWeight: "900", color: colors.text }}>{trendPoint.daysCount}</Text>{" "}
-                                        · Media: <Text style={{ fontWeight: "900", color: colors.text }}>{trendPoint.mediaCount}</Text>
+                                        Días loggeados:{" "}
+                                        <Text style={{ fontWeight: "900", color: colors.text }}>{trendPoint.daysCount}</Text> ·
+                                        Media:{" "}
+                                        <Text style={{ fontWeight: "900", color: colors.text }}>{trendPoint.mediaCount}</Text>
                                     </Text>
                                 )}
                             </SectionBox>
@@ -218,11 +218,7 @@ export default function DashboardScreen() {
                     <View style={{ gap: 10 }}>
                         <SectionBox title="Entrenamiento" colors={colors}>
                             <StatRow colors={colors} label="Sesiones" value={rangeTraining?.sessionsCount ?? 0} />
-                            <StatRow
-                                colors={colors}
-                                label="Duración"
-                                value={secondsToHhMm(rangeTraining?.durationSeconds ?? 0)}
-                            />
+                            <StatRow colors={colors} label="Duración" value={secondsToHhMm(rangeTraining?.durationSeconds ?? 0)} />
                             <StatRow colors={colors} label="Kcal activas" value={rangeTraining?.activeKcal ?? "—"} />
                             <StatRow
                                 colors={colors}
@@ -315,6 +311,9 @@ export default function DashboardScreen() {
                         </View>
                     ) : null}
                 </Card>
+
+                {/* Mini-brand footer (Dashboard only) */}
+                <AppBrandFooter />
             </ScrollView>
 
             <DashboardMediaViewerModal visible={!!selected} item={selected} onClose={() => setSelected(null)} />

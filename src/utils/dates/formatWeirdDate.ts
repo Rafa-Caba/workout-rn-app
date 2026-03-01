@@ -55,5 +55,5 @@ export function formatWeirdUsDateTime(input: string): string {
     const monLabel = MONTHS[month - 1];
     const yy = pad2(yearFull % 100);
 
-    return `${monLabel}, ${pad2(day)}, ${yy} ${displayHour}:${pad2(mm)} ${displayAmPm}`;
+    return `${monLabel}, ${pad2(day)}, ${yy} - ${displayHour}:${pad2(mm)} ${displayAmPm}`;
 }

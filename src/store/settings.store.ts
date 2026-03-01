@@ -1,4 +1,4 @@
-// /src/store/settings.store.ts
+// src/store/settings.store.ts
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -34,7 +34,18 @@ const defaultSettings: UserSettings = {
     defaults: { defaultRpe: null },
 };
 
-function safeMergeSettings(base: UserSettings, next: Partial<UserSettings>): UserSettings {
+type MergeableSettings = UserSettingsUpdateRequest | Partial<UserSettings>;
+
+function getErrorMessage(e: unknown, fallback: string): string {
+    if (e instanceof Error && e.message.trim()) return e.message.trim();
+    if (typeof e === "object" && e) {
+        const maybe = e as { message?: unknown };
+        if (typeof maybe.message === "string" && maybe.message.trim()) return maybe.message.trim();
+    }
+    return fallback;
+}
+
+function safeMergeSettings(base: UserSettings, next: MergeableSettings): UserSettings {
     return {
         language: next.language ?? base.language ?? null,
         weekStartsOn: (next.weekStartsOn ?? base.weekStartsOn ?? 1) as WeekStartsOn,
@@ -56,13 +67,17 @@ export const useSettingsStore = create<SettingsState>()(
             error: null,
             lastLoadedAt: null,
 
-            setShowJson: (show) => set((s) => ({ settings: safeMergeSettings(s.settings, { debug: { showJson: show } }) })),
+            setShowJson: (show) =>
+                set((s) => ({ settings: safeMergeSettings(s.settings, { debug: { showJson: show } }) })),
 
-            setWeekStartsOn: (v) => set((s) => ({ settings: safeMergeSettings(s.settings, { weekStartsOn: v }) })),
+            setWeekStartsOn: (v) =>
+                set((s) => ({ settings: safeMergeSettings(s.settings, { weekStartsOn: v }) })),
 
-            setLanguagePref: (lang) => set((s) => ({ settings: safeMergeSettings(s.settings, { language: lang }) })),
+            setLanguagePref: (lang) =>
+                set((s) => ({ settings: safeMergeSettings(s.settings, { language: lang }) })),
 
-            setDefaultRpe: (rpe) => set((s) => ({ settings: safeMergeSettings(s.settings, { defaults: { defaultRpe: rpe } }) })),
+            setDefaultRpe: (rpe) =>
+                set((s) => ({ settings: safeMergeSettings(s.settings, { defaults: { defaultRpe: rpe } }) })),
 
             clearError: () => set({ error: null }),
 
@@ -76,9 +91,8 @@ export const useSettingsStore = create<SettingsState>()(
                         error: null,
                         lastLoadedAt: new Date().toISOString(),
                     }));
-                } catch (e: any) {
-                    // Graceful fallback: keep local settings
-                    const msg = typeof e?.message === "string" ? e.message : "Failed to load settings (using local defaults)";
+                } catch (e: unknown) {
+                    const msg = getErrorMessage(e, "Failed to load settings (using local defaults)");
                     set({ loading: false, error: msg, lastLoadedAt: null });
                 }
             },
@@ -88,7 +102,7 @@ export const useSettingsStore = create<SettingsState>()(
 
                 // Optimistic local merge
                 set((s) => ({
-                    settings: safeMergeSettings(s.settings, payload as any),
+                    settings: safeMergeSettings(s.settings, payload),
                 }));
 
                 try {
@@ -99,9 +113,8 @@ export const useSettingsStore = create<SettingsState>()(
                         error: null,
                         lastLoadedAt: new Date().toISOString(),
                     }));
-                } catch (e: any) {
-                    // If BE not ready, keep local saved state and show a friendly error
-                    const msg = typeof e?.message === "string" ? e.message : "Backend settings not available yet. Saved locally.";
+                } catch (e: unknown) {
+                    const msg = getErrorMessage(e, "Backend settings not available yet. Saved locally.");
                     set({ loading: false, error: msg });
                 }
             },

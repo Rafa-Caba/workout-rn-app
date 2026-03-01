@@ -5,21 +5,27 @@ import {
     endOfMonth,
     endOfWeek,
     format,
+    isAfter,
     isSameDay,
     isSameMonth,
+    isValid,
+    parseISO,
+    startOfDay,
     startOfMonth,
     startOfWeek,
     subMonths,
 } from "date-fns";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { useMe } from "@/src/hooks/auth/useMe";
+import { useSettings } from "@/src/hooks/auth/useSettings";
 import { useUserStore } from "@/src/store/user.store";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 import type { AuthUser, CoachMode, Sex, TrainingLevel, Units } from "@/src/types/auth.types";
+import type { UserSettingsUpdateRequest, WeekStartsOn } from "@/src/types/settings.types";
 import type { ActivityGoal, UserProfileUpdateRequest } from "@/src/types/user.types";
 
 type SexUi = "" | Exclude<Sex, null>;
@@ -33,7 +39,14 @@ type FormState = {
     sex: SexUi;
 
     heightCm: string;
-    currentWeightKg: string;
+
+    /**
+     * UI weight input (display unit depends on unitWeight)
+     * - if unitWeight === "kg": display kg
+     * - if unitWeight === "lb": display lb
+     * Always saved to API as currentWeightKg (kg).
+     */
+    weightDisplay: string;
 
     unitWeight: WeightUnitUi;
     unitDistance: DistanceUnitUi;
@@ -45,6 +58,20 @@ type FormState = {
     trainingLevel: TrainingLevelUi;
     healthNotes: string;
 };
+
+type PrefState = {
+    weekStartsOn: WeekStartsOn;
+    defaultRpe: number | null;
+};
+
+function getErrorMessage(e: unknown, fallback: string): string {
+    if (e instanceof Error && e.message.trim()) return e.message.trim();
+    if (typeof e === "object" && e) {
+        const maybe = e as { message?: unknown };
+        if (typeof maybe.message === "string" && maybe.message.trim()) return maybe.message.trim();
+    }
+    return fallback;
+}
 
 function toStr(v: unknown): string {
     return String(v ?? "").trim();
@@ -64,21 +91,59 @@ function normalizeBirthDate(v: string): string {
     return s;
 }
 
+function parseBirthDateIso(iso: string): Date | null {
+    const s = String(iso ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    const d = parseISO(s);
+    return isValid(d) ? d : null;
+}
+
+function isBirthDateInFuture(iso: string): boolean {
+    const d = parseBirthDateIso(iso);
+    if (!d) return false;
+    return isAfter(startOfDay(d), startOfDay(new Date()));
+}
+
 function coachModeLabel(mode: CoachMode | null | undefined): string {
     if (!mode) return "—";
     return mode === "NONE" ? "REGULAR" : mode;
 }
 
+function kgToLb(kg: number): number {
+    return kg * 2.2046226218;
+}
+
+function lbToKg(lb: number): number {
+    return lb / 2.2046226218;
+}
+
+function format1(n: number): string {
+    return n.toFixed(1);
+}
+
 function buildInitialForm(me: AuthUser | null): FormState {
+    const unitWeight = (me?.units?.weight ?? "") as WeightUnitUi;
+    const unitDistance = (me?.units?.distance ?? "") as DistanceUnitUi;
+
+    const weightKg = typeof me?.currentWeightKg === "number" && Number.isFinite(me.currentWeightKg) ? me.currentWeightKg : null;
+
+    const weightDisplay =
+        weightKg == null
+            ? ""
+            : unitWeight === "lb"
+                ? format1(kgToLb(weightKg))
+                : format1(weightKg);
+
     return {
         name: toStr(me?.name),
         sex: (me?.sex ?? "") as SexUi,
 
         heightCm: me?.heightCm == null ? "" : String(me.heightCm),
-        currentWeightKg: me?.currentWeightKg == null ? "" : String(me.currentWeightKg),
 
-        unitWeight: (me?.units?.weight ?? "") as WeightUnitUi,
-        unitDistance: (me?.units?.distance ?? "") as DistanceUnitUi,
+        weightDisplay,
+
+        unitWeight,
+        unitDistance,
 
         birthDate: toStr(me?.birthDate),
         activityGoal: (me?.activityGoal ?? "") as ActivityGoalUi,
@@ -94,6 +159,12 @@ function isDirty(a: FormState, b: FormState): boolean {
     for (const k of keys) {
         if (String(a[k] ?? "") !== String(b[k] ?? "")) return true;
     }
+    return false;
+}
+
+function isPrefsDirty(a: PrefState, b: PrefState): boolean {
+    if (a.weekStartsOn !== b.weekStartsOn) return true;
+    if ((a.defaultRpe ?? null) !== (b.defaultRpe ?? null)) return true;
     return false;
 }
 
@@ -176,6 +247,74 @@ function SelectPill<T extends string>(props: {
     );
 }
 
+function OptionRow(props: { label: string; value: string; onPress: () => void; disabled?: boolean }) {
+    const { colors } = useTheme();
+    return (
+        <Pressable
+            onPress={props.onPress}
+            disabled={props.disabled}
+            style={({ pressed }) => ({
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: pressed ? colors.background : colors.surface,
+                opacity: props.disabled ? 0.6 : pressed ? 0.92 : 1,
+            })}
+        >
+            <Text style={{ color: colors.mutedText, fontWeight: "700" }}>{props.label}</Text>
+            <Text style={{ color: colors.text, fontWeight: "800" }}>{props.value}</Text>
+        </Pressable>
+    );
+}
+
+function ModalShell(props: {
+    visible: boolean;
+    title: string;
+    subtitle?: string;
+    onClose: () => void;
+    children: React.ReactNode;
+}) {
+    const { colors } = useTheme();
+
+    return (
+        <Modal visible={props.visible} transparent animationType="fade" onRequestClose={props.onClose}>
+            <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", padding: 16, justifyContent: "center" }}>
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.surface, padding: 14, gap: 12, maxHeight: "80%" }}>
+                    <View style={{ gap: 2 }}>
+                        <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>{props.title}</Text>
+                        {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
+                    </View>
+
+                    <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingBottom: 4 }} showsVerticalScrollIndicator={false}>
+                        {props.children}
+                    </ScrollView>
+
+                    <Pressable
+                        onPress={props.onClose}
+                        style={({ pressed }) => ({
+                            paddingVertical: 12,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: pressed ? colors.background : colors.surface,
+                            alignItems: "center",
+                            opacity: pressed ? 0.92 : 1,
+                        })}
+                    >
+                        <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                    </Pressable>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
 /**
  * Simple calendar modal using date-fns only.
  * Stores YYYY-MM-DD in form.
@@ -183,24 +322,19 @@ function SelectPill<T extends string>(props: {
 function BirthDatePicker(props: {
     value: string;
     onChange: (iso: string) => void;
+    error?: string | null;
 }) {
     const { colors } = useTheme();
 
     const [open, setOpen] = React.useState(false);
 
-    const selectedDate = React.useMemo(() => {
-        const s = String(props.value ?? "").trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-        const d = new Date(`${s}T00:00:00`);
-        return Number.isNaN(d.getTime()) ? null : d;
-    }, [props.value]);
+    const selectedDate = React.useMemo(() => parseBirthDateIso(props.value), [props.value]);
 
     const [cursor, setCursor] = React.useState<Date>(() => {
         return selectedDate ? startOfMonth(selectedDate) : startOfMonth(new Date());
     });
 
     React.useEffect(() => {
-        // if user already has a date and opens modal later, center that month
         if (selectedDate) setCursor(startOfMonth(selectedDate));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate?.getTime()]);
@@ -235,11 +369,12 @@ function BirthDatePicker(props: {
         <>
             <View style={{ gap: 6 }}>
                 <Label text="Fecha de nacimiento" />
+
                 <Pressable
                     onPress={() => setOpen(true)}
                     style={({ pressed }) => ({
                         borderWidth: 1,
-                        borderColor: colors.border,
+                        borderColor: props.error ? "#EF4444" : colors.border,
                         borderRadius: 12,
                         paddingHorizontal: 12,
                         paddingVertical: 12,
@@ -253,16 +388,15 @@ function BirthDatePicker(props: {
                     <Text style={{ color: colors.mutedText, fontWeight: "900" }}>📅</Text>
                 </Pressable>
 
-                <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                    Se guarda como YYYY-MM-DD. (Ej. 1990-01-31)
-                </Text>
+                {props.error ? (
+                    <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "800" }}>{props.error}</Text>
+                ) : (
+                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>Se guarda como YYYY-MM-DD. (Ej. 1990-01-31)</Text>
+                )}
             </View>
 
             <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-                <Pressable
-                    onPress={() => setOpen(false)}
-                    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.25)", justifyContent: "center", padding: 16 }}
-                >
+                <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.25)", justifyContent: "center", padding: 16 }}>
                     <Pressable
                         onPress={() => undefined}
                         style={{
@@ -274,7 +408,6 @@ function BirthDatePicker(props: {
                             gap: 12,
                         }}
                     >
-                        {/* Header */}
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                             <Pressable
                                 onPress={() => setCursor((d) => subMonths(d, 1))}
@@ -307,7 +440,6 @@ function BirthDatePicker(props: {
                             </Pressable>
                         </View>
 
-                        {/* Week labels */}
                         <View style={{ flexDirection: "row" }}>
                             {["L", "M", "X", "J", "V", "S", "D"].map((w) => (
                                 <View key={w} style={{ width: "14.2857%", alignItems: "center", paddingVertical: 6 }}>
@@ -316,20 +448,17 @@ function BirthDatePicker(props: {
                             ))}
                         </View>
 
-                        {/* Grid */}
                         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                             {days.map((d) => {
                                 const inMonth = isSameMonth(d, cursor);
                                 const isSelected = selectedDate ? isSameDay(d, selectedDate) : false;
+                                const disabledFuture = isAfter(startOfDay(d), startOfDay(new Date()));
 
                                 return (
                                     <Pressable
                                         key={format(d, "yyyy-MM-dd")}
-                                        onPress={() => pickDay(d)}
-                                        style={{
-                                            width: "14.2857%",
-                                            padding: 4,
-                                        }}
+                                        onPress={() => (disabledFuture ? undefined : pickDay(d))}
+                                        style={{ width: "14.2857%", padding: 4, opacity: disabledFuture ? 0.4 : 1 }}
                                     >
                                         <View
                                             style={{
@@ -343,21 +472,13 @@ function BirthDatePicker(props: {
                                                 justifyContent: "center",
                                             }}
                                         >
-                                            <Text
-                                                style={{
-                                                    fontWeight: "900",
-                                                    color: isSelected ? colors.primaryText : colors.text,
-                                                }}
-                                            >
-                                                {format(d, "d")}
-                                            </Text>
+                                            <Text style={{ fontWeight: "900", color: isSelected ? colors.primaryText : colors.text }}>{format(d, "d")}</Text>
                                         </View>
                                     </Pressable>
                                 );
                             })}
                         </View>
 
-                        {/* Actions */}
                         <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
                             <Pressable
                                 onPress={clear}
@@ -395,6 +516,14 @@ function BirthDatePicker(props: {
     );
 }
 
+function weekStartsOnLabel(v: WeekStartsOn): string {
+    return v === 1 ? "Lunes" : "Domingo";
+}
+
+function rpeLabel(v: number | null): string {
+    return v == null ? "—" : String(v);
+}
+
 export default function EditProfileScreen() {
     const router = useRouter();
     const { colors } = useTheme();
@@ -402,57 +531,149 @@ export default function EditProfileScreen() {
     const { me, loading } = useMe(true);
     const updateMe = useUserStore((s) => s.updateMe);
 
+    const { settings, loading: settingsLoading, error: settingsError, update: updateSettings } = useSettings(true);
+
     const initialRef = React.useRef<FormState | null>(null);
+    const prefsInitialRef = React.useRef<PrefState | null>(null);
+
     const [form, setForm] = React.useState<FormState>(() => buildInitialForm(me));
+
+    const [prefs, setPrefs] = React.useState<PrefState>(() => ({
+        weekStartsOn: settings.weekStartsOn,
+        defaultRpe: settings.defaults?.defaultRpe ?? null,
+    }));
+
+    const [weekModalOpen, setWeekModalOpen] = React.useState(false);
+    const [rpeModalOpen, setRpeModalOpen] = React.useState(false);
+
+    // Keep a stable internal kg value (regardless of UI unit)
+    const weightKgRef = React.useRef<number | null>(null);
 
     React.useEffect(() => {
         const init = buildInitialForm(me);
         initialRef.current = init;
         setForm(init);
+
+        const kg = typeof me?.currentWeightKg === "number" && Number.isFinite(me.currentWeightKg) ? me.currentWeightKg : null;
+        weightKgRef.current = kg;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [me?.id]);
 
-    const init = initialRef.current ?? buildInitialForm(me);
-    const dirty = isDirty(form, init);
-    const canSave = dirty && !loading && form.name.trim().length >= 2;
+    React.useEffect(() => {
+        const next: PrefState = {
+            weekStartsOn: settings.weekStartsOn,
+            defaultRpe: settings.defaults?.defaultRpe ?? null,
+        };
+        prefsInitialRef.current = next;
+        setPrefs(next);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [settings.weekStartsOn, settings.defaults?.defaultRpe]);
 
-    const onReset = () => setForm(init);
+    // Whenever user edits weightDisplay, update internal kg ref (best-effort)
+    React.useEffect(() => {
+        const n = toNumberOrNull(form.weightDisplay);
+        if (n == null) {
+            weightKgRef.current = null;
+            return;
+        }
+        weightKgRef.current = form.unitWeight === "lb" ? lbToKg(n) : n;
+    }, [form.weightDisplay, form.unitWeight]);
+
+    const init = initialRef.current ?? buildInitialForm(me);
+    const dirtyProfile = isDirty(form, init);
+
+    const prefsInit = prefsInitialRef.current ?? { weekStartsOn: settings.weekStartsOn, defaultRpe: settings.defaults?.defaultRpe ?? null };
+    const dirtyPrefs = isPrefsDirty(prefs, prefsInit);
+
+    const birthDateError = React.useMemo(() => {
+        const s = String(form.birthDate ?? "").trim();
+        if (!s) return null;
+        if (isBirthDateInFuture(s)) return "La fecha no puede ser en el futuro.";
+        return null;
+    }, [form.birthDate]);
+
+    const canSave = (dirtyProfile || dirtyPrefs) && !loading && !settingsLoading && form.name.trim().length >= 2 && !birthDateError;
+
+    const onReset = () => {
+        setForm(init);
+
+        const kg = typeof me?.currentWeightKg === "number" && Number.isFinite(me.currentWeightKg) ? me.currentWeightKg : null;
+        weightKgRef.current = kg;
+
+        setPrefs(prefsInit);
+    };
+
     const onCancel = () => router.back();
+
+    function onChangeWeightUnit(next: WeightUnitUi) {
+        setForm((s) => {
+            const currentNum = toNumberOrNull(s.weightDisplay);
+            if (currentNum == null) return { ...s, unitWeight: next };
+
+            const currentKg = s.unitWeight === "lb" ? lbToKg(currentNum) : currentNum;
+            const nextDisplay = next === "lb" ? format1(kgToLb(currentKg)) : format1(currentKg);
+
+            return { ...s, unitWeight: next, weightDisplay: nextDisplay };
+        });
+    }
 
     const onSave = async () => {
         if (!canSave) return;
 
-        try {
-            const hasAnyUnits = form.unitWeight !== "" || form.unitDistance !== "";
-            const nextUnits: Units | null =
-                hasAnyUnits && form.unitWeight !== "" && form.unitDistance !== ""
-                    ? { weight: form.unitWeight, distance: form.unitDistance }
-                    : null;
+        const errors: string[] = [];
 
-            const payload: UserProfileUpdateRequest = {
-                name: form.name.trim(),
-                sex: form.sex === "" ? null : form.sex,
+        // 1) Profile payload
+        if (dirtyProfile) {
+            try {
+                const hasAnyUnits = form.unitWeight !== "" || form.unitDistance !== "";
+                const nextUnits: Units | null =
+                    hasAnyUnits && form.unitWeight !== "" && form.unitDistance !== ""
+                        ? { weight: form.unitWeight, distance: form.unitDistance }
+                        : null;
 
-                heightCm: toNumberOrNull(form.heightCm),
-                currentWeightKg: toNumberOrNull(form.currentWeightKg),
+                const payload: UserProfileUpdateRequest = {
+                    name: form.name.trim(),
+                    sex: form.sex === "" ? null : form.sex,
 
-                units: nextUnits,
+                    heightCm: toNumberOrNull(form.heightCm),
+                    currentWeightKg: weightKgRef.current,
 
-                birthDate: form.birthDate.trim() ? normalizeBirthDate(form.birthDate) : null,
-                activityGoal: form.activityGoal === "" ? null : form.activityGoal,
-                timezone: form.timezone.trim() ? form.timezone.trim() : null,
+                    units: nextUnits,
 
-                trainingLevel: form.trainingLevel === "" ? null : form.trainingLevel,
-                healthNotes: form.healthNotes.trim() ? form.healthNotes.trim() : null,
-            };
+                    birthDate: form.birthDate.trim() ? normalizeBirthDate(form.birthDate) : null,
+                    activityGoal: form.activityGoal === "" ? null : form.activityGoal,
+                    timezone: form.timezone.trim() ? form.timezone.trim() : null,
 
-            await updateMe(payload);
-            Alert.alert("Listo", "Perfil actualizado ✅");
-            router.back();
-        } catch (e: unknown) {
-            const msg = typeof (e as any)?.message === "string" ? (e as any).message : "No se pudo actualizar.";
-            Alert.alert("Error", msg);
+                    trainingLevel: form.trainingLevel === "" ? null : form.trainingLevel,
+                    healthNotes: form.healthNotes.trim() ? form.healthNotes.trim() : null,
+                };
+
+                await updateMe(payload);
+            } catch (e: unknown) {
+                errors.push(getErrorMessage(e, "No se pudo actualizar el perfil."));
+            }
         }
+
+        // 2) Settings payload
+        if (dirtyPrefs) {
+            try {
+                const payload: UserSettingsUpdateRequest = {
+                    weekStartsOn: prefs.weekStartsOn,
+                    defaults: { defaultRpe: prefs.defaultRpe },
+                };
+                await updateSettings(payload);
+            } catch (e: unknown) {
+                errors.push(getErrorMessage(e, "No se pudieron guardar las preferencias de la app."));
+            }
+        }
+
+        if (errors.length) {
+            Alert.alert("Guardado parcial", errors.join("\n"));
+            return;
+        }
+
+        Alert.alert("Listo", "Cambios guardados ✅");
+        router.back();
     };
 
     const cmLabel = coachModeLabel(me?.coachMode);
@@ -497,6 +718,7 @@ export default function EditProfileScreen() {
                 </Pressable>
             </View>
 
+            {/* PERFIL */}
             <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 14, gap: 14 }}>
                 <View style={{ gap: 6 }}>
                     <Label text="Nombre" />
@@ -522,16 +744,21 @@ export default function EditProfileScreen() {
                     </View>
 
                     <View style={{ flex: 1, gap: 6 }}>
-                        <Label text="Peso actual (kg)" />
-                        <Input value={form.currentWeightKg} onChange={(v) => setForm((s) => ({ ...s, currentWeightKg: v }))} placeholder="Ej. 78.5" keyboardType="numeric" />
-                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>Nota: el peso se guarda internamente en kg.</Text>
+                        <Label text={`Peso actual (${form.unitWeight === "lb" ? "lb" : "kg"})`} />
+                        <Input
+                            value={form.weightDisplay}
+                            onChange={(v) => setForm((s) => ({ ...s, weightDisplay: v }))}
+                            placeholder={form.unitWeight === "lb" ? "Ej. 173.1" : "Ej. 78.5"}
+                            keyboardType="numeric"
+                        />
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>Se guarda internamente en kg.</Text>
                     </View>
                 </View>
 
                 <SelectPill<WeightUnitUi>
                     label="Unidad preferida (peso)"
                     value={form.unitWeight}
-                    onChange={(v) => setForm((s) => ({ ...s, unitWeight: v }))}
+                    onChange={onChangeWeightUnit}
                     options={[
                         { label: "—", value: "" },
                         { label: "kg", value: "kg" },
@@ -550,10 +777,7 @@ export default function EditProfileScreen() {
                     ]}
                 />
 
-                <BirthDatePicker
-                    value={form.birthDate}
-                    onChange={(iso) => setForm((s) => ({ ...s, birthDate: iso }))}
-                />
+                <BirthDatePicker value={form.birthDate} onChange={(iso) => setForm((s) => ({ ...s, birthDate: iso }))} error={birthDateError} />
 
                 <SelectPill<ActivityGoalUi>
                     label="Objetivo"
@@ -592,43 +816,167 @@ export default function EditProfileScreen() {
                         <Text style={{ fontWeight: "900", color: colors.text }}>{cmLabel}</Text>
                     </View>
                 </View>
+            </View>
 
-                <View style={{ flexDirection: "row", gap: 10 }}>
+            {/* APLICACIÓN (Preferencias) */}
+            <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 14, gap: 12 }}>
+                <View style={{ gap: 2 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>Aplicación</Text>
+                    <Text style={{ color: colors.mutedText }}>Preferencias de comportamiento y visualización.</Text>
+                </View>
+
+                <OptionRow
+                    label="Semana inicia en"
+                    value={weekStartsOnLabel(prefs.weekStartsOn)}
+                    onPress={() => setWeekModalOpen(true)}
+                    disabled={settingsLoading}
+                />
+
+                <OptionRow
+                    label="RPE por defecto"
+                    value={rpeLabel(prefs.defaultRpe)}
+                    onPress={() => setRpeModalOpen(true)}
+                    disabled={settingsLoading}
+                />
+
+                {settingsError ? <Text style={{ color: colors.mutedText, fontSize: 12 }}>{String(settingsError)}</Text> : null}
+
+                {settingsLoading ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <ActivityIndicator size="small" />
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>Cargando settings...</Text>
+                    </View>
+                ) : null}
+            </View>
+
+            {/* Actions */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable
+                    onPress={onReset}
+                    disabled={!(dirtyProfile || dirtyPrefs)}
+                    style={({ pressed }) => ({
+                        flex: 1,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: pressed ? colors.background : colors.surface,
+                        alignItems: "center",
+                        opacity: !(dirtyProfile || dirtyPrefs) ? 0.6 : pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ fontWeight: "900", color: colors.text }}>Restablecer</Text>
+                </Pressable>
+
+                <Pressable
+                    onPress={onSave}
+                    disabled={!canSave}
+                    style={({ pressed }) => ({
+                        flex: 1,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        backgroundColor: canSave ? colors.primary : colors.border,
+                        alignItems: "center",
+                        opacity: !canSave ? 0.6 : pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ fontWeight: "900", color: canSave ? colors.primaryText : colors.mutedText }}>Guardar</Text>
+                </Pressable>
+            </View>
+
+            {/* Week modal */}
+            <ModalShell
+                visible={weekModalOpen}
+                title="Semana inicia en"
+                subtitle="Afecta semanas, calendarios y navegación por semana."
+                onClose={() => setWeekModalOpen(false)}
+            >
+                <Pressable
+                    onPress={() => {
+                        setPrefs((s) => ({ ...s, weekStartsOn: 1 }));
+                        setWeekModalOpen(false);
+                    }}
+                    style={({ pressed }) => ({
+                        paddingVertical: 12,
+                        paddingHorizontal: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: pressed ? colors.background : colors.surface,
+                        opacity: pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ color: colors.text, fontWeight: "900" }}>Lunes</Text>
+                    <Text style={{ color: colors.mutedText }}>Por defecto.</Text>
+                </Pressable>
+
+                <Pressable
+                    onPress={() => {
+                        setPrefs((s) => ({ ...s, weekStartsOn: 0 }));
+                        setWeekModalOpen(false);
+                    }}
+                    style={({ pressed }) => ({
+                        paddingVertical: 12,
+                        paddingHorizontal: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: pressed ? colors.background : colors.surface,
+                        opacity: pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ color: colors.text, fontWeight: "900" }}>Domingo</Text>
+                    <Text style={{ color: colors.mutedText }}>Alternativa.</Text>
+                </Pressable>
+            </ModalShell>
+
+            {/* RPE modal */}
+            <ModalShell
+                visible={rpeModalOpen}
+                title="RPE por defecto"
+                subtitle="Se usará como valor inicial al registrar sesiones (si aplica)."
+                onClose={() => setRpeModalOpen(false)}
+            >
+                <Pressable
+                    onPress={() => {
+                        setPrefs((s) => ({ ...s, defaultRpe: null }));
+                        setRpeModalOpen(false);
+                    }}
+                    style={({ pressed }) => ({
+                        paddingVertical: 12,
+                        paddingHorizontal: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: pressed ? colors.background : colors.surface,
+                        opacity: pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ color: colors.text, fontWeight: "900" }}>—</Text>
+                    <Text style={{ color: colors.mutedText }}>Sin valor por defecto.</Text>
+                </Pressable>
+
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                     <Pressable
-                        onPress={onReset}
-                        disabled={!dirty}
+                        key={n}
+                        onPress={() => {
+                            setPrefs((s) => ({ ...s, defaultRpe: n }));
+                            setRpeModalOpen(false);
+                        }}
                         style={({ pressed }) => ({
-                            flex: 1,
                             paddingVertical: 12,
+                            paddingHorizontal: 12,
                             borderRadius: 12,
                             borderWidth: 1,
                             borderColor: colors.border,
                             backgroundColor: pressed ? colors.background : colors.surface,
-                            alignItems: "center",
-                            opacity: !dirty ? 0.6 : pressed ? 0.92 : 1,
+                            opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Restablecer</Text>
+                        <Text style={{ color: colors.text, fontWeight: "900" }}>{n}</Text>
                     </Pressable>
-
-                    <Pressable
-                        onPress={onSave}
-                        disabled={!canSave}
-                        style={({ pressed }) => ({
-                            flex: 1,
-                            paddingVertical: 12,
-                            borderRadius: 12,
-                            backgroundColor: canSave ? colors.primary : colors.border,
-                            alignItems: "center",
-                            opacity: !canSave ? 0.6 : pressed ? 0.92 : 1,
-                        })}
-                    >
-                        <Text style={{ fontWeight: "900", color: canSave ? colors.primaryText : colors.mutedText }}>Guardar</Text>
-                    </Pressable>
-                </View>
-
-                {!dirty ? <Text style={{ color: colors.mutedText, fontSize: 12 }}>No hay cambios para guardar.</Text> : null}
-            </View>
+                ))}
+            </ModalShell>
         </ScrollView>
     );
 }

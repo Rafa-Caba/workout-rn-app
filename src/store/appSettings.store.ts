@@ -8,6 +8,7 @@ import type { AppSettings } from "@/src/types/appSettings.types";
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
     appName: "Workout Tracker",
+    appSubtitle: "Seguimiento de entrenamiento y sueño",
     logoUrl: null,
     themeDefaults: {
         mode: "system",

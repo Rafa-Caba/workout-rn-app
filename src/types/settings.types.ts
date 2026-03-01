@@ -10,7 +10,6 @@ export type DefaultsSettings = {
 };
 
 export type UserSettings = {
-    // “App behavior” settings (per-user)
     language: "es" | "en" | null;
     weekStartsOn: WeekStartsOn;
 

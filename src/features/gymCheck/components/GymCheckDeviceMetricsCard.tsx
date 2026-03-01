@@ -50,10 +50,9 @@ function FieldWrap(props: { active: boolean; children: React.ReactNode }) {
                 borderWidth: 2,
                 borderColor: props.active ? colors.primary : "transparent",
                 padding: props.active ? 6 : 0,
-                backgroundColor: props.active ? "rgba(0,0,0,0.00)" : "transparent",
+                backgroundColor: "transparent",
             }}
         >
-            {/* subtle tint when active */}
             <View
                 style={{
                     borderRadius: 14,
@@ -66,40 +65,60 @@ function FieldWrap(props: { active: boolean; children: React.ReactNode }) {
     );
 }
 
+function pad2(n: number): string {
+    return n < 10 ? `0${n}` : `${n}`;
+}
+
+function clampInt(n: number, min: number, max: number): number {
+    if (!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+}
+
 /**
- * Keeps input in HH:MM while typing.
- * - Only digits
- * - Auto-inserts ":" after 2 digits
- * - Clamps to 00-23 and 00-59 when complete
+ * SOFT formatter for typing:
+ * - Keep only digits + at most one ":" in correct spot
+ * - Allow partial states: "", "1", "12", "12:", "12:3", "12:34"
+ * - Does NOT clamp or auto-pad aggressively while typing
  */
-function sanitizeTimeHHmmInput(raw: string): string {
-    const digits = String(raw ?? "").replace(/[^\d]/g, "").slice(0, 4); // HHMM max
+function formatTimeTyping(raw: string): string {
+    const s = String(raw ?? "");
+
+    // Keep digits only
+    const digits = s.replace(/[^\d]/g, "");
+
     if (digits.length === 0) return "";
+    if (digits.length === 1) return digits; // "H"
+    if (digits.length === 2) return digits; // "HH"
+    if (digits.length === 3) return `${digits.slice(0, 2)}:${digits.slice(2)}`; // "HH:M"
+    return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`; // "HH:MM" (ignore extra)
+}
 
-    const hhRaw = digits.slice(0, 2);
-    const mmRaw = digits.slice(2, 4);
+/**
+ * Commit formatter for blur:
+ * - If empty or incomplete -> return "" (clears)
+ * - If complete HH:MM -> clamp and pad
+ */
+function normalizeTimeOnBlur(raw: string): string {
+    const s = String(raw ?? "").trim();
+    if (!s) return "";
 
-    if (digits.length <= 2) {
-        // allow partial hour
-        return hhRaw;
-    }
+    // Accept only HH:MM exactly at commit time
+    const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(s.replace(/[^\d:]/g, ""));
+    if (!m) return "";
 
-    let hh = Number(hhRaw);
-    let mm = Number(mmRaw || "0");
+    const hhPart = m[1] ?? "";
+    const mmPart = m[2] ?? "";
 
-    if (!Number.isFinite(hh)) hh = 0;
-    if (!Number.isFinite(mm)) mm = 0;
+    // Require minutes to be present to keep value
+    if (!mmPart) return "";
 
-    // If user typed full HHMM, clamp
-    if (digits.length >= 2) hh = Math.max(0, Math.min(23, hh));
-    if (digits.length >= 4) mm = Math.max(0, Math.min(59, mm));
+    let hh = Number(hhPart);
+    let mm = Number(mmPart);
 
-    const hhStr = String(hh).padStart(2, "0");
-    const mmStr = String(mmRaw).padStart(2, "0").slice(0, 2); // keep typed mins until complete
-    // If full 4 digits, use clamped mm instead
-    const finalMm = digits.length === 4 ? String(mm).padStart(2, "0") : mmStr;
+    hh = clampInt(hh, 0, 23);
+    mm = clampInt(mm, 0, 59);
 
-    return `${hhStr}:${finalMm}`;
+    return `${pad2(hh)}:${pad2(mm)}`;
 }
 
 export function GymCheckDeviceMetricsCard({
@@ -158,12 +177,15 @@ export function GymCheckDeviceMetricsCard({
                             <GymCheckField
                                 label="Hora inicio (HH:MM)"
                                 value={String(metrics.startAt ?? "")}
-                                onChange={(v) => onChange({ startAt: sanitizeTimeHHmmInput(v) })}
+                                onChange={(v) => onChange({ startAt: formatTimeTyping(v) })}
                                 placeholder="07:10"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("startAt")}
-                                onBlur={() => clearActive("startAt")}
+                                onBlur={() => {
+                                    onChange({ startAt: normalizeTimeOnBlur(String(metrics.startAt ?? "")) });
+                                    clearActive("startAt");
+                                }}
                             />
                         </FieldWrap>
 
@@ -171,16 +193,20 @@ export function GymCheckDeviceMetricsCard({
                             <GymCheckField
                                 label="Hora fin (HH:MM)"
                                 value={String(metrics.endAt ?? "")}
-                                onChange={(v) => onChange({ endAt: sanitizeTimeHHmmInput(v) })}
+                                onChange={(v) => onChange({ endAt: formatTimeTyping(v) })}
                                 placeholder="08:10"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("endAt")}
-                                onBlur={() => clearActive("endAt")}
+                                onBlur={() => {
+                                    onChange({ endAt: normalizeTimeOnBlur(String(metrics.endAt ?? "")) });
+                                    clearActive("endAt");
+                                }}
                             />
                         </FieldWrap>
                     </View>
 
+                    {/* The rest stays as-is */}
                     <View style={{ flexDirection: "row", gap: 12 }}>
                         <FieldWrap active={activeKey === "activeKcal"}>
                             <GymCheckField
