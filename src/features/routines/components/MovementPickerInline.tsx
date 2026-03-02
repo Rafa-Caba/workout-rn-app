@@ -2,6 +2,8 @@
 import React from "react";
 import { FlatList, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 export type MovementOption = {
     id: string;
     name: string;
@@ -18,24 +20,26 @@ type Props = {
 };
 
 function RowButton(props: { title: string; onPress: () => void; disabled?: boolean; tone?: "primary" | "neutral" }) {
-    const accent = "#2563EB";
-    const bg = props.tone === "primary" ? accent : "transparent";
-    const color = props.tone === "primary" ? "#FFFFFF" : "#111827";
-    const borderColor = props.tone === "primary" ? accent : "#111827";
+    const { colors } = useTheme();
+
+    const isPrimary = props.tone === "primary";
+    const bg = isPrimary ? colors.primary : colors.surface;
+    const color = isPrimary ? colors.primaryText : colors.text;
+    const borderColor = isPrimary ? colors.primary : colors.border;
 
     return (
         <Pressable
             onPress={props.onPress}
             disabled={props.disabled}
-            style={{
+            style={({ pressed }) => ({
                 paddingHorizontal: 12,
                 paddingVertical: 10,
                 borderRadius: 10,
                 borderWidth: 1,
                 borderColor,
                 backgroundColor: bg,
-                opacity: props.disabled ? 0.5 : 1,
-            }}
+                opacity: props.disabled ? 0.5 : pressed ? 0.92 : 1,
+            })}
         >
             <Text style={{ fontWeight: "900", color }}>{props.title}</Text>
         </Pressable>
@@ -43,6 +47,8 @@ function RowButton(props: { title: string; onPress: () => void; disabled?: boole
 }
 
 function Avatar(props: { name: string; imageUrl?: string | null }) {
+    const { colors } = useTheme();
+
     if (props.imageUrl) {
         return (
             <Image
@@ -62,16 +68,20 @@ function Avatar(props: { name: string; imageUrl?: string | null }) {
                 height: 42,
                 borderRadius: 10,
                 borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
                 alignItems: "center",
                 justifyContent: "center",
             }}
         >
-            <Text style={{ fontWeight: "900" }}>{letter}</Text>
+            <Text style={{ fontWeight: "900", color: colors.text }}>{letter}</Text>
         </View>
     );
 }
 
 export function MovementPickerInline({ value, onChange, movements, disabled, title }: Props) {
+    const { colors } = useTheme();
+
     const [open, setOpen] = React.useState(false);
     const [q, setQ] = React.useState("");
 
@@ -96,38 +106,38 @@ export function MovementPickerInline({ value, onChange, movements, disabled, tit
     return (
         <>
             <View style={{ gap: 8 }}>
-                <Text style={{ fontWeight: "800" }}>{title ?? "Movimiento"}</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>{title ?? "Movimiento"}</Text>
 
                 <Pressable
                     onPress={() => setOpen(true)}
                     disabled={disabled}
-                    style={{
+                    style={({ pressed }) => ({
                         borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
                         borderRadius: 12,
                         paddingHorizontal: 12,
                         paddingVertical: 12,
-                        opacity: disabled ? 0.5 : 1,
-                    }}
+                        opacity: disabled ? 0.5 : pressed ? 0.92 : 1,
+                    })}
                 >
-                    <Text style={{ fontWeight: "800" }}>{selectedLabel}</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>{selectedLabel}</Text>
                     {value.movementId ? (
-                        <Text style={{ color: "#6B7280", marginTop: 4 }} numberOfLines={1}>
-                            ID: <Text style={{ fontFamily: "Menlo" }}>{value.movementId}</Text>
+                        <Text style={{ color: colors.mutedText, marginTop: 4 }} numberOfLines={1}>
+                            ID: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{value.movementId}</Text>
                         </Text>
                     ) : null}
                 </Pressable>
 
-                {value.movementId ? (
-                    <RowButton title="Quitar movimiento" onPress={onClear} disabled={disabled} />
-                ) : null}
+                {value.movementId ? <RowButton title="Quitar movimiento" onPress={onClear} disabled={disabled} /> : null}
             </View>
 
             <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-                <View style={{ flex: 1, padding: 16, gap: 12 }}>
+                <View style={{ flex: 1, padding: 16, gap: 12, backgroundColor: colors.background }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                         <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 18, fontWeight: "900" }}>Movimientos</Text>
-                            <Text style={{ color: "#6B7280" }}>Selecciona un movimiento</Text>
+                            <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>Movimientos</Text>
+                            <Text style={{ color: colors.mutedText }}>Selecciona un movimiento</Text>
                         </View>
                         <RowButton title="Cerrar" onPress={() => setOpen(false)} />
                     </View>
@@ -136,11 +146,16 @@ export function MovementPickerInline({ value, onChange, movements, disabled, tit
                         value={q}
                         onChangeText={setQ}
                         placeholder="Buscar..."
+                        placeholderTextColor={colors.mutedText}
                         style={{
                             borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                            color: colors.text,
                             borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 10,
+                            fontWeight: "700",
                         }}
                     />
 
@@ -151,19 +166,22 @@ export function MovementPickerInline({ value, onChange, movements, disabled, tit
                         renderItem={({ item }) => (
                             <Pressable
                                 onPress={() => onSelect(item)}
-                                style={{
+                                style={({ pressed }) => ({
                                     borderWidth: 1,
+                                    borderColor: colors.border,
+                                    backgroundColor: colors.surface,
                                     borderRadius: 14,
                                     padding: 12,
                                     flexDirection: "row",
                                     gap: 12,
                                     alignItems: "center",
-                                }}
+                                    opacity: pressed ? 0.92 : 1,
+                                })}
                             >
                                 <Avatar name={item.name} imageUrl={item.imageUrl} />
                                 <View style={{ flex: 1, gap: 2 }}>
-                                    <Text style={{ fontWeight: "900" }}>{item.name}</Text>
-                                    <Text style={{ color: "#6B7280" }} numberOfLines={1}>
+                                    <Text style={{ fontWeight: "900", color: colors.text }}>{item.name}</Text>
+                                    <Text style={{ color: colors.mutedText }} numberOfLines={1}>
                                         <Text style={{ fontFamily: "Menlo" }}>{item.id}</Text>
                                     </Text>
                                 </View>

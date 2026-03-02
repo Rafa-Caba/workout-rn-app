@@ -7,6 +7,8 @@ import type { Mode, Palette } from "./presets";
 import {
     paletteBackground,
     paletteBorder,
+    paletteDanger,
+    paletteDangerText,
     paletteMutedText,
     palettePrimary,
     palettePrimaryText,
@@ -22,6 +24,10 @@ type ThemeColors = {
     border: string;
     primary: string;
     primaryText: string;
+
+    // NEW
+    danger: string;
+    dangerText: string;
 };
 
 type ThemeState = {
@@ -62,6 +68,7 @@ function resolveScheme(mode: Mode, system: "light" | "dark"): "light" | "dark" {
 
 function buildColors(args: { scheme: "light" | "dark"; palette: Palette }): ThemeColors {
     const primary = palettePrimary(args.palette);
+    const danger = paletteDanger();
 
     return {
         background: paletteBackground(args.palette, args.scheme),
@@ -71,6 +78,9 @@ function buildColors(args: { scheme: "light" | "dark"; palette: Palette }): Them
         border: paletteBorder(args.palette, args.scheme),
         primary,
         primaryText: palettePrimaryText(args.palette),
+
+        danger,
+        dangerText: paletteDangerText(),
     };
 }
 

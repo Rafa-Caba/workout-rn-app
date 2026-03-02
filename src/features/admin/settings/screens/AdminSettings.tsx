@@ -150,7 +150,7 @@ export default function AdminSettings() {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Ajustes de la app</Text>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Ajustes de la app</Text>
                     <Text style={{ color: colors.mutedText }}>Configura nombre, logo, tema y depuración.</Text>
                 </View>
 
@@ -165,7 +165,7 @@ export default function AdminSettings() {
                             gap: 6,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Nota</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Nota</Text>
                         <Text style={{ color: colors.mutedText }}>{error}</Text>
                     </View>
                 ) : null}
@@ -181,7 +181,7 @@ export default function AdminSettings() {
                     }}
                 >
                     <View style={{ gap: 6 }}>
-                        <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>Nombre de la app</Text>
+                        <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>Nombre de la app</Text>
                         <TextInput
                             value={draft.appName}
                             onChangeText={(v) => setDraft({ appName: v })}
@@ -202,7 +202,7 @@ export default function AdminSettings() {
                     </View>
 
                     <View style={{ gap: 6 }}>
-                        <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>Subtítulo</Text>
+                        <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>Subtítulo</Text>
                         <TextInput
                             value={draft.appSubtitle ?? ""}
                             onChangeText={(v) => setDraft({ appSubtitle: v.trim().length ? v : null })}
@@ -232,7 +232,7 @@ export default function AdminSettings() {
                             gap: 8,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Depuración JSON</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Depuración JSON</Text>
 
                         <Pressable
                             onPress={() => setDraft({ debugShowJson: !draft.debugShowJson })}
@@ -251,8 +251,8 @@ export default function AdminSettings() {
                                 opacity: busy ? 0.6 : pressed ? 0.92 : 1,
                             })}
                         >
-                            <Text style={{ fontWeight: "900", color: colors.text }}>Mostrar secciones JSON</Text>
-                            <Text style={{ fontWeight: "900", color: draft.debugShowJson ? colors.primary : colors.mutedText }}>
+                            <Text style={{ fontWeight: "800", color: colors.text }}>Mostrar secciones JSON</Text>
+                            <Text style={{ fontWeight: "800", color: draft.debugShowJson ? colors.primary : colors.mutedText }}>
                                 {draft.debugShowJson ? "Sí" : "No"}
                             </Text>
                         </Pressable>
@@ -285,7 +285,7 @@ export default function AdminSettings() {
                     >
                         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                             <View style={{ flex: 1, gap: 2 }}>
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Logo de la app</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Logo de la app</Text>
                                 <Text style={{ color: colors.mutedText, fontSize: 12 }}>PNG/JPG/WEBP/HEIC hasta 1,024px aprox.</Text>
                             </View>
 
@@ -302,7 +302,7 @@ export default function AdminSettings() {
                                     opacity: busy ? 0.6 : pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ fontWeight: "900", color: colors.text }}>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>
                                     {uploadingLogo ? "Subiendo..." : "Seleccionar logo"}
                                 </Text>
                             </Pressable>
@@ -332,7 +332,7 @@ export default function AdminSettings() {
                                 </Pressable>
 
                                 <View style={{ flex: 1, gap: 2 }}>
-                                    <Text style={{ color: colors.text, fontWeight: "900" }}>Logo configurado ✅</Text>
+                                    <Text style={{ color: colors.text, fontWeight: "800" }}>Logo configurado ✅</Text>
                                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>
                                         Toca el thumbnail para verlo en grande.
                                     </Text>
@@ -358,7 +358,7 @@ export default function AdminSettings() {
                                     opacity: busy ? 0.6 : pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Revertir</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Revertir</Text>
                             </Pressable>
 
                             <Pressable
@@ -372,7 +372,7 @@ export default function AdminSettings() {
                                     opacity: busy ? 0.6 : pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ color: colors.primaryText, fontWeight: "900" }}>
+                                <Text style={{ color: colors.primaryText, fontWeight: "800" }}>
                                     {saving ? "Guardando..." : "Guardar ajustes"}
                                 </Text>
                             </Pressable>

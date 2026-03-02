@@ -28,15 +28,17 @@ export default function AppLayout() {
         <Tabs
             screenOptions={{
                 ...getBottomTabsScreenOptions(theme, insets.bottom),
-                tabBarLabelStyle: { fontWeight: "600", fontSize: 10 },
+                tabBarLabelStyle: { fontWeight: "600", fontSize: 9 },
             }}
         >
             <Tabs.Screen name="dashboard" options={{ title: "Dashboard", tabBarIcon: tabIcon("cat") }} />
             <Tabs.Screen name="calendar" options={{ title: "Calendario", tabBarIcon: tabIcon("calendar-month-outline") }} />
-            <Tabs.Screen name="movements" options={{ title: "Movimientos", tabBarIcon: tabIcon("dumbbell") }} />
+            <Tabs.Screen name="movements" options={{ title: "Ejercicios", tabBarIcon: tabIcon("dumbbell") }} />
+            <Tabs.Screen name="sleep" options={{ title: "Sueño", tabBarIcon: tabIcon("bed-clock") }} />
             <Tabs.Screen name="media" options={{ title: "Media", tabBarIcon: tabIcon("image-multiple-outline") }} />
+            <Tabs.Screen name="trends" options={{ title: "Tendencias (Semanas)", tabBarIcon: tabIcon("trending-up") }} />
             <Tabs.Screen name="insights" options={{ title: "Insights", tabBarIcon: tabIcon("chart-line") }} />
-            <Tabs.Screen name="settings" options={{ title: "Ajustes", tabBarIcon: tabIcon("coffee-outline") }} />
+            {/* <Tabs.Screen name="settings" options={{ title: "Ajustes", tabBarIcon: tabIcon("coffee-outline") }} /> */}
 
             {isTrainer ? (
                 <Tabs.Screen name="trainer" options={{ title: "Trainer", tabBarIcon: tabIcon("whistle-outline") }} />

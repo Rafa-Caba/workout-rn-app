@@ -1,6 +1,8 @@
+// src/navigation/RootNavigator.tsx
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useAuthStore } from "../store/useAuthStore";
+
+import { useAuthStore } from "../store/auth.store";
 import { AppTabsNavigator } from "./AppTabs";
 import { AuthStackNavigator } from "./AuthStack";
 

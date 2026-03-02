@@ -1,6 +1,8 @@
 import * as React from "react";
 import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 type Props = {
     value: string | null;
     onChange: (next: string | null) => void;
@@ -58,10 +60,7 @@ const DEFAULT_DEVICES = [
     "Manual",
 ].map(normalize);
 
-type Item =
-    | { kind: "option"; label: string }
-    | { kind: "other" }
-    | { kind: "clear" };
+type Item = { kind: "option"; label: string } | { kind: "other" } | { kind: "clear" };
 
 function buildItems(known: string[], allowOther: boolean): Item[] {
     const opts = Array.from(new Set(known.map(normalize).filter(Boolean)));
@@ -89,6 +88,8 @@ export function DeviceSelectRN({
     onOpen,
     onClose,
 }: Props) {
+    const { colors } = useTheme();
+
     const known = React.useMemo(() => {
         const base = (knownOptions?.length ? knownOptions : DEFAULT_DEVICES).map(normalize).filter(Boolean);
         return Array.from(new Set(base));
@@ -181,28 +182,28 @@ export function DeviceSelectRN({
 
     return (
         <View style={{ gap: 6 }}>
-            <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "700" }}>{label}</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedText, fontWeight: "700" }}>{label}</Text>
 
             <Pressable
                 disabled={disabled}
                 onPress={openModal}
-                style={{
+                style={({ pressed }) => ({
                     borderWidth: 1,
-                    borderColor: "#E5E7EB",
+                    borderColor: colors.border,
                     borderRadius: 12,
                     paddingHorizontal: 12,
                     paddingVertical: 9,
-                    backgroundColor: disabled ? "#F3F4F6" : "white",
-                    opacity: disabled ? 0.7 : 1,
+                    backgroundColor: disabled ? colors.surface : colors.background,
+                    opacity: disabled ? 0.7 : pressed ? 0.92 : 1,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                }}
+                })}
             >
-                <Text style={{ color: displayValue ? "#111827" : "#6B7280", fontWeight: "700" }}>
+                <Text style={{ color: displayValue ? colors.text : colors.mutedText, fontWeight: "700" }}>
                     {displayValue ?? placeholder}
                 </Text>
-                <Text style={{ color: "#111827", fontWeight: "900" }}>▾</Text>
+                <Text style={{ color: colors.text, fontWeight: "900" }}>▾</Text>
             </Pressable>
 
             {allowOther && otherSelected ? (
@@ -211,19 +212,21 @@ export function DeviceSelectRN({
                         value={otherText}
                         onChangeText={onOtherChange}
                         placeholder={otherPlaceholder}
+                        placeholderTextColor={colors.mutedText}
                         editable={!disabled}
                         style={{
                             borderWidth: 1,
-                            borderColor: "#E5E7EB",
+                            borderColor: colors.border,
                             borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 10,
-                            backgroundColor: disabled ? "#F3F4F6" : "white",
-                            color: "#111827",
+                            backgroundColor: disabled ? colors.surface : colors.background,
+                            color: colors.text,
                             opacity: disabled ? 0.7 : 1,
+                            fontWeight: "700",
                         }}
                     />
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>{otherHint}</Text>
+                    <Text style={{ fontSize: 12, color: colors.mutedText }}>{otherHint}</Text>
                 </View>
             ) : null}
 
@@ -235,13 +238,17 @@ export function DeviceSelectRN({
                     <Pressable
                         onPress={() => { }}
                         style={{
-                            backgroundColor: "white",
+                            backgroundColor: colors.surface,
+                            borderWidth: 1,
+                            borderColor: colors.border,
                             borderRadius: 16,
                             padding: 12,
                             maxHeight: "70%",
                         }}
                     >
-                        <Text style={{ fontWeight: "900", fontSize: 16, marginBottom: 10 }}>{label}</Text>
+                        <Text style={{ fontWeight: "900", fontSize: 16, marginBottom: 10, color: colors.text }}>
+                            {label}
+                        </Text>
 
                         <FlatList
                             data={items}
@@ -254,6 +261,7 @@ export function DeviceSelectRN({
                                         : item.kind === "other"
                                             ? otherLabel
                                             : "Limpiar";
+
                                 const isSelected =
                                     item.kind === "option"
                                         ? normalize(value ?? "").toLowerCase() === normalize(item.label).toLowerCase()
@@ -264,16 +272,17 @@ export function DeviceSelectRN({
                                 return (
                                     <Pressable
                                         onPress={() => onPick(item)}
-                                        style={{
+                                        style={({ pressed }) => ({
                                             paddingVertical: 12,
                                             paddingHorizontal: 12,
                                             borderRadius: 12,
                                             borderWidth: 1,
-                                            borderColor: isSelected ? "#2563EB" : "#E5E7EB",
-                                            backgroundColor: isSelected ? "rgba(37, 99, 235, 0.08)" : "white",
-                                        }}
+                                            borderColor: isSelected ? colors.primary : colors.border,
+                                            backgroundColor: colors.background,
+                                            opacity: pressed ? 0.92 : 1,
+                                        })}
                                     >
-                                        <Text style={{ fontWeight: "800", color: "#111827" }}>{text}</Text>
+                                        <Text style={{ fontWeight: "800", color: colors.text }}>{text}</Text>
                                     </Pressable>
                                 );
                             }}

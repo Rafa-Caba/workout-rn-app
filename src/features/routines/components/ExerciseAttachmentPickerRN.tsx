@@ -3,6 +3,8 @@ import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 import type { RNFile } from "../../../types/upload.types";
 import type { AttachmentOption } from "../../../utils/routines/attachments";
 import { RoutineMediaViewerModal, type RoutineMediaItem } from "./RoutineMediaViewerModal";
@@ -27,24 +29,26 @@ type Props = {
 };
 
 function Button(props: { title: string; onPress: () => void; disabled?: boolean; tone?: "primary" | "neutral" }) {
-    const accent = "#2563EB";
-    const bg = props.tone === "primary" ? accent : "transparent";
-    const color = props.tone === "primary" ? "#FFFFFF" : "#111827";
-    const borderColor = props.tone === "primary" ? accent : "#111827";
+    const { colors } = useTheme();
+
+    const isPrimary = props.tone === "primary";
+    const bg = isPrimary ? colors.primary : colors.surface;
+    const color = isPrimary ? colors.primaryText : colors.text;
+    const borderColor = isPrimary ? colors.primary : colors.border;
 
     return (
         <Pressable
             onPress={props.onPress}
             disabled={props.disabled}
-            style={{
+            style={({ pressed }) => ({
                 paddingHorizontal: 12,
                 paddingVertical: 10,
                 borderRadius: 10,
                 borderWidth: 1,
                 borderColor,
                 backgroundColor: bg,
-                opacity: props.disabled ? 0.5 : 1,
-            }}
+                opacity: props.disabled ? 0.5 : pressed ? 0.92 : 1,
+            })}
         >
             <Text style={{ fontWeight: "900", color }}>{props.title}</Text>
         </Pressable>
@@ -106,6 +110,8 @@ export function ExerciseAttachmentPickerRN({
     onPickFiles,
     onRemovePending,
 }: Props) {
+    const { colors } = useTheme();
+
     const linked = React.useMemo(() => {
         const map = new Map<string, AttachmentOption>();
         for (const o of attachmentOptions) map.set(o.publicId, o);
@@ -169,8 +175,8 @@ export function ExerciseAttachmentPickerRN({
         <View style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                 <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, fontWeight: "800" }}>{title}</Text>
-                    {hint ? <Text style={{ color: "#6B7280", fontSize: 12 }}>{hint}</Text> : null}
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: colors.text }}>{title}</Text>
+                    {hint ? <Text style={{ color: colors.mutedText, fontSize: 12 }}>{hint}</Text> : null}
                 </View>
 
                 <Button
@@ -183,9 +189,18 @@ export function ExerciseAttachmentPickerRN({
 
             {/* Pending */}
             {pendingFiles.length > 0 ? (
-                <View style={{ borderWidth: 1, borderRadius: 14, padding: 10, gap: 10 }}>
+                <View
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                        borderRadius: 14,
+                        padding: 10,
+                        gap: 10,
+                    }}
+                >
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <Text style={{ fontWeight: "900" }}>Pendiente</Text>
+                        <Text style={{ fontWeight: "900", color: colors.text }}>Pendiente</Text>
                         <Button title="Quitar todo" onPress={() => onRemovePending()} disabled={disabled} />
                     </View>
 
@@ -204,26 +219,34 @@ export function ExerciseAttachmentPickerRN({
                                                 height: 64,
                                                 borderRadius: 12,
                                                 borderWidth: 1,
+                                                borderColor: colors.border,
+                                                backgroundColor: colors.background,
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                             }}
                                         >
-                                            <Text style={{ fontWeight: "900", fontSize: 12 }}>Video</Text>
+                                            <Text style={{ fontWeight: "900", fontSize: 12, color: colors.text }}>Video</Text>
                                         </View>
                                     ) : (
                                         <Image
                                             source={{ uri: (f as any).uri }}
-                                            style={{ width: 64, height: 64, borderRadius: 12, borderWidth: 1 }}
+                                            style={{
+                                                width: 64,
+                                                height: 64,
+                                                borderRadius: 12,
+                                                borderWidth: 1,
+                                                borderColor: colors.border,
+                                            }}
                                             resizeMode="cover"
                                         />
                                     )}
 
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{ color: "#6B7280", fontSize: 12 }} numberOfLines={2}>
+                                        <Text style={{ color: colors.mutedText, fontSize: 12 }} numberOfLines={2}>
                                             {name}
                                         </Text>
-                                        <Text style={{ color: "#6B7280", fontSize: 11, marginTop: 2 }}>
-                                            Se subirá cuando presiones <Text style={{ fontWeight: "900" }}>Guardar</Text>.
+                                        <Text style={{ color: colors.mutedText, fontSize: 11, marginTop: 2 }}>
+                                            Se subirá cuando presiones <Text style={{ fontWeight: "900", color: colors.text }}>Guardar</Text>.
                                         </Text>
                                     </View>
 
@@ -237,10 +260,10 @@ export function ExerciseAttachmentPickerRN({
 
             {/* Linked */}
             <View style={{ gap: 6 }}>
-                <Text style={{ fontWeight: "900" }}>Enlazados</Text>
+                <Text style={{ fontWeight: "900", color: colors.text }}>Enlazados</Text>
 
                 {linked.length === 0 ? (
-                    <Text style={{ color: "#6B7280" }}>{emptyText}</Text>
+                    <Text style={{ color: colors.mutedText }}>{emptyText}</Text>
                 ) : (
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                         {linked.map((opt) => {
@@ -255,26 +278,31 @@ export function ExerciseAttachmentPickerRN({
                             return (
                                 <View key={opt.publicId} style={{ width: 110, gap: 6 }}>
                                     <Pressable
-                                        onPress={() =>
-                                            openLinkedInModal({ url, label: opt.label, resourceType: opt.resourceType })
-                                        }
+                                        onPress={() => openLinkedInModal({ url, label: opt.label, resourceType: opt.resourceType })}
                                         disabled={disabled || kind === "other"}
-                                        style={{ borderWidth: 1, borderRadius: 12, overflow: "hidden" }}
+                                        style={({ pressed }) => ({
+                                            borderWidth: 1,
+                                            borderColor: colors.border,
+                                            borderRadius: 12,
+                                            backgroundColor: colors.surface,
+                                            overflow: "hidden",
+                                            opacity: pressed ? 0.92 : 1,
+                                        })}
                                     >
                                         <View style={{ width: "100%", height: 90, alignItems: "center", justifyContent: "center" }}>
                                             {!url ? (
-                                                <Text style={{ color: "#6B7280", fontSize: 12 }}>Sin URL</Text>
+                                                <Text style={{ color: colors.mutedText, fontSize: 12 }}>Sin URL</Text>
                                             ) : kind === "image" ? (
                                                 <Image source={{ uri: url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                                             ) : kind === "video" ? (
-                                                <Text style={{ fontWeight: "900", fontSize: 12 }}>Video</Text>
+                                                <Text style={{ fontWeight: "900", fontSize: 12, color: colors.text }}>Video</Text>
                                             ) : (
-                                                <Text style={{ color: "#6B7280", fontSize: 12 }}>Abrir</Text>
+                                                <Text style={{ color: colors.mutedText, fontSize: 12 }}>Abrir</Text>
                                             )}
                                         </View>
 
                                         <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
-                                            <Text style={{ color: "#6B7280", fontSize: 11 }} numberOfLines={1}>
+                                            <Text style={{ color: colors.mutedText, fontSize: 11 }} numberOfLines={1}>
                                                 {opt.label}
                                             </Text>
                                         </View>

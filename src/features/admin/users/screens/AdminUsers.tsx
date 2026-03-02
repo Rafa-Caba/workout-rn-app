@@ -158,7 +158,7 @@ export default function AdminUsers() {
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Usuarios (Admin)</Text>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Usuarios (Admin)</Text>
                     <Text style={{ color: colors.mutedText }}>
                         Administra usuarios: buscar, filtrar, editar y eliminar.
                     </Text>
@@ -174,7 +174,7 @@ export default function AdminUsers() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Nuevo usuario</Text>
+                    <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Nuevo usuario</Text>
                 </Pressable>
             </View>
 
@@ -202,7 +202,7 @@ export default function AdminUsers() {
                         gap: 8,
                     }}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Error</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Error</Text>
                     <Text style={{ color: colors.mutedText }}>{error}</Text>
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>
                         Último intento: {formatDateTime(new Date().toISOString())}

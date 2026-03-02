@@ -4,6 +4,7 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { AppBrandFooter } from "../../components/branding/AppBrandFooter";
 import { AdminHubCard } from "../components/AdminHubCard";
 
 type AdminRouteHref = Href;
@@ -22,7 +23,7 @@ export default function AdminHome() {
             contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Panel de administración</Text>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Panel de administración</Text>
                 <Text style={{ color: colors.mutedText }}>
                     Gestiona usuarios y ajustes globales de la app.
                 </Text>
@@ -38,7 +39,7 @@ export default function AdminHome() {
                     gap: 10,
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>
+                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>
                     Secciones de administración
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -56,12 +57,12 @@ export default function AdminHome() {
                             borderRadius: 999,
                             borderWidth: 1,
                             borderColor: colors.border,
-                            backgroundColor: pressed ? colors.background : colors.primary,
-                            opacity: pressed ? 0.92 : 1,
+                            backgroundColor: pressed ? colors.background : colors.surface,
+                            opacity: pressed ? 0.8 : 1,
                             alignItems: "center",
                         })}
                     >
-                        <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Usuarios</Text>
+                        <Text style={{ color: colors.text, fontWeight: "900" }}>Usuarios</Text>
                     </Pressable>
 
                     <Pressable
@@ -75,7 +76,7 @@ export default function AdminHome() {
                             borderWidth: 1,
                             borderColor: colors.border,
                             backgroundColor: pressed ? colors.background : colors.surface,
-                            opacity: pressed ? 0.92 : 1,
+                            opacity: pressed ? 0.80 : 1,
                             alignItems: "center",
                         })}
                     >
@@ -97,6 +98,11 @@ export default function AdminHome() {
                 buttonText="Ir a Ajustes"
                 onPress={() => go("/(app)/admin/settings")}
             />
+
+            {/* Mini-brand footer (Dashboard only) */}
+            <View style={{ marginVertical: 15 }}>
+                <AppBrandFooter />
+            </View>
         </ScrollView>
     );
 }

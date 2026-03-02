@@ -16,6 +16,7 @@ import {
 } from "date-fns";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { weekKeyFromIso } from "@/src/utils/dashboard/date";
 
 type ISODate = `${number}-${string}-${string}`;
 
@@ -115,6 +116,8 @@ export default function CalendarMonthRoute() {
 
     const dayLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+    const weekKey = weekKeyFromIso(todayIso);
+
     function openDay(date: Date) {
         const iso = format(date, "yyyy-MM-dd") as ISODate;
         router.push(`/(app)/calendar/day/${iso}` as any);
@@ -160,18 +163,15 @@ export default function CalendarMonthRoute() {
                 <ActionButton
                     colors={colors}
                     title={`Resumen Día (${todayIso})`}
-                    subtitle="Placeholder (se convertirá en Day Summary)"
+                    subtitle="Resumen de la Sesión Gym y Sueño"
                     onPress={() => router.push(`/(app)/calendar/day/${todayIso}` as any)}
                 />
 
                 <ActionButton
                     colors={colors}
-                    title="Resumen Semana (placeholder)"
-                    subtitle="Lo conectamos luego a Weekly Summary"
-                    onPress={() => {
-                        // eslint-disable-next-line no-console
-                        console.log("Weekly summary route not implemented yet.");
-                    }}
+                    title="Resumen Semanal"
+                    subtitle="Resumen de toda la semana de Sueño y Training."
+                    onPress={() => router.push(`/(app)/calendar/weekView/${weekKey}` as any)}
                 />
             </View>
 

@@ -1,6 +1,9 @@
 // src/features/routines/components/RoutineDayEditor.tsx
 import React from "react";
 import { Text, TextInput, View } from "react-native";
+
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 import type { DayKey } from "../../../types/workoutRoutine.types";
 
 type Draft = {
@@ -24,21 +27,28 @@ function Field(props: {
     onChange: (v: string) => void;
     multiline?: boolean;
 }) {
+    const { colors } = useTheme();
+
     return (
         <View style={{ gap: 6 }}>
-            <Text style={{ fontWeight: "800" }}>{props.label}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{props.label}</Text>
             <TextInput
                 value={props.value}
                 onChangeText={props.onChange}
                 placeholder={props.placeholder}
+                placeholderTextColor={colors.mutedText}
                 multiline={props.multiline}
                 style={{
                     borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    color: colors.text,
                     borderRadius: 12,
                     paddingHorizontal: 12,
                     paddingVertical: 10,
                     minHeight: props.multiline ? 84 : undefined,
                     textAlignVertical: props.multiline ? "top" : "center",
+                    fontWeight: "700",
                 }}
             />
         </View>
@@ -46,11 +56,13 @@ function Field(props: {
 }
 
 export function RoutineDayEditor({ dayKey, date, value, onChange }: Props) {
+    const { colors } = useTheme();
+
     return (
         <View style={{ gap: 12 }}>
-            <Text style={{ color: "#6B7280" }}>
-                Día: <Text style={{ fontFamily: "Menlo" }}>{dayKey}</Text> · Fecha:{" "}
-                <Text style={{ fontFamily: "Menlo" }}>{date}</Text>
+            <Text style={{ color: colors.mutedText }}>
+                Día: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{dayKey}</Text> · Fecha:{" "}
+                <Text style={{ fontFamily: "Menlo", color: colors.text }}>{date}</Text>
             </Text>
 
             <Field

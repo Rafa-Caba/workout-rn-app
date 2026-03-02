@@ -1,6 +1,6 @@
 // src/features/components/branding/AppBrandFooter.tsx
 import React from "react";
-import { Text, View } from "react-native";
+import { Image, Text, View } from 'react-native';
 
 import { useAppSettings } from "@/src/hooks/admin/useAppSettings";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -10,9 +10,14 @@ type AppSettingsMaybeSubtitle = {
     appSubtitle?: string | null;
 };
 
-export function AppBrandFooter() {
+type Props = {
+    useAppName?: boolean
+}
+
+export function AppBrandFooter({ useAppName }: Props) {
     const { colors } = useTheme();
     const { settings } = useAppSettings(true);
+    const logoUrl = settings.logoUrl ?? "";
 
     const s = (settings ?? {}) as AppSettingsMaybeSubtitle;
 
@@ -36,9 +41,14 @@ export function AppBrandFooter() {
                 }}
             >
                 <Text style={{ fontWeight: "900", color: colors.text }}>{appName}</Text>
-                <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>{subtitle}</Text>
+                <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12, fontStyle: 'italic' }}>{subtitle}</Text>
             </View>
 
+            <Image
+                source={{ uri: logoUrl }}
+                style={{ width: 100, height: 100, borderRadius: 50, marginVertical: 10 }}
+                resizeMode="cover"
+            />
             <Text style={{ color: colors.mutedText, fontSize: 11, opacity: 0.7, fontStyle: 'italic' }}>
                 By Rafael Cabanillas - © {new Date().getFullYear()}
             </Text>

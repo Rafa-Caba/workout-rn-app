@@ -16,8 +16,10 @@ export default function CalendarLayout() {
             <Stack.Screen name="routines" options={{ headerShown: false }} />
             <Stack.Screen name="gym-check" options={{ headerShown: false }} />
 
-            <Stack.Screen name="day" options={{ headerShown: false }} />
-            <Stack.Screen name="session" options={{ headerShown: false }} />
+            {/* IMPORTANT: dynamic route is "day/[date]" (not "day") */}
+            <Stack.Screen name="day/[date]" options={{ title: "Resumen del Día" }} />
+
+            <Stack.Screen name="weekView/[weekKey]" options={{ title: "Resumen Semanal" }} />
         </Stack>
     );
 }

@@ -1,6 +1,8 @@
 import * as React from "react";
 import { FlatList, Modal, Pressable, Text, TextInput, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 export type EquipmentOption = {
     value: string; // stable slug stored in DB
     label: string;
@@ -30,10 +32,7 @@ function normalize(s: string): string {
 function isOtherValue(v: string | null, known: { value: string; label: string }[]) {
     if (!v) return false;
     const norm = normalize(v).toLowerCase();
-    return !known.some(
-        (k) =>
-            normalize(k.value).toLowerCase() === norm || normalize(k.label).toLowerCase() === norm
-    );
+    return !known.some((k) => normalize(k.value).toLowerCase() === norm || normalize(k.label).toLowerCase() === norm);
 }
 
 const DEFAULT_OPTIONS: EquipmentOption[] = [
@@ -56,10 +55,7 @@ const DEFAULT_OPTIONS: EquipmentOption[] = [
     { value: "foamRoller", label: "Foam roller" },
 ];
 
-type Item =
-    | { kind: "option"; opt: EquipmentOption }
-    | { kind: "other" }
-    | { kind: "clear" };
+type Item = { kind: "option"; opt: EquipmentOption } | { kind: "other" } | { kind: "clear" };
 
 function buildItems(opts: EquipmentOption[], allowOther: boolean): Item[] {
     const items: Item[] = opts.map((opt) => ({ kind: "option", opt }));
@@ -83,6 +79,8 @@ export function EquipmentSelectRN({
 
     disabled = false,
 }: Props) {
+    const { colors } = useTheme();
+
     const opts = React.useMemo(() => {
         const base = (knownOptions?.length ? knownOptions : DEFAULT_OPTIONS).map((o) => ({
             value: normalize(o.value),
@@ -177,28 +175,28 @@ export function EquipmentSelectRN({
 
     return (
         <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 12, color: "#6B7280", fontWeight: "700" }}>{label}</Text>
+            <Text style={{ fontSize: 12, color: colors.mutedText, fontWeight: "700" }}>{label}</Text>
 
             <Pressable
                 disabled={disabled}
                 onPress={() => setOpen(true)}
-                style={{
+                style={({ pressed }) => ({
                     borderWidth: 1,
-                    borderColor: "#E5E7EB",
+                    borderColor: colors.border,
                     borderRadius: 12,
                     paddingHorizontal: 12,
                     paddingVertical: 12,
-                    backgroundColor: disabled ? "#F3F4F6" : "white",
-                    opacity: disabled ? 0.7 : 1,
+                    backgroundColor: disabled ? colors.surface : colors.background,
+                    opacity: disabled ? 0.7 : pressed ? 0.92 : 1,
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                }}
+                })}
             >
-                <Text style={{ color: displayValue ? "#111827" : "#6B7280", fontWeight: "700" }}>
+                <Text style={{ color: displayValue ? colors.text : colors.mutedText, fontWeight: "700" }}>
                     {displayValue ?? placeholder}
                 </Text>
-                <Text style={{ color: "#111827", fontWeight: "900" }}>▾</Text>
+                <Text style={{ color: colors.text, fontWeight: "900" }}>▾</Text>
             </Pressable>
 
             {allowOther && otherSelected ? (
@@ -207,19 +205,21 @@ export function EquipmentSelectRN({
                         value={otherText}
                         onChangeText={onOtherChange}
                         placeholder={otherPlaceholder}
+                        placeholderTextColor={colors.mutedText}
                         editable={!disabled}
                         style={{
                             borderWidth: 1,
-                            borderColor: "#E5E7EB",
+                            borderColor: colors.border,
                             borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 10,
-                            backgroundColor: disabled ? "#F3F4F6" : "white",
-                            color: "#111827",
+                            backgroundColor: disabled ? colors.surface : colors.background,
+                            color: colors.text,
                             opacity: disabled ? 0.7 : 1,
+                            fontWeight: "700",
                         }}
                     />
-                    <Text style={{ fontSize: 12, color: "#6B7280" }}>{otherHint}</Text>
+                    <Text style={{ fontSize: 12, color: colors.mutedText }}>{otherHint}</Text>
                 </View>
             ) : null}
 
@@ -231,13 +231,15 @@ export function EquipmentSelectRN({
                     <Pressable
                         onPress={() => { }}
                         style={{
-                            backgroundColor: "white",
+                            backgroundColor: colors.surface,
+                            borderWidth: 1,
+                            borderColor: colors.border,
                             borderRadius: 16,
                             padding: 12,
                             maxHeight: "70%",
                         }}
                     >
-                        <Text style={{ fontWeight: "900", fontSize: 16, marginBottom: 10 }}>{label}</Text>
+                        <Text style={{ fontWeight: "900", fontSize: 16, marginBottom: 10, color: colors.text }}>{label}</Text>
 
                         <FlatList
                             data={items}
@@ -245,11 +247,8 @@ export function EquipmentSelectRN({
                             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                             renderItem={({ item }) => {
                                 const text =
-                                    item.kind === "option"
-                                        ? item.opt.label
-                                        : item.kind === "other"
-                                            ? otherLabel
-                                            : "Limpiar";
+                                    item.kind === "option" ? item.opt.label : item.kind === "other" ? otherLabel : "Limpiar";
+
                                 const isSelected =
                                     item.kind === "option"
                                         ? normalize(value ?? "").toLowerCase() === normalize(item.opt.value).toLowerCase()
@@ -260,16 +259,17 @@ export function EquipmentSelectRN({
                                 return (
                                     <Pressable
                                         onPress={() => onPick(item)}
-                                        style={{
+                                        style={({ pressed }) => ({
                                             paddingVertical: 12,
                                             paddingHorizontal: 12,
                                             borderRadius: 12,
                                             borderWidth: 1,
-                                            borderColor: isSelected ? "#2563EB" : "#E5E7EB",
-                                            backgroundColor: isSelected ? "rgba(37, 99, 235, 0.08)" : "white",
-                                        }}
+                                            borderColor: isSelected ? colors.primary : colors.border,
+                                            backgroundColor: colors.background,
+                                            opacity: pressed ? 0.92 : 1,
+                                        })}
                                     >
-                                        <Text style={{ fontWeight: "800", color: "#111827" }}>{text}</Text>
+                                        <Text style={{ fontWeight: "800", color: colors.text }}>{text}</Text>
                                     </Pressable>
                                 );
                             }}

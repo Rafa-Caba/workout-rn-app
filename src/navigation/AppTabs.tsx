@@ -1,20 +1,21 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React from "react";
 
-import { useAuthStore } from "../store/useAuthStore";
+import { useAuthStore } from "../store/auth.store";
 import { AdminStackNavigator } from "./stacks/AdminStack";
 import { CalendarStackNavigator } from "./stacks/CalendarStack";
 import { InsightsStackNavigator } from "./stacks/InsightsStack";
 import { MediaStackNavigator } from "./stacks/MediaStack";
 import { MovementsStackNavigator } from "./stacks/MovementsStack";
-import { SettingsStackNavigator } from "./stacks/SettingsStack";
 import { TrainerStackNavigator } from "./stacks/TrainerStack";
+import { TrendsStackNavigator } from "./stacks/TrendsStack";
 
 export type AppTabsParamList = {
     CalendarTab: undefined;
     MovementsTab: undefined;
     MediaTab: undefined;
     InsightsTab: undefined;
+    TrendsTab: undefined;
     SettingsTab: undefined;
     TrainerTab: undefined;
     AdminTab: undefined;
@@ -33,8 +34,9 @@ export function AppTabsNavigator() {
             <Tab.Screen name="CalendarTab" component={CalendarStackNavigator} options={{ title: "Calendario" }} />
             <Tab.Screen name="MovementsTab" component={MovementsStackNavigator} options={{ title: "Movimientos" }} />
             <Tab.Screen name="MediaTab" component={MediaStackNavigator} options={{ title: "Media" }} />
+            <Tab.Screen name="TrendsTab" component={TrendsStackNavigator} options={{ title: "Insights" }} />
             <Tab.Screen name="InsightsTab" component={InsightsStackNavigator} options={{ title: "Insights" }} />
-            <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: "Ajustes" }} />
+            {/* <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: "Ajustes" }} /> */}
 
             {isTrainer ? (
                 <Tab.Screen name="TrainerTab" component={TrainerStackNavigator} options={{ title: "Trainer" }} />

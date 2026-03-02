@@ -109,11 +109,11 @@ export default function DashboardScreen() {
                 contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 26 }}
             >
                 <View style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>
                         Bienvenido, {name}
                     </Text>
 
-                    <Text style={{ color: colors.mutedText }}>
+                    <Text style={{ color: colors.mutedText, fontSize: 13, marginBottom: 5 }}>
                         Hoy: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{d.today}</Text> · {todayLabel} ·
                         Semana: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{d.weekKey}</Text>
                     </Text>

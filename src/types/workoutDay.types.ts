@@ -177,8 +177,8 @@ export type SleepBlock = {
     coreMinutes: number | null;
     deepMinutes: number | null;
 
-    source: string | null; // maxlength 120
-    raw: unknown | null; // Schema.Types.Mixed
+    source: string | null;
+    raw: unknown | null;
 };
 
 /**

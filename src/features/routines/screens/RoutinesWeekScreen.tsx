@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 import type { Movement } from "@/src/types/movements.types";
 import type { WorkoutRoutineDay, WorkoutRoutineStatus, WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 
@@ -83,11 +85,22 @@ function dayLabelEs(k: DayKey): string {
 }
 
 function Card(props: { title: string; subtitle?: string; children: React.ReactNode }) {
+    const { colors } = useTheme();
+
     return (
-        <View style={{ borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 }}>
+        <View
+            style={{
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                borderRadius: 14,
+                padding: 12,
+                gap: 10,
+            }}
+        >
             <View style={{ gap: 2 }}>
-                <Text style={{ fontSize: 16, fontWeight: "800" }}>{props.title}</Text>
-                {props.subtitle ? <Text style={{ color: "#6B7280" }}>{props.subtitle}</Text> : null}
+                <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{props.title}</Text>
+                {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
             </View>
             {props.children}
         </View>
@@ -95,25 +108,26 @@ function Card(props: { title: string; subtitle?: string; children: React.ReactNo
 }
 
 function Button(props: { title: string; onPress: () => void; disabled?: boolean; tone?: "primary" | "neutral" | "danger" }) {
+    const { colors } = useTheme();
     const tone = props.tone ?? "neutral";
-    const accent = "#2563EB";
-    const borderColor = tone === "danger" ? "#EF4444" : tone === "primary" ? accent : "#111827";
-    const bgColor = tone === "primary" ? accent : "transparent";
-    const textColor = tone === "primary" ? "#FFFFFF" : tone === "danger" ? "#EF4444" : "#111827";
+
+    const borderColor = tone === "primary" ? colors.primary : tone === "danger" ? colors.danger : colors.border;
+    const bgColor = tone === "primary" ? colors.primary : colors.surface;
+    const textColor = tone === "primary" ? colors.primaryText : tone === "danger" ? colors.danger : colors.text;
 
     return (
         <Pressable
             onPress={props.onPress}
             disabled={props.disabled}
-            style={{
+            style={({ pressed }) => ({
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor,
                 backgroundColor: bgColor,
-                opacity: props.disabled ? 0.5 : 1,
-            }}
+                opacity: props.disabled ? 0.5 : pressed ? 0.92 : 1,
+            })}
         >
             <Text style={{ fontWeight: "900", color: textColor, textAlign: "center" }}>{props.title}</Text>
         </Pressable>
@@ -121,18 +135,25 @@ function Button(props: { title: string; onPress: () => void; disabled?: boolean;
 }
 
 function Input(props: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+    const { colors } = useTheme();
+
     return (
         <View style={{ gap: 6 }}>
-            <Text style={{ fontWeight: "700" }}>{props.label}</Text>
+            <Text style={{ fontWeight: "700", color: colors.text }}>{props.label}</Text>
             <TextInput
                 value={props.value}
                 onChangeText={props.onChange}
                 placeholder={props.placeholder}
+                placeholderTextColor={colors.mutedText}
                 style={{
                     borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    color: colors.text,
                     borderRadius: 12,
                     paddingHorizontal: 12,
                     paddingVertical: 10,
+                    fontWeight: "700",
                 }}
             />
         </View>
@@ -140,22 +161,24 @@ function Input(props: { label: string; value: string; onChange: (v: string) => v
 }
 
 function ToggleChip(props: { label: string; active: boolean; onPress: () => void }) {
-    const accent = "#2563EB";
-    const inactiveBorder = "#9CA3AF";
+    const { colors } = useTheme();
 
     return (
         <Pressable
             onPress={props.onPress}
-            style={{
+            style={({ pressed }) => ({
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 borderRadius: 999,
                 borderWidth: 1,
-                borderColor: props.active ? accent : inactiveBorder,
-                backgroundColor: props.active ? accent : "transparent",
-            }}
+                borderColor: props.active ? colors.primary : colors.border,
+                backgroundColor: props.active ? colors.primary : "transparent",
+                opacity: pressed ? 0.92 : 1,
+            })}
         >
-            <Text style={{ fontWeight: "900", color: props.active ? "#FFFFFF" : "#111827" }}>{props.label}</Text>
+            <Text style={{ fontWeight: "900", color: props.active ? colors.primaryText : colors.text }}>
+                {props.label}
+            </Text>
         </Pressable>
     );
 }
@@ -279,6 +302,7 @@ function pickAttachmentOptionByPublicId(routine: unknown, publicId: string): Att
 
 export function RoutinesWeekScreen({ weekKey }: Props) {
     const router = useRouter();
+    const { colors } = useTheme();
 
     const wk = weekKey?.trim() ?? "";
     const weekStart = React.useMemo(() => startDateFromWeekKey(wk), [wk]);
@@ -300,7 +324,10 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
     const archiveMutation = useSetRoutineArchived();
 
     const movementsQ = useMovements({ activeOnly: true });
-    const movementOptions: MovementOption[] = React.useMemo(() => mapMovementsToOptions(movementsQ.data ?? []), [movementsQ.data]);
+    const movementOptions: MovementOption[] = React.useMemo(
+        () => mapMovementsToOptions(movementsQ.data ?? []),
+        [movementsQ.data]
+    );
 
     const [initForm, setInitForm] = React.useState<InitFormState>({
         title: "",
@@ -618,11 +645,11 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
     const status = (routine?.status ?? "active") as WorkoutRoutineStatus;
 
     return (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16, gap: 12 }}>
             <View style={{ gap: 6 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900" }}>Rutinas</Text>
-                <Text style={{ color: "#6B7280" }}>
-                    Semana: <Text style={{ fontFamily: "Menlo" }}>{wk}</Text> · {rangeLabel}
+                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Rutinas</Text>
+                <Text style={{ color: colors.mutedText }}>
+                    Semana: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{wk}</Text> · {rangeLabel}
                 </Text>
             </View>
 
@@ -637,18 +664,31 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
 
             {!routine ? (
                 <Card title="Inicializar rutina" subtitle="Esta semana no existe aún. Inicialízala para empezar.">
-                    <Input label="Título (opcional)" value={initForm.title} onChange={(v) => setInitForm((s) => ({ ...s, title: v }))} />
-                    <Input label="Split (opcional)" value={initForm.split} onChange={(v) => setInitForm((s) => ({ ...s, split: v }))} />
+                    <Input
+                        label="Título (opcional)"
+                        value={initForm.title}
+                        onChange={(v) => setInitForm((s) => ({ ...s, title: v }))}
+                    />
+                    <Input
+                        label="Split (opcional)"
+                        value={initForm.split}
+                        onChange={(v) => setInitForm((s) => ({ ...s, split: v }))}
+                    />
 
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                         <View style={{ flex: 1 }}>
-                            <Text style={{ fontWeight: "800" }}>Desarchivar si ya estaba archivada</Text>
-                            <Text style={{ color: "#6B7280" }}>Si existía como archivada, la reactiva.</Text>
+                            <Text style={{ fontWeight: "800", color: colors.text }}>Desarchivar si ya estaba archivada</Text>
+                            <Text style={{ color: colors.mutedText }}>Si existía como archivada, la reactiva.</Text>
                         </View>
                         <Switch value={initForm.unarchive} onValueChange={(v) => setInitForm((s) => ({ ...s, unarchive: v }))} />
                     </View>
 
-                    <Button title={initMutation.isPending ? "Inicializando..." : "Inicializar"} onPress={initRoutine} disabled={busy} tone="primary" />
+                    <Button
+                        title={initMutation.isPending ? "Inicializando..." : "Inicializar"}
+                        onPress={initRoutine}
+                        disabled={busy}
+                        tone="primary"
+                    />
                 </Card>
             ) : (
                 <>
@@ -657,10 +697,15 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
                         <Input label="Split" value={putBody.split ?? ""} onChange={(v) => setPutBody((p) => ({ ...p, split: v }))} />
 
                         <View style={{ gap: 8 }}>
-                            <Text style={{ fontWeight: "900" }}>Días planeados</Text>
+                            <Text style={{ fontWeight: "900", color: colors.text }}>Días planeados</Text>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                                 {DAY_KEYS.map((k) => (
-                                    <ToggleChip key={k} label={dayLabelEs(k)} active={plannedDaysList.includes(k)} onPress={() => togglePlannedDay(k)} />
+                                    <ToggleChip
+                                        key={k}
+                                        label={dayLabelEs(k)}
+                                        active={plannedDaysList.includes(k)}
+                                        onPress={() => togglePlannedDay(k)}
+                                    />
                                 ))}
                             </View>
                         </View>
@@ -673,18 +718,33 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
 
                         <RoutineDayEditor dayKey={selectedDay} date={selectedDayDate} value={dayDraft} onChange={commitDayDraft} />
 
-                        <RoutineExercisesEditor movements={movementOptions} attachmentOptions={attachmentOptions} value={exerciseDrafts} onChange={onExercisesChange} />
+                        <RoutineExercisesEditor
+                            movements={movementOptions}
+                            attachmentOptions={attachmentOptions}
+                            value={exerciseDrafts}
+                            onChange={onExercisesChange}
+                        />
                     </Card>
 
                     <Card title="Estado">
-                        <Text style={{ color: "#6B7280" }}>
-                            Estado actual: <Text style={{ fontWeight: "900" }}>{status}</Text>
+                        <Text style={{ color: colors.mutedText }}>
+                            Estado actual: <Text style={{ fontWeight: "900", color: colors.text }}>{status}</Text>
                         </Text>
 
                         {status === "active" ? (
-                            <Button title={archiveMutation.isPending ? "Archivando..." : "Archivar"} onPress={() => setArchived(true)} disabled={busy} tone="danger" />
+                            <Button
+                                title={archiveMutation.isPending ? "Archivando..." : "Archivar"}
+                                onPress={() => setArchived(true)}
+                                disabled={busy}
+                                tone="danger"
+                            />
                         ) : (
-                            <Button title={archiveMutation.isPending ? "Desarchivando..." : "Desarchivar"} onPress={() => setArchived(false)} disabled={busy} tone="primary" />
+                            <Button
+                                title={archiveMutation.isPending ? "Desarchivando..." : "Desarchivar"}
+                                onPress={() => setArchived(false)}
+                                disabled={busy}
+                                tone="primary"
+                            />
                         )}
                     </Card>
                 </>

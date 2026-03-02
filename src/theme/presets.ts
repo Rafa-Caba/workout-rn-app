@@ -19,6 +19,10 @@ export type ThemeColors = {
     border: string;
     primary: string;
     primaryText: string;
+
+    // NEW
+    danger: string;
+    dangerText: string;
 };
 
 export function palettePrimary(palette: Palette): string {
@@ -194,9 +198,19 @@ export function palettePrimaryText(palette: Palette): string {
     return onColorText(palettePrimary(palette));
 }
 
+// NEW: stable "danger" token (independent of palette)
+export function paletteDanger(): string {
+    return "#EF4444";
+}
+
+export function paletteDangerText(): string {
+    return onColorText(paletteDanger());
+}
+
 export function buildThemeColors(palette: Palette, mode: Mode): ThemeColors {
     const m = resolveMode(mode);
     const primary = palettePrimary(palette);
+    const danger = paletteDanger();
 
     return {
         background: paletteBackground(palette, m),
@@ -206,5 +220,8 @@ export function buildThemeColors(palette: Palette, mode: Mode): ThemeColors {
         border: paletteBorder(palette, m),
         primary,
         primaryText: palettePrimaryText(palette),
+
+        danger,
+        dangerText: paletteDangerText(),
     };
 }

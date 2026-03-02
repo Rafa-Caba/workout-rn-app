@@ -1,4 +1,4 @@
-// /src/store/auth.store.ts
+// src/store/auth.store.ts
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -7,7 +7,11 @@ import { getZustandStorage } from "@/src/store/storage";
 import { useUserStore } from "@/src/store/user.store";
 import type { AuthTokens, AuthUser, LoginRequest, RegisterRequest } from "@/src/types/auth.types";
 
+type AuthStatus = "idle" | "booting" | "authenticated" | "unauthenticated";
+
 type AuthState = {
+    status: AuthStatus;
+
     user: AuthUser | null;
     accessToken: string | null;
     refreshToken: string | null;
@@ -17,6 +21,7 @@ type AuthState = {
     setUser: (user: AuthUser | null) => void;
 
     // async actions
+    rehydrate: () => Promise<void>;
     login: (payload: LoginRequest) => Promise<void>;
     register: (payload: RegisterRequest) => Promise<void>;
     logout: () => Promise<void>;
@@ -26,6 +31,27 @@ type AuthState = {
 };
 
 const STORAGE_KEY = "workout-auth";
+
+type PersistHelpers = {
+    persist?: {
+        rehydrate: () => Promise<void>;
+        clearStorage?: () => Promise<void>;
+    };
+};
+
+function computeStatus(args: { user: AuthUser | null; accessToken: string | null; refreshToken: string | null }): AuthStatus {
+    const { user, accessToken, refreshToken } = args;
+    if (user && accessToken && refreshToken) return "authenticated";
+    return "unauthenticated";
+}
+
+function syncUserStore(user: AuthUser | null) {
+    try {
+        useUserStore.setState({ me: user, loading: false, error: null });
+    } catch {
+        // ignore
+    }
+}
 
 function clearUserDomainState() {
     try {
@@ -37,11 +63,9 @@ function clearUserDomainState() {
 
 async function safeClearPersistedAuth() {
     try {
-        // Zustand persist adds this helper on the store
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const anyStore = useAuthStore as any;
-        if (anyStore?.persist?.clearStorage) {
-            await anyStore.persist.clearStorage();
+        const storeWithPersist = useAuthStore as typeof useAuthStore & PersistHelpers;
+        if (storeWithPersist.persist?.clearStorage) {
+            await storeWithPersist.persist.clearStorage();
             return;
         }
     } catch {
@@ -58,27 +82,55 @@ async function safeClearPersistedAuth() {
 export const useAuthStore = create<AuthState>()(
     persist(
         (set, get) => ({
+            status: "idle",
+
             user: null,
             accessToken: null,
             refreshToken: null,
 
             setAuth: ({ user, accessToken, refreshToken }) => {
-                set({ user, accessToken, refreshToken });
-                try {
-                    useUserStore.setState({ me: user });
-                } catch {
-                    // ignore
-                }
+                set({
+                    user,
+                    accessToken,
+                    refreshToken,
+                    status: "authenticated",
+                });
+                syncUserStore(user);
             },
 
-            setTokens: ({ accessToken, refreshToken }) => set({ accessToken, refreshToken }),
+            setTokens: ({ accessToken, refreshToken }) => {
+                set({ accessToken, refreshToken });
+            },
 
             setUser: (user) => {
-                set({ user });
+                set({ user, status: user ? "authenticated" : "unauthenticated" });
+                syncUserStore(user);
+            },
+
+            rehydrate: async () => {
+                // Mark booting while we load persisted auth
+                set({ status: "booting" });
+
                 try {
-                    useUserStore.setState({ me: user });
+                    const storeWithPersist = useAuthStore as typeof useAuthStore & PersistHelpers;
+                    if (storeWithPersist.persist?.rehydrate) {
+                        await storeWithPersist.persist.rehydrate();
+                    }
                 } catch {
-                    // ignore
+                    // ignore; we still compute status below
+                }
+
+                const nextStatus = computeStatus({
+                    user: get().user,
+                    accessToken: get().accessToken,
+                    refreshToken: get().refreshToken,
+                });
+
+                set({ status: nextStatus });
+
+                // Keep user store in sync if we have a user
+                if (get().user) {
+                    syncUserStore(get().user);
                 }
             },
 
@@ -89,13 +141,10 @@ export const useAuthStore = create<AuthState>()(
                     user: data.user,
                     accessToken: data.tokens.accessToken,
                     refreshToken: data.tokens.refreshToken,
+                    status: "authenticated",
                 });
 
-                try {
-                    useUserStore.setState({ me: data.user, loading: false, error: null });
-                } catch {
-                    // ignore
-                }
+                syncUserStore(data.user);
             },
 
             register: async (payload) => {
@@ -105,13 +154,10 @@ export const useAuthStore = create<AuthState>()(
                     user: data.user,
                     accessToken: data.tokens.accessToken,
                     refreshToken: data.tokens.refreshToken,
+                    status: "authenticated",
                 });
 
-                try {
-                    useUserStore.setState({ me: data.user, loading: false, error: null });
-                } catch {
-                    // ignore
-                }
+                syncUserStore(data.user);
             },
 
             refreshNow: async () => {
@@ -122,9 +168,14 @@ export const useAuthStore = create<AuthState>()(
                     const out = await authService.refresh(rt);
                     const tokens = out.tokens;
 
-                    set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+                    set({
+                        accessToken: tokens.accessToken,
+                        refreshToken: tokens.refreshToken,
+                    });
+
                     return tokens;
                 } catch {
+                    // If refresh fails, clear auth and force unauthenticated
                     get().clear();
                     return null;
                 }
@@ -134,7 +185,7 @@ export const useAuthStore = create<AuthState>()(
                 const rt = get().refreshToken;
 
                 // Always clear locally (idempotent UX)
-                set({ user: null, accessToken: null, refreshToken: null });
+                set({ user: null, accessToken: null, refreshToken: null, status: "unauthenticated" });
                 clearUserDomainState();
                 await safeClearPersistedAuth();
 
@@ -149,7 +200,7 @@ export const useAuthStore = create<AuthState>()(
             },
 
             clear: () => {
-                set({ user: null, accessToken: null, refreshToken: null });
+                set({ user: null, accessToken: null, refreshToken: null, status: "unauthenticated" });
                 clearUserDomainState();
                 void safeClearPersistedAuth();
             },

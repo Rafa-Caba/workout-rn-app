@@ -20,7 +20,6 @@ export type Movement = {
 
     isActive: boolean;
 
-    // MovementsPage catalog (illustrations/media)
     media: MovementMedia | null;
 
     createdAt?: string;

@@ -17,19 +17,6 @@ export async function createWorkoutSessionForDay(
 ): Promise<CreatedSessionResponse> {
     // Required because backend returns 404 if day doc doesn't exist
     await ensureWorkoutDayExistsDays(date);
-
-    console.log("================");
-    console.log("================");
-    console.log("================");
-
-    console.log({ body });
-
-    console.log("================");
-    console.log("================");
-    console.log("================");
     const res = await api.post(`/workout/days/${encodeURIComponent(date)}/sessions`, body);
-
-    console.log({ res });
-
     return res.data as CreatedSessionResponse;
 }

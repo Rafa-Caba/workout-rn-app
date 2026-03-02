@@ -4,6 +4,10 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
+import { AppBrandFooter } from "../../components/branding/AppBrandFooter";
+
 function pad2(n: number): string {
     return n < 10 ? `0${n}` : `${n}`;
 }
@@ -20,31 +24,45 @@ function weekKeyFromIso(today: string): string {
 }
 
 function Button(props: { title: string; onPress: () => void }) {
+    const { colors } = useTheme();
+
     return (
         <Pressable
             onPress={props.onPress}
-            style={{
+            style={({ pressed }) => ({
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 borderRadius: 12,
                 borderWidth: 1,
-            }}
+                borderColor: colors.primary,
+                backgroundColor: colors.primary,
+                opacity: pressed ? 0.92 : 1,
+            })}
         >
-            <Text style={{ fontWeight: "900" }}>{props.title}</Text>
+            <Text style={{ fontWeight: "800", color: colors.primaryText }}>{props.title}</Text>
         </Pressable>
     );
 }
 
 export function RoutinesHomeScreen() {
     const router = useRouter();
+    const { colors } = useTheme();
 
     const wk = React.useMemo(() => weekKeyFromIso(todayIso()), []);
 
     return (
-        <View style={{ flex: 1, padding: 16, gap: 12, justifyContent: 'space-between' }}>
+        <View
+            style={{
+                flex: 1,
+                padding: 16,
+                gap: 12,
+                justifyContent: "space-between",
+                backgroundColor: colors.background,
+            }}
+        >
             <View style={{ gap: 6 }}>
-                <Text style={{ fontSize: 20, fontWeight: "900" }}>Rutinas</Text>
-                <Text style={{ color: "#6B7280" }}>
+                <Text style={{ fontSize: 20, fontWeight: "900", color: colors.text }}>Rutinas</Text>
+                <Text style={{ color: colors.mutedText }}>
                     Aquí puedes abrir una semana para editar/initializar la rutina.
                 </Text>
 
@@ -55,27 +73,19 @@ export function RoutinesHomeScreen() {
             </View>
 
             {/* App image placeholder (future AppSettings.logoUrl) */}
-            <View style={{ alignItems: "center", gap: 10, paddingVertical: 6, marginBottom: 30 }}>
-                <View
-                    style={{
-                        width: 84,
-                        height: 84,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: "#F3F4F6",
-                    }}
-                >
-                    <Text style={{ fontSize: 34 }}>🏋️</Text>
-                </View>
-
-                <View style={{ alignItems: "center", gap: 2 }}>
-                    <Text style={{ fontSize: 18, fontWeight: "900" }}>Workout App</Text>
-                    <Text style={{ color: "#6B7280", textAlign: "center" }}>
-                        Logo pendiente (AppSettings)
-                    </Text>
-                </View>
+            <View
+                style={{
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 6,
+                    // borderWidth: 1,
+                    // borderColor: colors.border,
+                    // backgroundColor: colors.surface,
+                    borderRadius: 16,
+                    padding: 12,
+                }}
+            >
+                <AppBrandFooter />
             </View>
         </View>
     );

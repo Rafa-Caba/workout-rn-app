@@ -67,9 +67,6 @@ function looksLikeCleanPatch(input: unknown): input is GymCheckDayPatchBody {
 function buildPatchFromGymDayState(gymDay: GymDayState): GymCheckDayPatchBody {
     const exercises: Record<string, GymCheckExercisePatch> = {};
 
-    console.log({ gymDay });
-
-
     for (const [exerciseId, st] of Object.entries(gymDay.exercises ?? {})) {
         if (!exerciseId) continue;
 
@@ -124,15 +121,9 @@ export async function syncGymCheckDay(
     const payload: GymCheckDayPatchBody = looksLikeCleanPatch(input)
         ? (input as GymCheckDayPatchBody)
         : buildPatchFromGymDayState(input as GymDayState);
-
-    // console.log({ payload });
-
     const res = await api.patch(
         `/workout/routines/weeks/${encodeURIComponent(weekKey)}/gym-check/${encodeURIComponent(dayKey)}`,
         payload
     );
-
-    // console.log({ resData: res.data });
-
     return res.data as WorkoutRoutineWeek;
 }
