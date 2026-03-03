@@ -10,7 +10,14 @@ import type {
     AdminUserUpdatePayload,
 } from "@/src/types/adminUser.types";
 
-import { createAdminUser, deleteAdminUser, fetchAdminUsers, purgeAdminUser, updateAdminUser } from "@/src/services/admin/adminUsers.service";
+import { queryClient } from "@/src/query/queryClient";
+import {
+    createAdminUser,
+    deleteAdminUser,
+    fetchAdminUsers,
+    purgeAdminUser,
+    updateAdminUser,
+} from "@/src/services/admin/adminUsers.service";
 
 type CoachModeFilter = "all" | "NONE" | "TRAINER" | "TRAINEE";
 
@@ -82,6 +89,20 @@ function getErrorMessage(e: unknown, fallback: string): string {
         return anyErr?.response?.data?.error?.message ?? anyErr?.response?.data?.message ?? anyErr?.message ?? fallback;
     }
     return fallback;
+}
+
+function maybeInvalidateTrainerTrainees(user?: AdminUser | null) {
+    // If the new/updated user affects trainer ↔ trainee relationships,
+    // invalidate trainer trainees list so TrainerDashboard refreshes.
+    // - New TRAINEE assigned to a trainer -> appears in /trainer/trainees
+    // - Changing assignedTrainer / coachMode affects that list
+    // - New TRAINER might be relevant for admin assignment flows too (optional)
+    const coachMode = user?.coachMode ?? null;
+
+    if (coachMode === "TRAINEE" || coachMode === "TRAINER") {
+        queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
+        queryClient.refetchQueries({ queryKey: ["trainer", "trainees"] });
+    }
 }
 
 export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
@@ -164,7 +185,13 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
     async createUser(payload) {
         try {
             const user = await createAdminUser(payload);
+
+            // Refresh admin list
             await get().loadUsers();
+
+            // ✅ Invalidate trainer trainees if this affects the trainer dashboard
+            maybeInvalidateTrainerTrainees(user);
+
             return user;
         } catch (e: unknown) {
             const msg = getErrorMessage(e, "No se pudo crear el usuario.");
@@ -180,6 +207,18 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
             set((state) => ({
                 items: state.items.map((u) => (u.id === id ? user : u)),
             }));
+
+            // ✅ If admin changed coachMode/assignedTrainer, trainer dashboard can change.
+            // We don't try to diff fields (payload types may vary); just invalidate when relevant fields exist.
+            const touchedCoachMode = (payload as any)?.coachMode !== undefined;
+            const touchedAssignedTrainer = (payload as any)?.assignedTrainer !== undefined;
+
+            if (touchedCoachMode || touchedAssignedTrainer) {
+                queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
+            } else {
+                // Still safe: if the returned user is TRAINEE/TRAINER, it can matter
+                maybeInvalidateTrainerTrainees(user);
+            }
 
             return user;
         } catch (e: unknown) {
@@ -198,6 +237,9 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
                 total: Math.max(0, state.total - 1),
             }));
 
+            // ✅ A removed/disabled user can affect trainer trainees list
+            queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
+
             return true;
         } catch (e: unknown) {
             const msg = getErrorMessage(e, "No se pudo eliminar el usuario.");
@@ -214,6 +256,9 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
                 items: state.items.filter((u) => u.id !== id),
                 total: Math.max(0, state.total - 1),
             }));
+
+            // ✅ Purge affects everything; refresh trainer trainees
+            queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
 
             return result;
         } catch (e: unknown) {

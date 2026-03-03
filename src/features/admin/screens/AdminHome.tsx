@@ -1,7 +1,7 @@
 // src/features/admin/screens/AdminHome.tsx
 import { useRouter, type Href } from "expo-router";
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { AppBrandFooter } from "../../components/branding/AppBrandFooter";
@@ -46,7 +46,7 @@ export default function AdminHome() {
                     Elige una sección para continuar.
                 </Text>
 
-                <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+                {/* <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
                     <Pressable
                         onPress={() => go("/(app)/admin/users")}
                         style={({ pressed }) => ({
@@ -82,7 +82,7 @@ export default function AdminHome() {
                     >
                         <Text style={{ color: colors.text, fontWeight: "900" }}>Ajustes de la app</Text>
                     </Pressable>
-                </View>
+                </View> */}
             </View>
 
             <AdminHubCard

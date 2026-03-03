@@ -1,11 +1,7 @@
+// src/app/(app)/insights/index.tsx
+import { InsightsScreen } from "@/src/features/insights/screens/InsightsScreen";
 import React from "react";
-import { Text, View } from "react-native";
 
 export default function InsightsRoute() {
-    return (
-        <View style={{ flex: 1, padding: 16 }}>
-            <Text style={{ fontSize: 22, fontWeight: "700" }}>Insights</Text>
-            <Text>Placeholder</Text>
-        </View>
-    );
+    return <InsightsScreen />;
 }

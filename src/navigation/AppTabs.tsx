@@ -16,7 +16,6 @@ export type AppTabsParamList = {
     MediaTab: undefined;
     InsightsTab: undefined;
     TrendsTab: undefined;
-    SettingsTab: undefined;
     TrainerTab: undefined;
     AdminTab: undefined;
 };
@@ -36,7 +35,6 @@ export function AppTabsNavigator() {
             <Tab.Screen name="MediaTab" component={MediaStackNavigator} options={{ title: "Media" }} />
             <Tab.Screen name="TrendsTab" component={TrendsStackNavigator} options={{ title: "Insights" }} />
             <Tab.Screen name="InsightsTab" component={InsightsStackNavigator} options={{ title: "Insights" }} />
-            {/* <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: "Ajustes" }} /> */}
 
             {isTrainer ? (
                 <Tab.Screen name="TrainerTab" component={TrainerStackNavigator} options={{ title: "Trainer" }} />

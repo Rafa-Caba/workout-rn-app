@@ -1,15 +1,15 @@
 
-import type { PublicUser } from "@/types/auth.types";
+import type { PublicUser } from "@/src/types/auth.types";
 import type {
     ISODate,
-    WeekKey,
-    WorkoutDay,
-    WeekViewResponse,
-    SleepBlock,
-    TrainingBlock,
     PlannedRoutine,
     PlannedRoutineSource,
-} from "@/types/workoutDay.types";
+    SleepBlock,
+    TrainingBlock,
+    WeekKey,
+    WeekViewResponse,
+    WorkoutDay,
+} from "@/src/types/workoutDay.types";
 
 /**
  * =========================================================

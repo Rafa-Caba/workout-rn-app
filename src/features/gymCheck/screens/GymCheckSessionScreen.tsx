@@ -166,7 +166,7 @@ function toIntOrNull(v: unknown): number | null {
     return n === null ? null : Math.trunc(n);
 }
 
-export function GymCheckSessionScreen({ mode = "DEFAULT" }: Props) {
+export function GymCheckSessionScreen() {
     const { colors } = useTheme();
 
     const [anchorDateIso, setAnchorDateIso] = React.useState<string>(() => todayIsoLocal());

@@ -447,7 +447,7 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         });
     }
 
-    // ✅ FIX: keep plans consistent (no tagsCsv inside plan)
+    // FIX: keep plans consistent (no tagsCsv inside plan)
     function commitDayDraft(patch: Partial<typeof dayDraft>) {
         setDayDraft((s) => {
             const next = { ...s, ...patch };

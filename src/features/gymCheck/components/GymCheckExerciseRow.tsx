@@ -119,7 +119,7 @@ export function GymCheckExerciseRow({
 
                 {/* Media */}
                 <View style={{ gap: 8 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    {/* <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                         <Text style={{ fontWeight: "900", color: colors.text }}>Media</Text>
 
                         <Pressable
@@ -134,7 +134,7 @@ export function GymCheckExerciseRow({
                         >
                             <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Subir</Text>
                         </Pressable>
-                    </View>
+                    </View> */}
 
                     {media.length === 0 ? (
                         <Text style={{ color: colors.mutedText, fontStyle: "italic" }}>

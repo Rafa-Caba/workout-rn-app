@@ -75,7 +75,7 @@ export function DatePickerField({
                         borderWidth: 1,
                         borderColor: colors.border,
                         backgroundColor: colors.background,
-                        width: '60%',
+                        width: '70%',
                         borderRadius: 12,
                         paddingHorizontal: 12,
                         paddingVertical: 10,

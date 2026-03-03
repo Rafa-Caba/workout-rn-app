@@ -1,7 +1,17 @@
 // src/features/admin/users/components/AdminUserForm.tsx
 import React from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
+import { fetchAdminTrainers } from "@/src/services/admin/adminUsers.service";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { AdminUser, AdminUserCoachMode, AdminUserRole, AdminUserSex } from "@/src/types/adminUser.types";
 
@@ -202,143 +212,413 @@ export function AdminUserForm(props: {
         props.onChange({ ...props.values, ...patch });
     };
 
+    // =========================
+    // Trainers dropdown (Admin)
+    // =========================
+    const [trainerModalOpen, setTrainerModalOpen] = React.useState(false);
+    const [trainers, setTrainers] = React.useState<AdminUser[]>([]);
+    const [trainersLoading, setTrainersLoading] = React.useState(false);
+    const [trainersError, setTrainersError] = React.useState<string | null>(null);
+    const [trainerSearch, setTrainerSearch] = React.useState("");
+
+    const canPickTrainer = props.values.coachMode === "TRAINEE";
+
+    const selectedTrainer = React.useMemo(() => {
+        const id = props.values.assignedTrainer.trim();
+        if (!id) return null;
+        return trainers.find((t) => t.id === id) ?? null;
+    }, [props.values.assignedTrainer, trainers]);
+
+    const filteredTrainers = React.useMemo(() => {
+        const q = trainerSearch.trim().toLowerCase();
+        if (!q) return trainers;
+
+        return trainers.filter((t) => {
+            const name = (t.name ?? "").toLowerCase();
+            const email = (t.email ?? "").toLowerCase();
+            return name.includes(q) || email.includes(q);
+        });
+    }, [trainerSearch, trainers]);
+
+    const loadTrainers = React.useCallback(async () => {
+        setTrainersLoading(true);
+        setTrainersError(null);
+
+        try {
+            const res = await fetchAdminTrainers({ page: 1, limit: 200 });
+            const items = Array.isArray(res.items) ? res.items : [];
+            setTrainers(items);
+        } catch (e: any) {
+            const msg =
+                e?.response?.data?.error?.message ??
+                e?.response?.data?.message ??
+                e?.message ??
+                "No se pudieron cargar trainers.";
+            setTrainersError(String(msg));
+        } finally {
+            setTrainersLoading(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        // Load trainers once for dropdown usage.
+        void loadTrainers();
+    }, [loadTrainers]);
+
+    // If switching away from TRAINEE, clear assignedTrainer to keep data valid.
+    React.useEffect(() => {
+        if (props.values.coachMode !== "TRAINEE" && props.values.assignedTrainer) {
+            set({ assignedTrainer: "" });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.values.coachMode]);
+
+    const openTrainerPicker = () => {
+        if (!canPickTrainer) return;
+        setTrainerSearch("");
+        setTrainerModalOpen(true);
+    };
+
+    const closeTrainerPicker = () => {
+        setTrainerModalOpen(false);
+    };
+
+    const pickTrainer = (trainerId: string) => {
+        set({ assignedTrainer: trainerId });
+        setTrainerModalOpen(false);
+    };
+
     return (
-        <ScrollView
-            style={{ flex: 1, backgroundColor: colors.background }}
-            contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}
-            keyboardShouldPersistTaps="handled"
-        >
-            {props.errorText ? (
-                <View
-                    style={{
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                        borderRadius: 16,
-                        padding: 12,
-                        gap: 6,
-                    }}
-                >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Error</Text>
-                    <Text style={{ color: colors.mutedText }}>{props.errorText}</Text>
-                </View>
-            ) : null}
+        <>
+            <ScrollView
+                style={{ flex: 1, backgroundColor: colors.background }}
+                contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}
+                keyboardShouldPersistTaps="handled"
+            >
+                {props.errorText ? (
+                    <View
+                        style={{
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.surface,
+                            borderRadius: 16,
+                            padding: 12,
+                            gap: 6,
+                        }}
+                    >
+                        <Text style={{ fontWeight: "900", color: colors.text }}>Error</Text>
+                        <Text style={{ color: colors.mutedText }}>{props.errorText}</Text>
+                    </View>
+                ) : null}
 
-            <SectionCard title="Datos básicos" subtitle="Información principal del usuario.">
-                <View style={{ gap: 6 }}>
-                    <Label text="Nombre" />
-                    <Input
-                        value={props.values.name}
-                        onChange={(x) => set({ name: x })}
-                        placeholder="Ej. Juan Pérez"
-                        autoCapitalize="words"
-                    />
-                </View>
-
-                <View style={{ gap: 6 }}>
-                    <Label text="Correo" />
-                    <Input
-                        value={props.values.email}
-                        onChange={(x) => set({ email: x })}
-                        placeholder="correo@dominio.com"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
-                </View>
-
-                <View style={{ gap: 6 }}>
-                    <Label text={props.mode === "create" ? "Contraseña" : "Contraseña (opcional)"} />
-                    <Input
-                        value={props.values.password}
-                        onChange={(x) => set({ password: x })}
-                        placeholder={props.mode === "create" ? "Mínimo 6 caracteres" : "Dejar vacío para no cambiar"}
-                        secureTextEntry
-                        autoCapitalize="none"
-                    />
-                </View>
-            </SectionCard>
-
-            <SectionCard title="Rol y estado" subtitle="Permisos y activación del usuario.">
-                <View style={{ gap: 6 }}>
-                    <Label text="Rol" />
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        <PillOption
-                            label="Usuario"
-                            value="user"
-                            active={props.values.role === "user"}
-                            onPress={(v) => set({ role: v })}
-                        />
-                        <PillOption
-                            label="Admin"
-                            value="admin"
-                            active={props.values.role === "admin"}
-                            onPress={(v) => set({ role: v })}
+                <SectionCard title="Datos básicos" subtitle="Información principal del usuario.">
+                    <View style={{ gap: 6 }}>
+                        <Label text="Nombre" />
+                        <Input
+                            value={props.values.name}
+                            onChange={(x) => set({ name: x })}
+                            placeholder="Ej. Juan Pérez"
+                            autoCapitalize="words"
                         />
                     </View>
-                </View>
 
-                <View style={{ gap: 6 }}>
-                    <Label text="Estado" />
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        <PillOption
-                            label="Activo"
-                            value="active"
-                            active={props.values.isActive === true}
-                            onPress={() => set({ isActive: true })}
-                        />
-                        <PillOption
-                            label="Inactivo"
-                            value="inactive"
-                            active={props.values.isActive === false}
-                            onPress={() => set({ isActive: false })}
+                    <View style={{ gap: 6 }}>
+                        <Label text="Correo" />
+                        <Input
+                            value={props.values.email}
+                            onChange={(x) => set({ email: x })}
+                            placeholder="correo@dominio.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
                         />
                     </View>
-                </View>
-            </SectionCard>
 
-            <SectionCard title="Coaching" subtitle="Control de trainer/trainee.">
-                <View style={{ gap: 6 }}>
-                    <Label text="Modo" />
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        <PillOption
-                            label="Regular"
-                            value="NONE"
-                            active={props.values.coachMode === "NONE"}
-                            onPress={(v) => set({ coachMode: v, assignedTrainer: "" })}
-                        />
-                        <PillOption
-                            label="Trainer"
-                            value="TRAINER"
-                            active={props.values.coachMode === "TRAINER"}
-                            onPress={(v) => set({ coachMode: v, assignedTrainer: "" })}
-                        />
-                        <PillOption
-                            label="Trainee"
-                            value="TRAINEE"
-                            active={props.values.coachMode === "TRAINEE"}
-                            onPress={(v) => set({ coachMode: v })}
+                    <View style={{ gap: 6 }}>
+                        <Label text={props.mode === "create" ? "Contraseña" : "Contraseña (opcional)"} />
+                        <Input
+                            value={props.values.password}
+                            onChange={(x) => set({ password: x })}
+                            placeholder={props.mode === "create" ? "Mínimo 6 caracteres" : "Dejar vacío para no cambiar"}
+                            secureTextEntry
+                            autoCapitalize="none"
                         />
                     </View>
-                </View>
+                </SectionCard>
 
-                <View style={{ gap: 6 }}>
-                    <Label text="Trainer asignado (id)" />
-                    <Input
-                        value={props.values.assignedTrainer}
-                        onChange={(x) => set({ assignedTrainer: x })}
-                        placeholder={props.values.coachMode === "TRAINEE" ? "Id del trainer (requerido)" : "—"}
-                        autoCapitalize="none"
-                    />
-                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        Nota: por ahora es texto (id). Luego lo cambiamos por selector visual de trainers.
-                    </Text>
-                </View>
-            </SectionCard>
+                <SectionCard title="Rol y estado" subtitle="Permisos y activación del usuario.">
+                    <View style={{ gap: 6 }}>
+                        <Label text="Rol" />
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                            <PillOption
+                                label="Usuario"
+                                value="user"
+                                active={props.values.role === "user"}
+                                onPress={(v) => set({ role: v })}
+                            />
+                            <PillOption
+                                label="Admin"
+                                value="admin"
+                                active={props.values.role === "admin"}
+                                onPress={(v) => set({ role: v })}
+                            />
+                        </View>
+                    </View>
 
-            <View style={{ flexDirection: "row", gap: 10 }}>
-                <ActionButton label="Cancelar" onPress={props.onCancel} disabled={props.busy} />
-                <ActionButton label={props.submitLabel} onPress={props.onSubmit} disabled={props.busy} primary />
-            </View>
-        </ScrollView>
+                    <View style={{ gap: 6 }}>
+                        <Label text="Estado" />
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                            <PillOption
+                                label="Activo"
+                                value="active"
+                                active={props.values.isActive === true}
+                                onPress={() => set({ isActive: true })}
+                            />
+                            <PillOption
+                                label="Inactivo"
+                                value="inactive"
+                                active={props.values.isActive === false}
+                                onPress={() => set({ isActive: false })}
+                            />
+                        </View>
+                    </View>
+                </SectionCard>
+
+                <SectionCard title="Coaching" subtitle="Control de trainer/trainee.">
+                    <View style={{ gap: 6 }}>
+                        <Label text="Modo" />
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                            <PillOption
+                                label="Regular"
+                                value="NONE"
+                                active={props.values.coachMode === "NONE"}
+                                onPress={(v) => set({ coachMode: v, assignedTrainer: "" })}
+                            />
+                            <PillOption
+                                label="Trainer"
+                                value="TRAINER"
+                                active={props.values.coachMode === "TRAINER"}
+                                onPress={(v) => set({ coachMode: v, assignedTrainer: "" })}
+                            />
+                            <PillOption
+                                label="Trainee"
+                                value="TRAINEE"
+                                active={props.values.coachMode === "TRAINEE"}
+                                onPress={(v) => set({ coachMode: v })}
+                            />
+                        </View>
+                    </View>
+
+                    <View style={{ gap: 6 }}>
+                        <Label text="Trainer asignado" />
+
+                        <Pressable
+                            onPress={openTrainerPicker}
+                            disabled={!canPickTrainer || props.busy}
+                            style={({ pressed }) => ({
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                borderRadius: 12,
+                                paddingHorizontal: 12,
+                                paddingVertical: 12,
+                                backgroundColor: colors.background,
+                                opacity: !canPickTrainer || props.busy ? 0.55 : pressed ? 0.92 : 1,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 10,
+                            })}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ color: colors.text, fontWeight: "800" }} numberOfLines={1}>
+                                    {canPickTrainer
+                                        ? selectedTrainer
+                                            ? selectedTrainer.name
+                                            : "Selecciona un trainer"
+                                        : "—"}
+                                </Text>
+
+                                {canPickTrainer && selectedTrainer?.email ? (
+                                    <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700" }} numberOfLines={1}>
+                                        {selectedTrainer.email}
+                                    </Text>
+                                ) : null}
+                            </View>
+
+                            <Text style={{ color: colors.mutedText, fontWeight: "900" }}>▾</Text>
+                        </Pressable>
+
+                        {canPickTrainer ? (
+                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                                Se listan usuarios con coaching = TRAINER (admin).
+                            </Text>
+                        ) : (
+                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                                Solo aplica cuando el modo es TRAINEE.
+                            </Text>
+                        )}
+                    </View>
+                </SectionCard>
+
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                    <ActionButton label="Cancelar" onPress={props.onCancel} disabled={props.busy} />
+                    <ActionButton label={props.submitLabel} onPress={props.onSubmit} disabled={props.busy} primary />
+                </View>
+            </ScrollView>
+
+            {/* Trainer Picker Modal */}
+            <Modal visible={trainerModalOpen} animationType="slide" transparent onRequestClose={closeTrainerPicker}>
+                <View style={[styles.modalBackdrop]}>
+                    <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>Selecciona un trainer</Text>
+                                <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
+                                    {trainersLoading ? "Cargando…" : `${trainers.length} trainer(s)`}
+                                </Text>
+                            </View>
+
+                            <Pressable
+                                onPress={closeTrainerPicker}
+                                style={({ pressed }) => ({
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 10,
+                                    borderRadius: 12,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                    backgroundColor: colors.background,
+                                    opacity: pressed ? 0.92 : 1,
+                                })}
+                            >
+                                <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                            </Pressable>
+                        </View>
+
+                        <View style={{ height: 10 }} />
+
+                        <TextInput
+                            value={trainerSearch}
+                            onChangeText={setTrainerSearch}
+                            placeholder="Buscar por nombre o correo…"
+                            placeholderTextColor={colors.mutedText}
+                            autoCapitalize="none"
+                            style={{
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                borderRadius: 12,
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                                color: colors.text,
+                                backgroundColor: colors.background,
+                                fontWeight: "700",
+                            }}
+                        />
+
+                        <View style={{ height: 10 }} />
+
+                        {trainersError ? (
+                            <View style={{ gap: 10 }}>
+                                <Text style={{ color: colors.mutedText, fontWeight: "800" }}>{trainersError}</Text>
+                                <Pressable
+                                    onPress={() => void loadTrainers()}
+                                    style={({ pressed }) => ({
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 12,
+                                        borderRadius: 12,
+                                        borderWidth: 1,
+                                        borderColor: colors.border,
+                                        backgroundColor: colors.background,
+                                        opacity: pressed ? 0.92 : 1,
+                                        alignItems: "center",
+                                    })}
+                                >
+                                    <Text style={{ fontWeight: "900", color: colors.text }}>Reintentar</Text>
+                                </Pressable>
+                            </View>
+                        ) : trainersLoading ? (
+                            <View style={{ paddingVertical: 18, alignItems: "center", gap: 10 }}>
+                                <ActivityIndicator />
+                                <Text style={{ color: colors.mutedText, fontWeight: "800" }}>Cargando trainers…</Text>
+                            </View>
+                        ) : filteredTrainers.length === 0 ? (
+                            <View style={{ paddingVertical: 18, alignItems: "center", gap: 10 }}>
+                                <Text style={{ color: colors.mutedText, fontWeight: "800" }}>Sin resultados.</Text>
+                            </View>
+                        ) : (
+                            <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
+                                <View style={{ gap: 8 }}>
+                                    {filteredTrainers.map((t) => {
+                                        const active = t.id === props.values.assignedTrainer;
+                                        return (
+                                            <Pressable
+                                                key={t.id}
+                                                onPress={() => pickTrainer(t.id)}
+                                                style={({ pressed }) => ({
+                                                    borderWidth: 1,
+                                                    borderColor: active ? colors.primary : colors.border,
+                                                    backgroundColor: active ? colors.primary : colors.background,
+                                                    borderRadius: 14,
+                                                    paddingHorizontal: 12,
+                                                    paddingVertical: 12,
+                                                    opacity: pressed ? 0.92 : 1,
+                                                })}
+                                            >
+                                                <Text style={{ fontWeight: "900", color: active ? colors.primaryText : colors.text }} numberOfLines={1}>
+                                                    {t.name || "Usuario"}
+                                                </Text>
+                                                {t.email ? (
+                                                    <Text
+                                                        style={{ color: active ? colors.primaryText : colors.mutedText, fontWeight: "700", fontSize: 12 }}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {t.email}
+                                                    </Text>
+                                                ) : null}
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+
+                                <View style={{ height: 12 }} />
+
+                                {props.values.assignedTrainer ? (
+                                    <Pressable
+                                        onPress={() => {
+                                            set({ assignedTrainer: "" });
+                                            closeTrainerPicker();
+                                        }}
+                                        style={({ pressed }) => ({
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 12,
+                                            borderRadius: 12,
+                                            borderWidth: 1,
+                                            borderColor: colors.border,
+                                            backgroundColor: colors.background,
+                                            opacity: pressed ? 0.92 : 1,
+                                            alignItems: "center",
+                                        })}
+                                    >
+                                        <Text style={{ fontWeight: "900", color: colors.text }}>Limpiar selección</Text>
+                                    </Pressable>
+                                ) : null}
+                            </ScrollView>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+        </>
     );
 }
+
+const styles = StyleSheet.create({
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.35)",
+        padding: 16,
+        justifyContent: "center",
+    },
+    modalCard: {
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 14,
+    },
+});

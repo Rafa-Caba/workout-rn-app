@@ -1,4 +1,4 @@
-// src/app/(app)/media/_layout.tsx
+// src/app/(app)/pva/_layout.tsx
 import { Stack } from "expo-router";
 import React from "react";
 
@@ -12,7 +12,7 @@ export default function MediaLayout() {
         <Stack
             screenOptions={getStackHeaderScreenOptions(theme)}
         >
-            <Stack.Screen name="index" options={{ title: "Media" }} />
+            <Stack.Screen name="index" options={{ title: "Plan vs Real" }} />
         </Stack>
     );
 }
