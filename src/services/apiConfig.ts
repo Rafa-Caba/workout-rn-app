@@ -1,29 +1,43 @@
-// /src/services/apiConfig.ts
+// src/services/apiConfig.ts
 // Centralized API configuration (single source of truth).
 
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-export const API_PREFIX: string = "/api"; // backend prefix
+export const API_PREFIX = "/api";
 export const API_TIMEOUT_MS = 25_000;
 
-export function getApiBaseUrl(): string {
-  const raw = (process as any)?.env?.EXPO_PUBLIC_API_URL;
+type ExpoExtra = {
+  apiBaseUrl?: string;
+};
 
-  if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    if (trimmed.length > 0) return trimmed;
+function getExtra(): ExpoExtra {
+  const cfg = Constants.expoConfig;
+  const extra = cfg?.extra as unknown;
+
+  if (extra && typeof extra === "object") {
+    const maybe = extra as Record<string, unknown>;
+    const apiBaseUrl = typeof maybe.apiBaseUrl === "string" ? maybe.apiBaseUrl : undefined;
+    return { apiBaseUrl };
   }
 
-  // IMPORTANT:
-  // - iOS Simulator can use localhost
-  // - Android Emulator must use 10.0.2.2 to reach host machine
-  // - Physical device needs LAN IP or deployed URL (set EXPO_PUBLIC_API_URL)
+  return {};
+}
+
+export function getApiBaseUrl(): string {
+  const extra = getExtra();
+  const fromExtra = typeof extra.apiBaseUrl === "string" ? extra.apiBaseUrl.trim() : "";
+
+  if (fromExtra.length > 0) return fromExtra;
+
+  // DEV fallbacks
   if (__DEV__) {
     if (Platform.OS === "android") return "http://10.0.2.2:4000";
     return "http://localhost:4000";
   }
 
-  return "http://localhost:4000";
+  // Safe fallback
+  return "https://workout-api-cabanillas.up.railway.app";
 }
 
 export function getApiRoot(): string {

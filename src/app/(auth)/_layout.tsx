@@ -2,14 +2,15 @@
 import { Stack } from "expo-router";
 import React from "react";
 
-import { useTheme } from "@/src/theme/ThemeProvider";
-import { getStackHeaderScreenOptions } from "@/src/theme/navigation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AuthLayout() {
-    const theme = useTheme();
+    const insets = useSafeAreaInsets();
 
+    // tabBarStyle: {
+    // paddingTop: insets.top,
     return (
-        <Stack screenOptions={getStackHeaderScreenOptions(theme)}>
+        <Stack>
             <Stack.Screen name="login" options={{ title: "Iniciar sesión" }} />
             <Stack.Screen name="register" options={{ title: "Crear cuenta" }} />
         </Stack>

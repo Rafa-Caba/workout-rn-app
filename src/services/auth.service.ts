@@ -1,10 +1,18 @@
 // /src/services/auth.service.ts
 
 import { LoginRequest, LoginResponse, RefreshResponse, RegisterRequest, RegisterResponse } from "../types/auth.types";
+import { getApiBaseUrl, getApiRoot } from "./apiConfig";
 import { api } from "./http.client";
 
 export async function login(payload: LoginRequest): Promise<LoginResponse> {
+    console.log("[API CONFIG]", {
+        EXPO_PUBLIC_API_URL: (process as any)?.env?.EXPO_PUBLIC_API_URL,
+        __DEV__,
+        base: getApiBaseUrl(),
+        root: getApiRoot(),
+    });
     const res = await api.post("/auth/login", payload);
+
     return res.data as LoginResponse;
 }
 
