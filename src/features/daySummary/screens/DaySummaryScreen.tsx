@@ -1,4 +1,15 @@
 // src/features/daySummary/screens/DaySummaryScreen.tsx
+
+/**
+ * DaySummaryScreen
+ *
+ * Lightweight summary tab for a day:
+ * - date
+ * - sessions/media counters
+ * - quick metrics
+ * - notes/tags
+ */
+
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
@@ -49,11 +60,12 @@ export function DaySummaryScreen({ date }: Props) {
             </View>
 
             <View style={styles.grid}>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={styles.metricRow}>
                     <MetricCard title="⏱️ Entrenamiento" value={secondsToHhMm(trainingSeconds)} colors={colors} />
                     <MetricCard title="🔥 Kcal activas" value={activeKcal ? String(activeKcal) : "—"} colors={colors} />
                 </View>
-                <View style={{ flexDirection: 'row', gap: 10, width: '50%', alignSelf: 'center' }}>
+
+                <View style={styles.metricCenterRow}>
                     <MetricCard title="🛌 Sueño" value={minutesToHhMm(sleepMinutes)} colors={colors} />
                 </View>
             </View>
@@ -79,7 +91,11 @@ export function DaySummaryScreen({ date }: Props) {
     );
 }
 
-function MetricCard(props: { title: string; value: string; colors: { surface: string; border: string; text: string; mutedText: string } }) {
+function MetricCard(props: {
+    title: string;
+    value: string;
+    colors: { surface: string; border: string; text: string; mutedText: string };
+}) {
     const { title, value, colors } = props;
 
     return (
@@ -96,6 +112,7 @@ function MetricCard(props: { title: string; value: string; colors: { surface: st
 
 function Badge(props: { label: string; colors: { border: string; mutedText: string; surface: string } }) {
     const { label, colors } = props;
+
     return (
         <View style={[styles.badge, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <Text style={[styles.badgeText, { color: colors.mutedText }]}>{label}</Text>
@@ -117,10 +134,14 @@ const styles = StyleSheet.create({
     topTitle: { fontSize: 12, fontWeight: "800" },
     topValue: { fontSize: 16, fontWeight: "900" },
     badgesRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+
     badge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
     badgeText: { fontSize: 12, fontWeight: "700" },
 
     grid: { flexDirection: "column", gap: 10 },
+    metricRow: { flexDirection: "row", gap: 10 },
+    metricCenterRow: { flexDirection: "row", gap: 10, width: "50%", alignSelf: "center" },
+
     metricCard: {
         flex: 1,
         borderWidth: 1,

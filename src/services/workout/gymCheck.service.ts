@@ -1,4 +1,3 @@
-// /src/services/workout/gymCheck.service.ts
 import { api } from "@/src/services/http.client";
 import type {
     GymCheckDayPatchBody,
@@ -6,6 +5,7 @@ import type {
     GymCheckMetricsPatch,
     GymDayState,
 } from "@/src/types/gymCheck.types";
+import type { WorkoutExerciseSet } from "@/src/types/workoutDay.types";
 import type { DayKey, WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 
 /**
@@ -21,8 +21,13 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 function toNumberOrNull(v: unknown): number | null {
+    if (typeof v === "number") {
+        return Number.isFinite(v) ? v : null;
+    }
+
     const s = String(v ?? "").trim();
     if (!s) return null;
+
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
 }
@@ -46,6 +51,75 @@ function toStringArrayOrNull(v: unknown): string[] | null {
     return out.length ? out : null;
 }
 
+function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
+    if (!Array.isArray(value)) return null;
+
+    const items: WorkoutExerciseSet[] = [];
+
+    value.forEach((item, index) => {
+        if (!isPlainObject(item)) return;
+
+        const setIndexRaw = item.setIndex;
+        const repsRaw = item.reps;
+        const weightRaw = item.weight;
+        const unitRaw = item.unit;
+        const rpeRaw = item.rpe;
+        const isWarmupRaw = item.isWarmup;
+        const isDropSetRaw = item.isDropSet;
+        const tempoRaw = item.tempo;
+        const restSecRaw = item.restSec;
+        const tagsRaw = item.tags;
+        const metaRaw = item.meta;
+
+        items.push({
+            setIndex:
+                typeof setIndexRaw === "number" && Number.isFinite(setIndexRaw) && setIndexRaw > 0
+                    ? Math.trunc(setIndexRaw)
+                    : index + 1,
+            reps:
+                repsRaw === null
+                    ? null
+                    : typeof repsRaw === "number" && Number.isFinite(repsRaw)
+                        ? Math.trunc(repsRaw)
+                        : null,
+            weight:
+                weightRaw === null
+                    ? null
+                    : typeof weightRaw === "number" && Number.isFinite(weightRaw)
+                        ? weightRaw
+                        : null,
+            unit: unitRaw === "kg" ? "kg" : "lb",
+            rpe:
+                rpeRaw === null
+                    ? null
+                    : typeof rpeRaw === "number" && Number.isFinite(rpeRaw)
+                        ? rpeRaw
+                        : null,
+            isWarmup: isWarmupRaw === true,
+            isDropSet: isDropSetRaw === true,
+            tempo: typeof tempoRaw === "string" ? tempoRaw : null,
+            restSec:
+                restSecRaw === null
+                    ? null
+                    : typeof restSecRaw === "number" && Number.isFinite(restSecRaw)
+                        ? Math.trunc(restSecRaw)
+                        : null,
+            tags: Array.isArray(tagsRaw) ? tagsRaw.map((tag) => String(tag).trim()).filter(Boolean) : null,
+            meta:
+                metaRaw && typeof metaRaw === "object" && !Array.isArray(metaRaw)
+                    ? (metaRaw as Record<string, unknown>)
+                    : null,
+        });
+    });
+
+    if (items.length === 0) return null;
+
+    return items.map((item, index) => ({
+        ...item,
+        setIndex: index + 1,
+    }));
+}
+
 /**
  * If caller already sends the "clean" payload (numbers/null + metrics),
  * pass it through as-is.
@@ -53,9 +127,8 @@ function toStringArrayOrNull(v: unknown): string[] | null {
 function looksLikeCleanPatch(input: unknown): input is GymCheckDayPatchBody {
     if (!isPlainObject(input)) return false;
 
-    // Heuristic: if it has "metrics" OR durationMin is number|null.
     const hasMetrics = "metrics" in input;
-    const dm = (input as any).durationMin;
+    const dm = input.durationMin;
     const hasNumberDuration = typeof dm === "number" || dm === null;
 
     return hasMetrics || hasNumberDuration;
@@ -72,35 +145,36 @@ function buildPatchFromGymDayState(gymDay: GymDayState): GymCheckDayPatchBody {
 
         exercises[exerciseId] = {
             done: typeof st?.done === "boolean" ? Boolean(st.done) : null,
-            notes: toStringOrNull((st as any)?.notes),
-            durationMin: toNumberOrNull((st as any)?.durationMin),
-            mediaPublicIds: toStringArrayOrNull((st as any)?.mediaPublicIds) ?? null,
+            notes: toStringOrNull(st?.notes),
+            durationMin: toNumberOrNull(st?.durationMin),
+            mediaPublicIds: toStringArrayOrNull(st?.mediaPublicIds) ?? null,
+            performedSets: normalizePerformedSets(st?.performedSets),
         };
     }
 
     const m = gymDay.metrics ?? {};
 
     const metrics: GymCheckMetricsPatch = {
-        startAt: toStringOrNull((m as any).startAt),
-        endAt: toStringOrNull((m as any).endAt),
+        startAt: toStringOrNull(m.startAt),
+        endAt: toStringOrNull(m.endAt),
 
-        activeKcal: toNumberOrNull((m as any).activeKcal),
-        totalKcal: toNumberOrNull((m as any).totalKcal),
+        activeKcal: toNumberOrNull(m.activeKcal),
+        totalKcal: toNumberOrNull(m.totalKcal),
 
-        avgHr: toIntOrNull((m as any).avgHr),
-        maxHr: toIntOrNull((m as any).maxHr),
+        avgHr: toIntOrNull(m.avgHr),
+        maxHr: toIntOrNull(m.maxHr),
 
-        distanceKm: toNumberOrNull((m as any).distanceKm),
-        steps: toIntOrNull((m as any).steps),
-        elevationGainM: toNumberOrNull((m as any).elevationGainM),
+        distanceKm: toNumberOrNull(m.distanceKm),
+        steps: toIntOrNull(m.steps),
+        elevationGainM: toNumberOrNull(m.elevationGainM),
 
-        paceSecPerKm: toIntOrNull((m as any).paceSecPerKm),
-        cadenceRpm: toIntOrNull((m as any).cadenceRpm),
+        paceSecPerKm: toIntOrNull(m.paceSecPerKm),
+        cadenceRpm: toIntOrNull(m.cadenceRpm),
 
-        effortRpe: toNumberOrNull((m as any).effortRpe),
+        effortRpe: toNumberOrNull(m.effortRpe),
 
-        trainingSource: toStringOrNull((m as any).trainingSource),
-        dayEffortRpe: toNumberOrNull((m as any).dayEffortRpe),
+        trainingSource: toStringOrNull(m.trainingSource),
+        dayEffortRpe: toNumberOrNull(m.dayEffortRpe),
     };
 
     return {
@@ -119,11 +193,13 @@ export async function syncGymCheckDay(
     input: GymDayState | GymCheckDayPatchBody
 ): Promise<WorkoutRoutineWeek> {
     const payload: GymCheckDayPatchBody = looksLikeCleanPatch(input)
-        ? (input as GymCheckDayPatchBody)
-        : buildPatchFromGymDayState(input as GymDayState);
+        ? input
+        : buildPatchFromGymDayState(input);
+
     const res = await api.patch(
         `/workout/routines/weeks/${encodeURIComponent(weekKey)}/gym-check/${encodeURIComponent(dayKey)}`,
         payload
     );
+
     return res.data as WorkoutRoutineWeek;
 }

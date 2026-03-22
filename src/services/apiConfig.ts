@@ -40,6 +40,9 @@ export function getApiBaseUrl(): string {
   return "https://workout-api-cabanillas.up.railway.app";
 }
 
+console.log(getApiBaseUrl());
+
+
 export function getApiRoot(): string {
   const base = getApiBaseUrl().replace(/\/+$/, "");
   const prefix = API_PREFIX ? `/${API_PREFIX.replace(/^\/+/, "")}` : "";

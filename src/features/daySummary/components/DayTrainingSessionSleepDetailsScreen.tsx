@@ -1,17 +1,5 @@
 // src/features/daySummary/screens/DayTrainingSessionSleepDetailsScreen.tsx
 
-/**
- * DayTrainingSessionSleepDetailsScreen
- *
- * Detailed "Día" tab:
- * - date summary header
- * - sleep section
- * - sessions section
- *
- * This screen now delegates most rendering to small reusable components
- * under src/features/daySummary/components/*
- */
-
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 

@@ -1,3 +1,4 @@
+import type { WorkoutExerciseSet } from "@/src/types/workoutDay.types";
 
 // -------------------- UI State Types (inputs as strings) --------------------
 
@@ -6,6 +7,7 @@ export type GymExerciseState = {
     notes?: string;
     durationMin?: string; // UI input (string)
     mediaPublicIds?: string[]; // UI state can start empty
+    performedSets?: WorkoutExerciseSet[];
 };
 
 export type GymDayMetricsState = {
@@ -45,6 +47,7 @@ export type GymCheckExercisePatch = {
     notes?: string | null;
     durationMin?: number | null;
     mediaPublicIds?: string[] | null;
+    performedSets?: WorkoutExerciseSet[] | null;
 };
 
 export type GymCheckMetricsPatch = {

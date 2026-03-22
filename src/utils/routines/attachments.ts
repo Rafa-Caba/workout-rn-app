@@ -14,6 +14,11 @@ export type AttachmentOption = {
     url?: string;
     resourceType?: string;
     originalName?: string;
+
+    // Keep aligned with Web so gymCheck/session builders can reuse the same data contract.
+    format?: string;
+    createdAt?: string;
+    meta?: Record<string, unknown>;
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -36,6 +41,9 @@ export function toAttachmentOptions(attachments: Attachment[]): AttachmentOption
             url: a.url,
             resourceType: a.resourceType,
             originalName: a.originalName,
+            format: a.format,
+            createdAt: a.createdAt,
+            meta: a.meta,
         }));
 }
 

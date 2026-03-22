@@ -1,8 +1,9 @@
-// /src/services/workout/sessions.service.ts
 import { api } from "@/src/services/http.client";
-import type { WorkoutDay, WorkoutSession } from "@/src/types/workout.types";
+import { WorkoutDay, WorkoutExercise, WorkoutSession } from "@/src/types/workoutDay.types";
 
 export type SessionReturnMode = "day" | "session";
+
+export type CreateSessionExerciseInput = Omit<WorkoutExercise, "id">;
 
 export type CreateSessionBody = {
     type: string;
@@ -28,6 +29,7 @@ export type CreateSessionBody = {
     effortRpe?: number | null;
 
     notes?: string | null;
+    exercises?: CreateSessionExerciseInput[] | null;
 
     meta?: Record<string, unknown> | null;
 };
@@ -73,7 +75,6 @@ export async function createSession(
     payload: CreateSessionBody,
     opts?: { returnMode?: SessionReturnMode }
 ): Promise<ReturnDay | ReturnSession> {
-
     const res = await api.post(`/workout/days/${encodeURIComponent(date)}/sessions`, payload, {
         params: opts?.returnMode ? { returnMode: opts.returnMode } : undefined,
     });
@@ -131,8 +132,8 @@ export async function attachSessionMedia(
 }
 
 function findGymCheckSessionIdFromDay(day: WorkoutDay): string | null {
-    const sessions = Array.isArray(day?.training?.sessions) ? day.training!.sessions : [];
-    const hit = sessions?.find((s) => String(s?.meta?.sessionKey ?? "") === "gym_check") ?? null;
+    const sessions = Array.isArray(day.training?.sessions) ? day.training.sessions : [];
+    const hit = sessions.find((s) => String(s?.meta?.sessionKey ?? "") === "gym_check") ?? null;
     return hit?.id ?? null;
 }
 
@@ -161,7 +162,6 @@ export async function upsertGymCheckSession(
         return { mode: "patched", data, sessionId: existingId };
     }
 
-    // To guarantee we get session.id, force returnMode="session" when creating
     const created = await createSession(date, payload, { returnMode: "session" });
     const sessionId = extractSessionIdFromReturn(created);
 

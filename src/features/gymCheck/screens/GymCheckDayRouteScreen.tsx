@@ -1,3 +1,17 @@
+// src/features/gymCheck/screens/GymCheckDayRouteScreen.tsx
+
+/**
+ * GymCheckDayRouteScreen
+ *
+ * Loads the routine week, derives the selected ISO day, and hydrates
+ * the local gym-check draft from the planned routine.
+ *
+ * Important:
+ * Remote hydration must run only once per routine signature.
+ * Otherwise local edits like Done -> Pending or performed-set changes
+ * can be overwritten by stale backend data until the session is saved.
+ */
+
 import { useMutation } from "@tanstack/react-query";
 import { getISODay } from "date-fns";
 import React from "react";
@@ -9,17 +23,17 @@ import { useGymCheck } from "@/src/hooks/gymCheck/useGymCheck";
 import { useRoutineWeek } from "@/src/hooks/routines/useRoutineWeek";
 
 import { extractAttachments, toAttachmentOptions, type AttachmentOption } from "@/src/utils/routines/attachments";
-import { DAY_KEYS, type DayKey } from "@/src/utils/routines/plan";
+import { DAY_KEYS, type DayKey, type ExerciseItem } from "@/src/utils/routines/plan";
 import { toWeekKey } from "@/src/utils/weekKey";
 
 import { uploadRoutineAttachments } from "@/src/services/workout/routineAttachments.service";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
-import { RNFile } from "@/src/types/upload.types";
+import type { RNFile } from "@/src/types/upload.types";
 import type { ExercisePlanInfo } from "../components/GymCheckExerciseRow";
 import { GymCheckDayScreen } from "./GymCheckDayScreen";
 
-type Props = { date: string };
+type UploadQuery = Record<string, string | number | boolean | null | undefined>;
 
 function isValidDateIso(v: string): boolean {
     return /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -29,91 +43,78 @@ function dateIsoToWeekKeyAndDayKey(dateIso: string): { weekKey: string; dayKey: 
     const d = new Date(`${dateIso}T00:00:00`);
     const weekKey = toWeekKey(d);
 
-    const isoDay = getISODay(d); // 1..7 (Mon..Sun)
+    const isoDay = getISODay(d);
     const idx = Math.max(0, Math.min(6, isoDay - 1));
     const dayKey = DAY_KEYS[idx];
 
     return { weekKey, dayKey };
 }
 
-function safeExtractPlannedDay(routineWeek: any, dayKey: DayKey) {
-    const days = routineWeek?.days;
+function safeExtractPlannedDay(routineWeek: WorkoutRoutineWeek | null | undefined, dayKey: DayKey) {
+    const safeRoutine = routineWeek as (WorkoutRoutineWeek & { days?: Array<Record<string, unknown>> }) | null;
+    const days = safeRoutine?.days;
     if (!Array.isArray(days)) return null;
-    return days.find((d: any) => d?.dayKey === dayKey) ?? null;
+    return days.find((d) => d?.dayKey === dayKey) ?? null;
 }
 
 function buildAttachmentByPublicIdFromRoutine(routine: unknown): Map<string, AttachmentOption> {
     const list = extractAttachments(routine);
     const opts = toAttachmentOptions(list);
     const map = new Map<string, AttachmentOption>();
-    for (const o of opts) map.set(o.publicId, o);
+
+    for (const option of opts) {
+        map.set(option.publicId, option);
+    }
+
     return map;
 }
 
 function buildAttachmentsSet(routine: unknown): Set<string> {
     const list = extractAttachments(routine);
     const opts = toAttachmentOptions(list);
-    const s = new Set<string>();
-    for (const a of opts) s.add(a.publicId);
-    return s;
+    const result = new Set<string>();
+
+    for (const option of opts) {
+        result.add(option.publicId);
+    }
+
+    return result;
 }
 
 function diffNewAttachmentPublicIds(before: Set<string>, after: Set<string>): string[] {
     const added: string[] = [];
+
     for (const id of after) {
-        if (!before.has(id)) added.push(id);
+        if (!before.has(id)) {
+            added.push(id);
+        }
     }
+
     return added;
 }
 
-function safeExtractServerGymDay(routineWeek: any, dayKey: DayKey): any | null {
-    const meta = routineWeek?.meta;
-    const gc = meta?.gymCheck;
-    const day = gc?.[dayKey];
-    if (!day || typeof day !== "object") return null;
-    return day;
-}
+/**
+ * Stable signature for the fetched routine.
+ * Hydration should only happen once per signature.
+ */
+function buildRoutineSignature(weekKey: string, routine: WorkoutRoutineWeek | null): string {
+    if (!routine) return `${weekKey}|__null__`;
 
-function serverGymDayToLocal(server: any) {
-    const toStr = (v: any) => (v === null || v === undefined ? "" : String(v));
-
-    const metrics = server?.metrics ?? {};
-    const exercises = server?.exercises ?? {};
-
-    const exOut: Record<string, any> = {};
-    for (const [exerciseId, ex] of Object.entries(exercises)) {
-        exOut[String(exerciseId)] = {
-            done: (ex as any)?.done === true,
-            notes: typeof (ex as any)?.notes === "string" ? (ex as any).notes : undefined,
-            durationMin: (ex as any)?.durationMin == null ? undefined : String((ex as any).durationMin),
-            mediaPublicIds: Array.isArray((ex as any)?.mediaPublicIds) ? (ex as any).mediaPublicIds : [],
-        };
-    }
-
-    return {
-        durationMin: toStr(server?.durationMin),
-        notes: toStr(server?.notes),
-        metrics: {
-            startAt: toStr(metrics?.startAt),
-            endAt: toStr(metrics?.endAt),
-            activeKcal: toStr(metrics?.activeKcal),
-            totalKcal: toStr(metrics?.totalKcal),
-            avgHr: toStr(metrics?.avgHr),
-            maxHr: toStr(metrics?.maxHr),
-            distanceKm: toStr(metrics?.distanceKm),
-            steps: toStr(metrics?.steps),
-            elevationGainM: toStr(metrics?.elevationGainM),
-            paceSecPerKm: toStr(metrics?.paceSecPerKm),
-            cadenceRpm: toStr(metrics?.cadenceRpm),
-            effortRpe: toStr(metrics?.effortRpe),
-            trainingSource: toStr(metrics?.trainingSource),
-            dayEffortRpe: toStr(metrics?.dayEffortRpe),
-        },
-        exercises: exOut,
+    const safeRoutine = routine as WorkoutRoutineWeek & {
+        id?: string;
+        _id?: string;
+        updatedAt?: string;
+        meta?: { updatedAt?: string } | null;
     };
+
+    const id = String(safeRoutine.id ?? safeRoutine._id ?? "");
+    const updatedAt = String(safeRoutine.updatedAt ?? "");
+    const metaUpdatedAt = String(safeRoutine.meta?.updatedAt ?? "");
+
+    return `${weekKey}|${id}|${updatedAt}|${metaUpdatedAt}`;
 }
 
-export function GymCheckDayRouteScreen({ date }: Props) {
+export function GymCheckDayRouteScreen({ date }: { date: string }) {
     const { colors } = useTheme();
 
     if (!date || !isValidDateIso(date)) {
@@ -121,7 +122,7 @@ export function GymCheckDayRouteScreen({ date }: Props) {
             <View style={{ flex: 1, backgroundColor: colors.background, padding: 16, gap: 8 }}>
                 <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>Gym Check (Día)</Text>
                 <Text style={{ color: colors.mutedText }}>
-                    Fecha inválida: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{date || "—"}</Text>
+                    Fecha inválida: <Text style={{ color: colors.text }}>{date || "—"}</Text>
                 </Text>
             </View>
         );
@@ -135,78 +136,100 @@ export function GymCheckDayRouteScreen({ date }: Props) {
     const gym = useGymCheck(weekKey);
 
     const uploadMutation = useMutation({
-        mutationFn: (args: { files: RNFile[]; query?: Record<string, any> }) =>
-            uploadRoutineAttachments(weekKey, args.files as any, args.query),
+        mutationFn: (args: { files: RNFile[]; query?: UploadQuery }) =>
+            uploadRoutineAttachments(weekKey, args.files, args.query),
     });
 
-    const plannedDay = React.useMemo(() => safeExtractPlannedDay(routine as any, dayKey), [routine, dayKey]);
+    const plannedDay = React.useMemo(() => safeExtractPlannedDay(routine, dayKey), [routine, dayKey]);
 
-    const exerciseIds = React.useMemo(() => {
-        const ex = plannedDay?.exercises;
-        if (!Array.isArray(ex)) return [];
-        return ex.map((e: any) => String(e?.id ?? "")).filter(Boolean);
+    const exercisesList = React.useMemo<ExerciseItem[]>(() => {
+        const exercises = plannedDay?.exercises;
+        if (!Array.isArray(exercises)) return [];
+
+        return exercises.map((exercise, index) => ({
+            id: String(exercise?.id ?? `idx_${index}`),
+            name: String(exercise?.name ?? ""),
+            sets: exercise?.sets != null ? String(exercise.sets) : undefined,
+            reps:
+                typeof exercise?.reps === "string"
+                    ? exercise.reps
+                    : exercise?.reps != null
+                        ? String(exercise.reps)
+                        : undefined,
+            rpe: exercise?.rpe != null ? String(exercise.rpe) : undefined,
+            load: exercise?.load != null ? String(exercise.load) : undefined,
+            notes: typeof exercise?.notes === "string" ? exercise.notes : undefined,
+            attachmentPublicIds: Array.isArray(exercise?.attachmentPublicIds) ? exercise.attachmentPublicIds : undefined,
+            movementId: exercise?.movementId != null ? String(exercise.movementId) : undefined,
+            movementName: exercise?.movementName != null ? String(exercise.movementName) : undefined,
+        }));
     }, [plannedDay]);
+
+    const exerciseIds = React.useMemo(() => exercisesList.map((exercise) => exercise.id).filter(Boolean), [exercisesList]);
 
     const exerciseNameById = React.useMemo(() => {
         const map: Record<string, string> = {};
-        const ex = plannedDay?.exercises;
-        if (!Array.isArray(ex)) return map;
 
-        for (const e of ex) {
-            const id = String(e?.id ?? "").trim();
-            if (!id) continue;
-            const name = String(e?.name ?? "").trim();
-            if (name) map[id] = name;
+        for (const exercise of exercisesList) {
+            if (exercise.id) {
+                map[exercise.id] = String(exercise.name ?? "").trim();
+            }
         }
 
         return map;
-    }, [plannedDay]);
+    }, [exercisesList]);
 
     const exercisePlanById = React.useMemo(() => {
         const map: Record<string, ExercisePlanInfo> = {};
-        const ex = plannedDay?.exercises;
-        if (!Array.isArray(ex)) return map;
 
-        for (const e of ex) {
-            const id = String(e?.id ?? "").trim();
-            if (!id) continue;
+        for (const exercise of exercisesList) {
+            if (!exercise.id) continue;
 
-            map[id] = {
-                sets: e?.sets ?? null,
-                reps: typeof e?.reps === "string" ? e.reps : e?.reps != null ? String(e.reps) : null,
-                rpe: e?.rpe ?? null,
-                load: e?.load ?? null,
-                notes: typeof e?.notes === "string" ? e.notes : null,
+            map[exercise.id] = {
+                sets: exercise.sets ?? null,
+                reps: exercise.reps ?? null,
+                rpe: exercise.rpe ?? null,
+                load: exercise.load ?? null,
+                notes: exercise.notes ?? null,
             };
         }
 
         return map;
-    }, [plannedDay]);
+    }, [exercisesList]);
 
-    // hydrate local state from server meta (only when week is loaded)
-    const serverDay = React.useMemo(() => safeExtractServerGymDay(routine as any, dayKey), [routine, dayKey]);
+    /**
+     * Prevent stale backend hydration from overwriting local edits.
+     * We hydrate only once per fetched routine signature.
+     */
+    const hydratedSignatureRef = React.useRef<string>("");
 
     React.useEffect(() => {
-        if (!serverDay) return;
         if (!gym.hydrated) return;
+        if (!routine) return;
 
-        gym.setDay(dayKey, serverGymDayToLocal(serverDay));
-    }, [gym.hydrated, serverDay, dayKey]);
+        const nextSignature = buildRoutineSignature(weekKey, routine);
+        if (hydratedSignatureRef.current === nextSignature) return;
+
+        hydratedSignatureRef.current = nextSignature;
+        gym.hydrateFromRemote(routine);
+    }, [gym.hydrated, routine, weekKey, gym.hydrateFromRemote]);
 
     async function onUploadExerciseFiles(args: { exerciseId: string; files: RNFile[] }) {
         if (!routine) {
             Alert.alert("Error", "No hay rutina cargada para esta semana.");
             return;
         }
+
         if (!args.files.length) return;
 
         try {
-            const before = buildAttachmentsSet(routine as WorkoutRoutineWeek);
+            const before = buildAttachmentsSet(routine);
+            const query: UploadQuery = {};
 
-            await uploadMutation.mutateAsync({ files: args.files, query: {} });
+            await uploadMutation.mutateAsync({ files: args.files, query });
 
-            const ref = await routineQuery.refetch();
-            const nextRoutine = (ref.data ?? null) as WorkoutRoutineWeek | null;
+            const refetchResult = await routineQuery.refetch();
+            const nextRoutine = refetchResult.data ?? null;
 
             const after = buildAttachmentsSet(nextRoutine);
             const added = diffNewAttachmentPublicIds(before, after);
@@ -216,26 +239,28 @@ export function GymCheckDayRouteScreen({ date }: Props) {
                 return;
             }
 
-            // Attach to local GymCheck exercise state
-            const currentDay = gym.getDay(dayKey);
-            const cur = currentDay.exercises?.[args.exerciseId]?.mediaPublicIds ?? [];
-
-            const nextList = [...cur];
-            for (const pid of added) {
-                if (!nextList.includes(pid)) nextList.push(pid);
+            for (const publicId of added) {
+                gym.addExerciseMediaPublicId(dayKey, args.exerciseId, publicId);
             }
 
-            gym.setExerciseField(dayKey, args.exerciseId, { mediaPublicIds: nextList });
-
             Alert.alert("Listo", "Media subida y ligada al ejercicio.");
-        } catch (e: any) {
-            Alert.alert("Error", e?.message ?? "No se pudo subir media.");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "No se pudo subir media.";
+            Alert.alert("Error", message);
         }
     }
 
-    if (routineQuery.isLoading) {
+    if (routineQuery.isLoading || !gym.hydrated) {
         return (
-            <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <View
+                style={{
+                    flex: 1,
+                    backgroundColor: colors.background,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                }}
+            >
                 <ActivityIndicator />
                 <Text style={{ color: colors.mutedText }}>Cargando semana...</Text>
             </View>
@@ -247,7 +272,7 @@ export function GymCheckDayRouteScreen({ date }: Props) {
             <View style={{ flex: 1, backgroundColor: colors.background, padding: 16, gap: 8 }}>
                 <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>Gym Check (Día)</Text>
                 <Text style={{ color: colors.mutedText }}>
-                    No se pudo cargar la semana <Text style={{ fontFamily: "Menlo", color: colors.text }}>{weekKey}</Text>.
+                    No se pudo cargar la semana <Text style={{ color: colors.text }}>{weekKey}</Text>.
                 </Text>
             </View>
         );

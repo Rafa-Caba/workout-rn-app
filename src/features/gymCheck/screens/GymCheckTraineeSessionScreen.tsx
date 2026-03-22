@@ -1,4 +1,3 @@
-// src/features/gymCheck/screens/GymCheckTraineeSessionScreen.tsx
 import NetInfo from "@react-native-community/netinfo";
 import { useMutation } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
@@ -6,7 +5,7 @@ import React from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useCreateGymCheckSession } from "@/src/hooks/gymCheck/useCreateGymCheckSession";
-import { useGymCheck, type GymDayState } from "@/src/hooks/gymCheck/useGymCheck";
+import { useGymCheck } from "@/src/hooks/gymCheck/useGymCheck";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 import type { MediaFeedItem } from "@/src/types/media.types";
@@ -16,20 +15,22 @@ import type { WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 
 import { getMedia } from "@/src/services/workout/media.service";
 import { uploadRoutineAttachments } from "@/src/services/workout/routineAttachments.service";
-import { getWorkoutDay, type CreateSessionBody } from "@/src/services/workout/sessions.service";
+import { getWorkoutDay } from "@/src/services/workout/sessions.service";
 
 import type { AttachmentOption } from "@/src/utils/routines/attachments";
-import { DAY_KEYS, type DayKey } from "@/src/utils/routines/plan";
+import { DAY_KEYS, type DayKey, type ExerciseItem } from "@/src/utils/routines/plan";
 import { toWeekKey, weekKeyToStartDate } from "@/src/utils/weekKey";
 
 import {
     buildAttachMediaItemsFromGymDay,
+    buildGymCheckSessionPayload,
     dayKeyToDateIso,
-    parseDurationMinutesToSeconds,
 } from "@/src/utils/gymCheck/sessionPayload";
 
 import type { ExercisePlanInfo } from "../components/GymCheckExerciseRow";
 import { GymCheckDayScreen } from "./GymCheckDayScreen";
+
+type UploadQuery = Record<string, string | number | boolean | null | undefined>;
 
 /**
  * Notes:
@@ -71,56 +72,9 @@ function dayLabelEs(k: DayKey): string {
     }
 }
 
-function hasGymCheckSession(day: WorkoutDay | any): boolean {
+function hasGymCheckSession(day: WorkoutDay | null | undefined): boolean {
     const sessions = Array.isArray(day?.training?.sessions) ? day.training.sessions : [];
-    return Boolean(sessions.find((s: any) => String(s?.meta?.sessionKey ?? "") === "gym_check"));
-}
-
-function toStringOrNull(v: unknown): string | null {
-    const s = String(v ?? "").trim();
-    return s.length ? s : null;
-}
-
-function toNumberOrNull(v: unknown): number | null {
-    const s = String(v ?? "").trim();
-    if (!s) return null;
-    const n = Number(s);
-    return Number.isFinite(n) ? n : null;
-}
-
-function toIntOrNull(v: unknown): number | null {
-    const n = toNumberOrNull(v);
-    return n === null ? null : Math.trunc(n);
-}
-
-function hasAnyMetricValue(metrics: Record<string, unknown> | null | undefined): boolean {
-    if (!metrics) return false;
-    for (const v of Object.values(metrics)) {
-        if (String(v ?? "").trim()) return true;
-    }
-    return false;
-}
-
-function shouldSyncGymDay(day: GymDayState | null | undefined): boolean {
-    if (!day) return false;
-
-    if (String(day.durationMin ?? "").trim()) return true;
-    if (String(day.notes ?? "").trim()) return true;
-
-    const metrics = day.metrics ?? null;
-    if (metrics && hasAnyMetricValue(metrics as any)) return true;
-
-    const exercises = day.exercises ?? {};
-    for (const st of Object.values(exercises)) {
-        const s = st as any;
-        if (!s) continue;
-        if (s.done === true) return true;
-        if (String(s.notes ?? "").trim()) return true;
-        if (String(s.durationMin ?? "").trim()) return true;
-        if (Array.isArray(s.mediaPublicIds) && s.mediaPublicIds.length > 0) return true;
-    }
-
-    return false;
+    return sessions.some((s) => String(s?.meta?.sessionKey ?? "") === "gym_check");
 }
 
 function buildAttachmentByPublicIdFromMediaItems(items: MediaFeedItem[]): Map<string, AttachmentOption> {
@@ -136,7 +90,10 @@ function buildAttachmentByPublicIdFromMediaItems(items: MediaFeedItem[]): Map<st
             url: it.url,
             resourceType: it.resourceType,
             originalName: undefined,
-        } as AttachmentOption);
+            format: undefined,
+            createdAt: undefined,
+            meta: undefined,
+        });
     }
 
     return map;
@@ -152,7 +109,7 @@ function buildAttachmentByPublicIdFromMediaItems(items: MediaFeedItem[]): Map<st
 function buildAvailableDayKeys(weekDays: Record<DayKey, WorkoutDay | null>): DayKey[] {
     const withExercises = DAY_KEYS.filter((dk) => {
         const day = weekDays[dk];
-        const ex = Array.isArray(day?.plannedRoutine?.exercises) ? day!.plannedRoutine!.exercises : [];
+        const ex = Array.isArray(day?.plannedRoutine?.exercises) ? day.plannedRoutine.exercises : [];
         return ex.length > 0;
     });
 
@@ -171,9 +128,7 @@ function buildAvailableDayKeys(weekDays: Record<DayKey, WorkoutDay | null>): Day
 
 /**
  * Build a RoutineWeek-like object so we can reuse the same GymCheckDayScreen UI.
- * Only the fields GymCheckSessionScreen depends on are needed:
- * - weekKey
- * - days[] with dayKey + exercises + sessionType
+ * Only the fields GymCheckDayScreen depends on are needed.
  */
 function buildRoutineLikeWeek(args: {
     weekKey: string;
@@ -185,7 +140,7 @@ function buildRoutineLikeWeek(args: {
         const wd = weekDays[dayKey];
         const pr = wd?.plannedRoutine ?? null;
 
-        const exercisesRaw = Array.isArray(pr?.exercises) ? pr!.exercises! : [];
+        const exercisesRaw = Array.isArray(pr?.exercises) ? pr.exercises : [];
 
         const exercises = exercisesRaw.map((ex) => ({
             id: String(ex.id ?? ""),
@@ -208,22 +163,29 @@ function buildRoutineLikeWeek(args: {
             tags: pr?.tags ?? null,
             notes: pr?.notes ?? null,
             exercises: exercises.length ? exercises : null,
-        } as any;
+        };
     });
+
+    const start = weekKeyToStartDate(weekKey) ?? new Date();
+    const end = addDays(start, 6);
 
     return {
         id: `trainee_week_${weekKey}`,
         weekKey,
+        range: {
+            from: format(start, "yyyy-MM-dd"),
+            to: format(end, "yyyy-MM-dd"),
+        },
         title: null,
         split: null,
         plannedDays: null,
         status: "active",
-        days: days as any,
+        days: days as never,
         meta: null,
-        attachments: null,
+        attachments: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-    } as any;
+    } as WorkoutRoutineWeek;
 }
 
 export function GymCheckTraineeSessionScreen() {
@@ -231,8 +193,6 @@ export function GymCheckTraineeSessionScreen() {
 
     const [anchorDateIso, setAnchorDateIso] = React.useState<string>(() => todayIsoLocal());
     const weekKey = React.useMemo(() => toWeekKey(new Date(`${anchorDateIso}T00:00:00`)), [anchorDateIso]);
-
-    const [activeDayKey, setActiveDayKey] = React.useState<DayKey>("Mon");
 
     // Load WorkoutDay for each day in the selected week
     const [weekDays, setWeekDays] = React.useState<Record<DayKey, WorkoutDay | null>>({
@@ -254,18 +214,18 @@ export function GymCheckTraineeSessionScreen() {
     const createSessionMutation = useCreateGymCheckSession();
 
     const uploadMutation = useMutation({
-        mutationFn: (args: { files: RNFile[]; query?: Record<string, any> }) =>
-            uploadRoutineAttachments(weekKey, args.files as any, args.query),
+        mutationFn: (args: { files: RNFile[]; query?: UploadQuery }) =>
+            uploadRoutineAttachments(weekKey, args.files, args.query),
     });
 
     React.useEffect(() => {
         let alive = true;
 
-        async function loadWeek() {
-            setWeekLoading(true);
-            setWeekError(null);
-
+        async function run() {
             try {
+                setWeekLoading(true);
+                setWeekError(null);
+
                 const start = weekKeyToStartDate(weekKey);
                 const base = start ?? new Date();
 
@@ -274,17 +234,10 @@ export function GymCheckTraineeSessionScreen() {
                     dateIso: format(addDays(base, idx), "yyyy-MM-dd"),
                 }));
 
-                const net = await NetInfo.fetch();
-                if (!net.isConnected) {
-                    if (!alive) return;
-                    setWeekError("Sin internet. No se pudo cargar el plan del entrenador.");
-                    return;
-                }
-
                 const results = await Promise.allSettled(
                     dates.map(async (x) => {
                         const day = await getWorkoutDay(x.dateIso);
-                        return { dayKey: x.dayKey, day: day as WorkoutDay };
+                        return { dayKey: x.dayKey, day };
                     })
                 );
 
@@ -300,414 +253,435 @@ export function GymCheckTraineeSessionScreen() {
                     Sun: null,
                 };
 
-                for (const r of results) {
-                    if (r.status === "fulfilled") {
-                        next[r.value.dayKey] = r.value.day;
+                for (const result of results) {
+                    if (result.status === "fulfilled") {
+                        next[result.value.dayKey] = result.value.day;
                     }
                 }
 
                 setWeekDays(next);
-
-                // Also load routine media for this weekKey to resolve URLs for attachments
-                try {
-                    const feed = await getMedia({ source: "routine", weekKey, limit: 200 });
-                    if (!alive) return;
-
-                    const items = Array.isArray(feed?.items) ? feed.items : [];
-                    setAttachmentByPublicId(buildAttachmentByPublicIdFromMediaItems(items));
-                } catch {
-                    // If it fails, keep an empty map; user can still create session without media.
-                    if (!alive) return;
-                    setAttachmentByPublicId(new Map());
-                }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 if (!alive) return;
-                setWeekError(e?.message ?? "No se pudo cargar la semana.");
+                setWeekError(e instanceof Error ? e.message : "No se pudo cargar la semana");
             } finally {
                 if (!alive) return;
                 setWeekLoading(false);
             }
         }
 
-        void loadWeek();
-
+        void run();
         return () => {
             alive = false;
         };
     }, [weekKey]);
 
     const availableDayKeys = React.useMemo(() => buildAvailableDayKeys(weekDays), [weekDays]);
+    const [activeDayKey, setActiveDayKey] = React.useState<DayKey>("Mon");
 
     React.useEffect(() => {
-        // Ensure active day is always valid for the current week.
-        if (!availableDayKeys.includes(activeDayKey)) {
-            setActiveDayKey(availableDayKeys[0] ?? "Mon");
-        }
-    }, [availableDayKeys, activeDayKey]);
+        const today = new Date(anchorDateIso);
+        const jsDay = today.getDay(); // 0..6 Sun..Sat
+        const isoIdx = (jsDay + 6) % 7; // Mon=0
+        const todayKey = DAY_KEYS[isoIdx] as DayKey;
 
-    const routineLikeWeek = React.useMemo(() => buildRoutineLikeWeek({ weekKey, weekDays }), [weekKey, weekDays]);
+        const preferred = availableDayKeys.includes(todayKey) ? todayKey : availableDayKeys[0] ?? "Mon";
+        setActiveDayKey(preferred);
+    }, [anchorDateIso, availableDayKeys]);
+
+    const activeDay = weekDays[activeDayKey] ?? null;
+    const gymCheckSessionExists = hasGymCheckSession(activeDay);
+
+    const routineLikeWeek = React.useMemo(
+        () => buildRoutineLikeWeek({ weekKey, weekDays }),
+        [weekKey, weekDays]
+    );
 
     const plannedDay = React.useMemo(() => {
-        const days = (routineLikeWeek as any)?.days;
-        if (!Array.isArray(days)) return null;
-        return days.find((d: any) => d?.dayKey === activeDayKey) ?? null;
+        const days = (routineLikeWeek as { days?: Array<Record<string, unknown>> }).days ?? [];
+        return days.find((d) => d?.dayKey === activeDayKey) ?? null;
     }, [routineLikeWeek, activeDayKey]);
 
-    const exerciseIds = React.useMemo(() => {
+    const exercisesList = React.useMemo<ExerciseItem[]>(() => {
         const ex = plannedDay?.exercises;
         if (!Array.isArray(ex)) return [];
-        return ex.map((e: any) => String(e?.id ?? "")).filter(Boolean);
+
+        return ex.map((e, index) => ({
+            id: String(e?.id ?? `idx_${index}`),
+            name: String(e?.name ?? ""),
+            sets: e?.sets != null ? String(e.sets) : undefined,
+            reps: typeof e?.reps === "string" ? e.reps : e?.reps != null ? String(e.reps) : undefined,
+            rpe: e?.rpe != null ? String(e.rpe) : undefined,
+            load: e?.load != null ? String(e.load) : undefined,
+            notes: typeof e?.notes === "string" ? e.notes : undefined,
+            attachmentPublicIds: Array.isArray(e?.attachmentPublicIds) ? e.attachmentPublicIds : undefined,
+            movementId: e?.movementId != null ? String(e.movementId) : undefined,
+            movementName: e?.movementName != null ? String(e.movementName) : undefined,
+        }));
     }, [plannedDay]);
+
+    const exerciseIds = React.useMemo(() => exercisesList.map((e) => e.id).filter(Boolean), [exercisesList]);
 
     const exerciseNameById = React.useMemo(() => {
         const map: Record<string, string> = {};
-        const ex = plannedDay?.exercises;
-        if (!Array.isArray(ex)) return map;
-
-        for (const e of ex) {
-            const id = String(e?.id ?? "").trim();
-            if (!id) continue;
-            const name = String(e?.name ?? "").trim();
-            if (name) map[id] = name;
+        for (const e of exercisesList) {
+            if (e.id) map[e.id] = String(e.name ?? "").trim();
         }
         return map;
-    }, [plannedDay]);
+    }, [exercisesList]);
 
     const exercisePlanById = React.useMemo(() => {
         const map: Record<string, ExercisePlanInfo> = {};
-        const ex = plannedDay?.exercises;
-        if (!Array.isArray(ex)) return map;
+        for (const e of exercisesList) {
+            if (!e.id) continue;
 
-        for (const e of ex) {
-            const id = String(e?.id ?? "").trim();
-            if (!id) continue;
-
-            map[id] = {
-                sets: e?.sets ?? null,
-                reps: typeof e?.reps === "string" ? e.reps : e?.reps != null ? String(e.reps) : null,
-                rpe: e?.rpe ?? null,
-                load: e?.load ?? null,
-                notes: typeof e?.notes === "string" ? e.notes : null,
+            map[e.id] = {
+                sets: e.sets ?? null,
+                reps: e.reps ?? null,
+                rpe: e.rpe ?? null,
+                load: e.load ?? null,
+                notes: e.notes ?? null,
             };
         }
-
         return map;
-    }, [plannedDay]);
+    }, [exercisesList]);
 
-    const remoteDay = weekDays[activeDayKey] ?? null;
-
-    const [gymCheckSessionExists, setGymCheckSessionExists] = React.useState<boolean>(false);
     React.useEffect(() => {
-        setGymCheckSessionExists(remoteDay ? hasGymCheckSession(remoteDay) : false);
-    }, [remoteDay?.id, remoteDay?.updatedAt, weekKey, activeDayKey]);
+        if (!activeDay || exercisesList.length === 0) return;
 
-    async function refreshRoutineMediaMap() {
-        try {
-            const feed = await getMedia({ source: "routine", weekKey, limit: 200 });
-            const items = Array.isArray(feed?.items) ? feed.items : [];
-            setAttachmentByPublicId(buildAttachmentByPublicIdFromMediaItems(items));
-        } catch {
-            setAttachmentByPublicId((prev) => prev ?? new Map());
+        gym.hydrateDayFromWorkoutDay({
+            dayKey: activeDayKey,
+            workoutDay: activeDay,
+            plannedExercises: exercisesList,
+        });
+    }, [activeDay, activeDayKey, exercisesList, gym]);
+
+    // Resolve media list for the week (routine attachments uploaded by trainee)
+    React.useEffect(() => {
+        let alive = true;
+
+        async function run() {
+            try {
+                const net = await NetInfo.fetch();
+                if (!net.isConnected) {
+                    if (!alive) return;
+                    setAttachmentByPublicId(new Map());
+                    return;
+                }
+
+                const res = await getMedia({
+                    source: "routine",
+                    weekKey,
+                    limit: 200,
+                });
+
+                if (!alive) return;
+                const items = Array.isArray(res.items) ? res.items : [];
+                setAttachmentByPublicId(buildAttachmentByPublicIdFromMediaItems(items));
+            } catch {
+                if (!alive) return;
+                setAttachmentByPublicId(new Map());
+            }
         }
-    }
 
-    async function onUploadExerciseFiles(args: { exerciseId: string; files: RNFile[] }) {
+        void run();
+        return () => {
+            alive = false;
+        };
+    }, [weekKey]);
+
+    async function uploadExerciseFiles(args: { exerciseId: string; files: RNFile[] }) {
         if (!args.files.length) return;
 
-        const net = await NetInfo.fetch();
-        if (!net.isConnected) {
-            Alert.alert("Sin internet", "Para subir media necesitas conexión.");
-            return;
-        }
-
         try {
-            await uploadMutation.mutateAsync({ files: args.files, query: {} });
-            await refreshRoutineMediaMap();
+            const query: UploadQuery = {};
+            await uploadMutation.mutateAsync({ files: args.files, query });
 
-            Alert.alert("Listo", "Media subida ✅");
-        } catch (e: any) {
-            Alert.alert("Error", e?.message ?? "No se pudo subir media.");
+            const res = await getMedia({
+                source: "routine",
+                weekKey,
+                limit: 200,
+            });
+
+            const items = Array.isArray(res.items) ? res.items : [];
+            const map = buildAttachmentByPublicIdFromMediaItems(items);
+            setAttachmentByPublicId(map);
+
+            const latestIds = items
+                .map((item) => String(item?.publicId ?? "").trim())
+                .filter(Boolean)
+                .slice(0, args.files.length);
+
+            for (const publicId of latestIds) {
+                gym.addExerciseMediaPublicId(activeDayKey, args.exerciseId, publicId);
+            }
+
+            Alert.alert("Listo", "Media subida y ligada al ejercicio.");
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "No se pudo subir media.";
+            Alert.alert("Error", message);
         }
     }
 
     async function onCreateRealSession() {
+        if (!activeDay || exercisesList.length === 0) {
+            Alert.alert("Error", "Este día no tiene ejercicios planeados.");
+            return;
+        }
+
         const date = dayKeyToDateIso(weekKey, activeDayKey);
         if (!date) {
-            Alert.alert("Error", "No se pudo determinar la fecha del día activo.");
+            Alert.alert("Error", "No se pudo calcular la fecha del día.");
             return;
         }
-
-        const net = await NetInfo.fetch();
-        if (!net.isConnected) {
-            Alert.alert("Sin internet", "Para crear/actualizar la sesión necesitas conexión.");
-            return;
-        }
-
-        const wasExisting = gymCheckSessionExists;
 
         try {
-            // For trainee, we don't sync routine week to DB.
-            // We only create/patch the actual session using local gym check state + plannedRoutine display data.
+            const net = await NetInfo.fetch();
+            if (!net.isConnected) {
+                Alert.alert("Sin internet", "Necesitas conexión para crear o actualizar la sesión.");
+                return;
+            }
 
-            const gymDayAfter = gym.getDay(activeDayKey);
+            const dayAfterCommit = gym.getDay(activeDayKey);
+
+            const payload = buildGymCheckSessionPayload({
+                gymDay: dayAfterCommit,
+                plan: {
+                    dayKey: activeDayKey,
+                    sessionType: typeof plannedDay?.sessionType === "string" ? plannedDay.sessionType : undefined,
+                    focus: typeof plannedDay?.focus === "string" ? plannedDay.focus : undefined,
+                    notes: typeof plannedDay?.notes === "string" ? plannedDay.notes : undefined,
+                    tags: Array.isArray(plannedDay?.tags) ? plannedDay.tags : undefined,
+                    exercises: exercisesList,
+                },
+                fallbackType: "Workout",
+            });
+
+            if (!payload) {
+                Alert.alert("Error", "Marca al menos un ejercicio como hecho para crear la sesión.");
+                return;
+            }
 
             const attachMediaItems = buildAttachMediaItemsFromGymDay({
-                gymDay: gymDayAfter,
+                gymDay: dayAfterCommit,
                 attachmentByPublicId,
             });
 
-            const durationSeconds = parseDurationMinutesToSeconds(gymDayAfter?.durationMin);
-            const notes = typeof gymDayAfter?.notes === "string" ? gymDayAfter.notes : null;
-
-            const type =
-                typeof plannedDay?.sessionType === "string" && plannedDay.sessionType.trim()
-                    ? plannedDay.sessionType.trim()
-                    : "Entrenamiento";
-
-            const m = gymDayAfter?.metrics ?? {};
-
-            const payload: CreateSessionBody = {
-                type,
-                durationSeconds: typeof durationSeconds === "number" ? durationSeconds : null,
-                notes,
-
-                startAt: toStringOrNull(m.startAt),
-                endAt: toStringOrNull(m.endAt),
-
-                activeKcal: toNumberOrNull(m.activeKcal),
-                totalKcal: toNumberOrNull(m.totalKcal),
-
-                avgHr: toIntOrNull(m.avgHr),
-                maxHr: toIntOrNull(m.maxHr),
-
-                distanceKm: toNumberOrNull(m.distanceKm),
-                steps: toIntOrNull(m.steps),
-                elevationGainM: toNumberOrNull(m.elevationGainM),
-
-                paceSecPerKm: toIntOrNull(m.paceSecPerKm),
-                cadenceRpm: toIntOrNull(m.cadenceRpm),
-
-                effortRpe: toNumberOrNull(m.effortRpe),
-
-                meta: {
-                    sessionKey: "gym_check",
-                    trainingSource: toStringOrNull(m.trainingSource),
-                    dayEffortRpe: toNumberOrNull(m.dayEffortRpe),
-                },
-            };
-
-            const upserted = await createSessionMutation.mutateAsync({
+            const result = await createSessionMutation.mutateAsync({
                 date,
                 payload,
                 attachMediaItems,
                 weekKey,
             });
 
-            Alert.alert("Listo", upserted.mode === "patched" ? "Sesión actualizada ✅" : "Sesión creada ✅");
-
-            // Refresh remote day to update gym_check session exists
-            try {
-                const day = await getWorkoutDay(date);
-                setWeekDays((prev) => ({ ...prev, [activeDayKey]: day as WorkoutDay }));
-                setGymCheckSessionExists(hasGymCheckSession(day));
-            } catch {
-                setGymCheckSessionExists(true);
-            }
-        } catch (e: any) {
             Alert.alert(
-                "Error",
-                e?.message ?? (wasExisting ? "No se pudo actualizar la sesión." : "No se pudo crear la sesión.")
+                "Listo",
+                result.mode === "patched"
+                    ? "Sesión real actualizada."
+                    : "Sesión real creada."
             );
+
+            const freshDay = await getWorkoutDay(date);
+            setWeekDays((prev) => ({
+                ...prev,
+                [activeDayKey]: freshDay,
+            }));
+
+            gym.hydrateDayFromWorkoutDay({
+                dayKey: activeDayKey,
+                workoutDay: freshDay,
+                plannedExercises: exercisesList,
+            });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "No se pudo crear la sesión.";
+            Alert.alert("Error", message);
         }
     }
 
-    async function onResetWeekLocal() {
-        Alert.alert("Reset", "¿Borrar progreso local de esta semana?", [
-            { text: "Cancelar", style: "cancel" },
-            {
-                text: "Reset",
-                style: "destructive",
-                onPress: () => gym.resetWeek(),
-            },
-        ]);
-    }
-
-    const busy =
-        weekLoading ||
-        uploadMutation.isPending ||
-        createSessionMutation.isPending ||
-        !gym.hydrated;
-
-    const createSessionLabel = gymCheckSessionExists ? "Actualizar la Sesión" : "Crear sesión del Día";
-
-    const hasPlanToday = Boolean(remoteDay?.plannedRoutine);
-    const plannedExercisesCount = Array.isArray(remoteDay?.plannedRoutine?.exercises)
-        ? remoteDay!.plannedRoutine!.exercises!.length
-        : 0;
-
-    const showNoPlan =
-        !hasPlanToday || plannedExercisesCount <= 0;
+    const canGoPrev = shiftDateIsoByDays(anchorDateIso, -7) !== null;
+    const canGoNext = shiftDateIsoByDays(anchorDateIso, 7) !== null;
 
     return (
-        <ScrollView
-            style={{ flex: 1, backgroundColor: colors.background }}
-            contentContainerStyle={{ padding: 16, gap: 12 }}
-        >
-            <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>Gym Check</Text>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16, gap: 16 }}>
+            <View style={{ gap: 8 }}>
+                <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Gym Check</Text>
                 <Text style={{ color: colors.mutedText }}>
                     Plan asignado por tu entrenador + checklist + métricas
                 </Text>
-                <Text style={{ color: colors.mutedText }}>
-                    Semana: <Text style={{ fontFamily: "Menlo", color: colors.text }}>{weekKey}</Text>
-                </Text>
             </View>
 
-            <View style={{ flexDirection: "row", gap: 10 }}>
-                <Pressable
-                    disabled={busy}
-                    onPress={() => {
-                        const next = shiftDateIsoByDays(anchorDateIso, -7);
-                        if (next) setAnchorDateIso(next);
-                    }}
-                    style={{
-                        flex: 1,
-                        padding: 12,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                        opacity: busy ? 0.5 : 1,
-                    }}
-                >
-                    <Text style={{ fontWeight: "800", textAlign: "center", color: colors.text }}>← Semana</Text>
-                </Pressable>
+            <View
+                style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 14,
+                    backgroundColor: colors.surface,
+                    padding: 12,
+                    gap: 12,
+                }}
+            >
+                <Text style={{ fontWeight: "900", color: colors.text }}>Semana</Text>
 
-                <Pressable
-                    disabled={busy}
-                    onPress={() => {
-                        const next = shiftDateIsoByDays(anchorDateIso, 7);
-                        if (next) setAnchorDateIso(next);
-                    }}
-                    style={{
-                        flex: 1,
-                        padding: 12,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                        opacity: busy ? 0.5 : 1,
-                    }}
-                >
-                    <Text style={{ fontWeight: "800", textAlign: "center", color: colors.text }}>Semana →</Text>
-                </Pressable>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                    <Pressable
+                        disabled={!canGoPrev}
+                        onPress={() => {
+                            const next = shiftDateIsoByDays(anchorDateIso, -7);
+                            if (next) setAnchorDateIso(next);
+                        }}
+                        style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                            opacity: canGoPrev ? 1 : 0.5,
+                        }}
+                    >
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>←</Text>
+                    </Pressable>
+
+                    <View
+                        style={{
+                            flex: 1,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            borderRadius: 10,
+                            backgroundColor: colors.background,
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            justifyContent: "center",
+                        }}
+                    >
+                        <Text style={{ color: colors.text, fontWeight: "700" }}>{weekKey}</Text>
+                    </View>
+
+                    <Pressable
+                        disabled={!canGoNext}
+                        onPress={() => {
+                            const next = shiftDateIsoByDays(anchorDateIso, 7);
+                            if (next) setAnchorDateIso(next);
+                        }}
+                        style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                            opacity: canGoNext ? 1 : 0.5,
+                        }}
+                    >
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>→</Text>
+                    </Pressable>
+                </View>
+
+                <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+                    {availableDayKeys.map((k) => {
+                        const active = activeDayKey === k;
+
+                        return (
+                            <Pressable
+                                key={k}
+                                onPress={() => setActiveDayKey(k)}
+                                style={{
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 10,
+                                    borderRadius: 999,
+                                    borderWidth: 1,
+                                    borderColor: active ? colors.primary : colors.border,
+                                    backgroundColor: active ? `${colors.primary}22` : colors.background,
+                                }}
+                            >
+                                <Text style={{ color: active ? colors.primary : colors.text, fontWeight: "900" }}>
+                                    {dayLabelEs(k)}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+
+                <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+                    <Pressable
+                        onPress={() => {
+                            void onCreateRealSession();
+                        }}
+                        disabled={createSessionMutation.isPending}
+                        style={{
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderRadius: 12,
+                            backgroundColor: colors.primary,
+                            opacity: createSessionMutation.isPending ? 0.7 : 1,
+                        }}
+                    >
+                        <Text style={{ color: "#fff", fontWeight: "900" }}>
+                            {gymCheckSessionExists ? "Actualizar sesión" : "Crear sesión"}
+                        </Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => gym.resetWeek()}
+                        style={{
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                        }}
+                    >
+                        <Text style={{ color: colors.text, fontWeight: "900" }}>Reset local</Text>
+                    </Pressable>
+                </View>
             </View>
 
-            {weekLoading ? (
-                <View style={{ paddingVertical: 24, alignItems: "center", justifyContent: "center", gap: 10 }}>
+            {weekLoading || !gym.hydrated ? (
+                <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 24, gap: 10 }}>
                     <ActivityIndicator />
-                    <Text style={{ color: colors.mutedText }}>Cargando semana...</Text>
+                    <Text style={{ color: colors.mutedText }}>Cargando semana…</Text>
                 </View>
             ) : weekError ? (
-                <View style={{ paddingVertical: 12, gap: 6 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>
-                        No se pudo cargar la semana.
-                    </Text>
+                <View
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 14,
+                        padding: 16,
+                        backgroundColor: colors.surface,
+                    }}
+                >
+                    <Text style={{ color: colors.text, fontWeight: "900", marginBottom: 6 }}>Error</Text>
                     <Text style={{ color: colors.mutedText }}>{weekError}</Text>
                 </View>
+            ) : !activeDay?.plannedRoutine ? (
+                <View
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 14,
+                        padding: 16,
+                        backgroundColor: colors.surface,
+                    }}
+                >
+                    <Text style={{ color: colors.text, fontWeight: "900", marginBottom: 6 }}>Sin plan asignado</Text>
+                    <Text style={{ color: colors.mutedText }}>
+                        Este día no tiene plannedRoutine asignado.
+                    </Text>
+                </View>
             ) : (
-                <>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        {availableDayKeys.map((k) => {
-                            const active = k === activeDayKey;
-                            return (
-                                <Pressable
-                                    key={k}
-                                    onPress={() => setActiveDayKey(k)}
-                                    style={{
-                                        paddingHorizontal: 12,
-                                        paddingVertical: 8,
-                                        borderRadius: 999,
-                                        borderWidth: 1,
-                                        borderColor: active ? colors.primary : colors.border,
-                                        backgroundColor: active ? colors.primary : "transparent",
-                                    }}
-                                >
-                                    <Text style={{ fontWeight: "800", color: active ? colors.primaryText : colors.text }}>
-                                        {dayLabelEs(k)}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-
-                    {showNoPlan ? (
-                        <View
-                            style={{
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                                backgroundColor: colors.surface,
-                                borderRadius: 16,
-                                padding: 14,
-                                gap: 6,
-                            }}
-                        >
-                            <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Sin plan asignado</Text>
-                            <Text style={{ color: colors.mutedText }}>
-                                Este día no tiene ejercicios planeados por tu entrenador.
-                            </Text>
-                        </View>
-                    ) : (
-                        <GymCheckDayScreen
-                            weekKey={weekKey}
-                            dayKey={activeDayKey}
-                            routine={routineLikeWeek as unknown as WorkoutRoutineWeek}
-                            attachmentByPublicId={attachmentByPublicId}
-                            exerciseIds={exerciseIds}
-                            exerciseNameById={exerciseNameById}
-                            exercisePlanById={exercisePlanById}
-                            uploading={uploadMutation.isPending}
-                            onUploadExerciseFiles={onUploadExerciseFiles}
-                            gym={gym}
-                        />
-                    )}
-
-                    <View style={{ gap: 10 }}>
-                        <Pressable
-                            disabled={busy || showNoPlan}
-                            onPress={onCreateRealSession}
-                            style={{
-                                padding: 14,
-                                borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                                backgroundColor: colors.surface,
-                                opacity: busy || showNoPlan ? 0.6 : 1,
-                            }}
-                        >
-                            <Text style={{ fontWeight: "800", textAlign: "center", color: colors.text }}>
-                                {createSessionLabel}
-                            </Text>
-                        </Pressable>
-
-                        <Pressable
-                            disabled={busy}
-                            onPress={onResetWeekLocal}
-                            style={{
-                                padding: 14,
-                                borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                                backgroundColor: colors.surface,
-                                opacity: busy ? 0.6 : 1,
-                            }}
-                        >
-                            <Text style={{ fontWeight: "800", textAlign: "center", color: colors.text }}>
-                                Reset semana (local)
-                            </Text>
-                        </Pressable>
-                    </View>
-                </>
+                <GymCheckDayScreen
+                    weekKey={weekKey}
+                    dayKey={activeDayKey}
+                    routine={routineLikeWeek}
+                    attachmentByPublicId={attachmentByPublicId}
+                    exerciseIds={exerciseIds}
+                    exerciseNameById={exerciseNameById}
+                    exercisePlanById={exercisePlanById}
+                    uploading={uploadMutation.isPending}
+                    onUploadExerciseFiles={uploadExerciseFiles}
+                    gym={gym}
+                />
             )}
         </ScrollView>
     );

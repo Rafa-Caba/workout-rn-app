@@ -1,4 +1,14 @@
 // src/features/daySummary/screens/DayDetailScreen.tsx
+
+/**
+ * DayDetailScreen
+ *
+ * Main entry for the day detail module.
+ * It switches between:
+ * - Resumen
+ * - Día
+ */
+
 import { format } from "date-fns";
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -16,8 +26,10 @@ type TabKey = "summary" | "day";
 
 function safeParseIsoDate(isoDate: string): Date | null {
     if (!isoDate) return null;
+
     const dt = new Date(`${isoDate}T00:00:00`);
     if (Number.isNaN(dt.getTime())) return null;
+
     return dt;
 }
 
@@ -25,9 +37,6 @@ function formatDayHeader(isoDate: string): { short: string; long: string } {
     const dt = safeParseIsoDate(isoDate);
     if (!dt) return { short: "—", long: "—" };
 
-    // Requested formats:
-    // - DD-MM-YYYY
-    // - "Feb 01, 2026" style
     const short = format(dt, "dd-MM-yyyy");
     const long = format(dt, "MMM dd, yyyy");
 
@@ -57,7 +66,12 @@ export function DayDetailScreen({ date }: Props) {
                         onPress={() => setTab("summary")}
                         colors={colors}
                     />
-                    <SegmentButton active={tab === "day"} title="Día" onPress={() => setTab("day")} colors={colors} />
+                    <SegmentButton
+                        active={tab === "day"}
+                        title="Día"
+                        onPress={() => setTab("day")}
+                        colors={colors}
+                    />
                 </View>
             </View>
 
@@ -114,7 +128,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 2,
         alignItems: "center",
-        gap: 5
+        gap: 5,
     },
     segmentBtn: {
         paddingHorizontal: 12,

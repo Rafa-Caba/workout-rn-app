@@ -1,16 +1,34 @@
+// src/hooks/workout/useWorkoutDay.ts
+
 import { useQuery } from "@tanstack/react-query";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
 import type { WorkoutDay } from "@/src/types/workoutDay.types";
 
-function toStatus(e: any): number | null {
-    return e?.status ?? e?.response?.status ?? null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readNumericStatus(value: unknown): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function toStatus(error: unknown): number | null {
+    if (!isRecord(error)) return null;
+
+    const directStatus = readNumericStatus(error.status);
+    if (directStatus !== null) return directStatus;
+
+    const response = error.response;
+    if (!isRecord(response)) return null;
+
+    return readNumericStatus(response.status);
 }
 
 /**
  * Returns WorkoutDay | null.
- * - If backend returns missing day (404), we return null (not an error crash).
+ * - If backend returns missing day (404), we return null instead of crashing the screen.
  * - Compatible signature:
  *    useWorkoutDay(date)
  *    useWorkoutDay(date, enabled)
@@ -25,9 +43,9 @@ export function useWorkoutDay(date: string | null, enabled: boolean = true) {
 
             try {
                 return await getWorkoutDayServ(date);
-            } catch (e: any) {
-                if (toStatus(e) === 404) return null;
-                throw e;
+            } catch (error: unknown) {
+                if (toStatus(error) === 404) return null;
+                throw error;
             }
         },
         enabled: isEnabled,
