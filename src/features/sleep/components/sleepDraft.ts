@@ -1,4 +1,4 @@
-// src/features/sleep/components/sleepDraft.ts
+// /src/features/sleep/components/sleepDraft.ts
 import type { SleepBlock } from "@/src/types/workoutDay.types";
 
 export type SleepDraft = {
@@ -12,24 +12,37 @@ export type SleepDraft = {
     deepMinutes: string;
 
     source: string | null;
+    sourceDevice: string;
 };
 
 function toStr(n: number | null | undefined): string {
     return typeof n === "number" && Number.isFinite(n) ? String(n) : "";
 }
 
+function toNullableString(value: string | null | undefined): string {
+    return typeof value === "string" ? value : "";
+}
+
 function coerceNullableInt(v: string): number | null {
     const s = String(v ?? "").trim();
     if (!s) return null;
+
     const n = Number(s);
     if (!Number.isFinite(n)) return null;
+
     return Math.max(0, Math.trunc(n));
 }
 
 function coerceNullableScore(v: string): number | null {
     const n = coerceNullableInt(v);
     if (n === null) return null;
+
     return Math.max(0, Math.min(100, n));
+}
+
+function coerceNullableString(v: string): string | null {
+    const s = String(v ?? "").trim();
+    return s.length ? s : null;
 }
 
 export function toSleepDraft(sleep: SleepBlock | null): SleepDraft {
@@ -44,6 +57,7 @@ export function toSleepDraft(sleep: SleepBlock | null): SleepDraft {
         deepMinutes: toStr(sleep?.deepMinutes),
 
         source: sleep?.source ?? null,
+        sourceDevice: toNullableString(sleep?.sourceDevice),
     };
 }
 
@@ -59,6 +73,9 @@ export function normalizeSleepDraft(d: SleepDraft): SleepBlock {
         deepMinutes: coerceNullableInt(d.deepMinutes),
 
         source: typeof d.source === "string" ? (d.source.trim() ? d.source.trim() : null) : null,
+        sourceDevice: coerceNullableString(d.sourceDevice),
+        importedAt: null,
+        lastSyncedAt: null,
         raw: null,
     };
 }

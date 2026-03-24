@@ -1,4 +1,4 @@
-// src/features/daySummary/screens/DayTrainingSessionSleepDetailsScreen.tsx
+// src/features/daySummary/components/DayTrainingSessionSleepDetailsScreen.tsx
 
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";

@@ -17,6 +17,7 @@ import {
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { weekKeyFromIso } from "@/src/utils/dashboard/date";
+import { toastSuccess } from "@/src/utils/toast";
 
 type ISODate = `${number}-${string}-${string}`;
 
@@ -35,16 +36,19 @@ function ActionButton(props: {
     return (
         <Pressable
             onPress={props.onPress}
-            style={{
+            style={({ pressed }) => ({
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor: colors.border,
                 backgroundColor: colors.surface,
-            }}
+                opacity: pressed ? 0.82 : 1,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+            })}
         >
             <Text style={{ fontWeight: "900", color: colors.text }}>{props.title}</Text>
+
             {props.subtitle ? (
                 <Text style={{ color: colors.mutedText, marginTop: 2 }}>{props.subtitle}</Text>
             ) : null}
@@ -65,10 +69,12 @@ function DayCell(props: {
     return (
         <Pressable
             onPress={iso ? onPress : undefined}
-            style={{
+            style={({ pressed }) => ({
                 width: "14.2857%",
                 padding: 6,
-            }}
+                opacity: pressed ? 0.82 : 1,
+                transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
         >
             <View
                 style={{
@@ -82,12 +88,23 @@ function DayCell(props: {
                     justifyContent: "center",
                 }}
             >
-                <Text style={{ fontWeight: "900", color: isToday ? colors.primaryText : colors.text }}>
+                <Text
+                    style={{
+                        fontWeight: "900",
+                        color: isToday ? colors.primaryText : colors.text,
+                    }}
+                >
                     {label}
                 </Text>
 
                 {iso ? (
-                    <Text style={{ fontSize: 10, color: isToday ? colors.primaryText : colors.mutedText, marginTop: 1 }}>
+                    <Text
+                        style={{
+                            fontSize: 10,
+                            color: isToday ? colors.primaryText : colors.mutedText,
+                            marginTop: 1,
+                        }}
+                    >
                         {iso.slice(8, 10)}
                     </Text>
                 ) : null}
@@ -109,10 +126,19 @@ export default function CalendarMonthRoute() {
     const monthStart = React.useMemo(() => startOfMonth(cursor), [cursor]);
     const monthEnd = React.useMemo(() => endOfMonth(cursor), [cursor]);
 
-    const gridStart = React.useMemo(() => startOfWeek(monthStart, { weekStartsOn: 1 }), [monthStart]);
-    const gridEnd = React.useMemo(() => endOfWeek(monthEnd, { weekStartsOn: 1 }), [monthEnd]);
+    const gridStart = React.useMemo(
+        () => startOfWeek(monthStart, { weekStartsOn: 1 }),
+        [monthStart]
+    );
+    const gridEnd = React.useMemo(
+        () => endOfWeek(monthEnd, { weekStartsOn: 1 }),
+        [monthEnd]
+    );
 
-    const days = React.useMemo(() => eachDayOfInterval({ start: gridStart, end: gridEnd }), [gridStart, gridEnd]);
+    const days = React.useMemo(
+        () => eachDayOfInterval({ start: gridStart, end: gridEnd }),
+        [gridStart, gridEnd]
+    );
 
     const dayLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -120,7 +146,45 @@ export default function CalendarMonthRoute() {
 
     function openDay(date: Date) {
         const iso = format(date, "yyyy-MM-dd") as ISODate;
-        router.push(`/(app)/calendar/day/${iso}` as any);
+        toastSuccess("Abriendo día", `Cargando resumen del ${iso}.`);
+        router.push({
+            pathname: "/(app)/calendar/day/[date]",
+            params: { date: iso },
+        });
+    }
+
+    function openRoutines() {
+        toastSuccess("Abriendo rutinas", "Ya puedes ver y editar semanas de rutina.");
+        router.push("/(app)/calendar/routines");
+    }
+
+    function openGymCheck() {
+        toastSuccess("Abriendo Gym Check", "Entrando al selector semanal de Gym Check.");
+        router.push("/(app)/calendar/gym-check");
+    }
+
+    function openTodaySummary() {
+        toastSuccess("Abriendo resumen del día", `Cargando el día ${todayIso}.`);
+        router.push({
+            pathname: "/(app)/calendar/day/[date]",
+            params: { date: todayIso },
+        });
+    }
+
+    function openWeekSummary() {
+        toastSuccess("Abriendo resumen semanal", `Cargando la semana ${weekKey}.`);
+        router.push({
+            pathname: "/(app)/calendar/weekView/[weekKey]",
+            params: { weekKey },
+        });
+    }
+
+    function openHealthBackfill() {
+        toastSuccess(
+            "Abriendo Health Backfill",
+            "Ya puedes importar histórico por día o por rango."
+        );
+        router.push("/calendar/health-backfill");
     }
 
     return (
@@ -129,11 +193,14 @@ export default function CalendarMonthRoute() {
             contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Calendario</Text>
-                <Text style={{ color: colors.mutedText }}>Mes actual + accesos reales</Text>
+                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                    Calendario
+                </Text>
+                <Text style={{ color: colors.mutedText }}>
+                    Mes actual + accesos reales
+                </Text>
             </View>
 
-            {/* Quick navigation (real) */}
             <View
                 style={{
                     borderWidth: 1,
@@ -150,32 +217,38 @@ export default function CalendarMonthRoute() {
                     colors={colors}
                     title="Rutinas"
                     subtitle="Ver semanas, cargar/editar rutina"
-                    onPress={() => router.push("/(app)/calendar/routines" as any)}
+                    onPress={openRoutines}
                 />
 
                 <ActionButton
                     colors={colors}
                     title="Gym Check"
                     subtitle="Selector de semana + tabs de días"
-                    onPress={() => router.push("/(app)/calendar/gym-check" as any)}
+                    onPress={openGymCheck}
                 />
 
                 <ActionButton
                     colors={colors}
                     title={`Resumen Día (${todayIso})`}
                     subtitle="Resumen de la Sesión Gym y Sueño"
-                    onPress={() => router.push(`/(app)/calendar/day/${todayIso}` as any)}
+                    onPress={openTodaySummary}
                 />
 
                 <ActionButton
                     colors={colors}
                     title="Resumen Semanal"
                     subtitle="Resumen de toda la semana de Sueño y Training."
-                    onPress={() => router.push(`/(app)/calendar/weekView/${weekKey}` as any)}
+                    onPress={openWeekSummary}
+                />
+
+                <ActionButton
+                    colors={colors}
+                    title="Health Backfill"
+                    subtitle="Importar histórico por día o por rango desde HealthKit / Health Connect."
+                    onPress={openHealthBackfill}
                 />
             </View>
 
-            {/* Month calendar */}
             <View
                 style={{
                     borderWidth: 1,
@@ -186,33 +259,46 @@ export default function CalendarMonthRoute() {
                     gap: 10,
                 }}
             >
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <View
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                    }}
+                >
                     <Pressable
                         onPress={() => setCursor((d) => addMonths(d, -1))}
-                        style={{
+                        style={({ pressed }) => ({
                             borderWidth: 1,
                             borderColor: colors.border,
                             borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 10,
                             backgroundColor: colors.surface,
-                        }}
+                            opacity: pressed ? 0.82 : 1,
+                            transform: [{ scale: pressed ? 0.97 : 1 }],
+                        })}
                     >
                         <Text style={{ fontWeight: "900", color: colors.text }}>←</Text>
                     </Pressable>
 
-                    <Text style={{ fontWeight: "900", fontSize: 16, color: colors.text }}>{headerTitle}</Text>
+                    <Text style={{ fontWeight: "900", fontSize: 16, color: colors.text }}>
+                        {headerTitle}
+                    </Text>
 
                     <Pressable
                         onPress={() => setCursor((d) => addMonths(d, 1))}
-                        style={{
+                        style={({ pressed }) => ({
                             borderWidth: 1,
                             borderColor: colors.border,
                             borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 10,
                             backgroundColor: colors.surface,
-                        }}
+                            opacity: pressed ? 0.82 : 1,
+                            transform: [{ scale: pressed ? 0.97 : 1 }],
+                        })}
                     >
                         <Text style={{ fontWeight: "900", color: colors.text }}>→</Text>
                     </Pressable>
@@ -220,8 +306,23 @@ export default function CalendarMonthRoute() {
 
                 <View style={{ flexDirection: "row" }}>
                     {dayLabels.map((d) => (
-                        <View key={d} style={{ width: "14.2857%", paddingVertical: 6, alignItems: "center" }}>
-                            <Text style={{ fontSize: 12, fontWeight: "900", color: colors.mutedText }}>{d}</Text>
+                        <View
+                            key={d}
+                            style={{
+                                width: "14.2857%",
+                                paddingVertical: 6,
+                                alignItems: "center",
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: "900",
+                                    color: colors.mutedText,
+                                }}
+                            >
+                                {d}
+                            </Text>
                         </View>
                     ))}
                 </View>

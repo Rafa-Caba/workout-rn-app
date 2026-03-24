@@ -6,10 +6,33 @@
  */
 
 /**
- * Canonical date keys (added to match BE types & trainer module)
+ * Canonical date keys
  */
 export type ISODate = string; // "YYYY-MM-DD"
+export type ISODateTime = string; // ISO datetime
 export type WeekKey = string; // "YYYY-W##"
+
+/**
+ * =========================================================
+ * Health / source helpers
+ * =========================================================
+ */
+
+export type WorkoutDataSource = "manual" | "healthkit" | "health-connect";
+
+export type WorkoutSessionKind = "device-import" | "gym-check";
+
+/**
+ * Keep broad string support because device names may vary:
+ * - "Apple Watch"
+ * - "iPhone"
+ * - "Samsung Watch"
+ * - "Pixel Watch"
+ * - etc.
+ */
+export type WorkoutSourceDevice = string;
+
+export type UpsertMode = "merge" | "replace";
 
 /**
  * =========================================================
@@ -29,23 +52,18 @@ export type WorkoutMediaItem = {
     url: string;
     resourceType: WorkoutMediaResourceType;
     format: string | null;
-    createdAt: string; // ISO datetime string
-
-    // BE uses Record<string, unknown> | null; keep safe but more precise than unknown.
+    createdAt: ISODateTime;
     meta: Record<string, unknown> | null;
 };
 
 /**
  * =========================================================
- * Exercises (actual performed) (FE names preserved)
+ * Exercises (actual performed)
  * =========================================================
  */
 
-/**
- * Mirrors WorkoutExerciseSetSchema (embedded, _id: false)
- */
 export type WorkoutExerciseSet = {
-    setIndex: number; // min 1
+    setIndex: number;
 
     reps: number | null;
     weight: number | null;
@@ -62,50 +80,90 @@ export type WorkoutExerciseSet = {
 
     tags: string[] | null;
 
-    // BE uses Record<string, unknown> | null
     meta: Record<string, unknown> | null;
 };
 
 /**
- * Mirrors WorkoutExerciseSchema (embedded, _id: true, mapped to "id" in toJSON)
+ * Strongly typed plan and gym-check meta blocks
+ * based on the real document shape already used by the app.
  */
+export type WorkoutExerciseGymCheckMeta = {
+    done: boolean;
+    durationMin: number | null;
+    mediaPublicIds: string[] | null;
+    exerciseId: string | null;
+};
+
+export type WorkoutExercisePlanMeta = {
+    sets: string | null;
+    reps: string | null;
+    load: string | null;
+    rpe: string | null;
+    attachmentPublicIds: string[] | null;
+};
+
+export type WorkoutExerciseMeta = {
+    gymCheck?: WorkoutExerciseGymCheckMeta | null;
+    plan?: WorkoutExercisePlanMeta | null;
+} & Record<string, unknown>;
+
 export type WorkoutExercise = {
     id: string;
 
     name: string;
 
     movementId: string | null;
-
-    // Added to mirror BE public JSON types (trainer/week views expect it)
     movementName: string | null;
 
     notes: string | null;
 
-    // IMPORTANT:
-    // - null means "no block"
-    // - [] means explicitly empty
+    /**
+     * - null means "no block"
+     * - [] means explicitly empty
+     */
     sets: WorkoutExerciseSet[] | null;
 
-    // BE uses Record<string, unknown> | null
-    meta: Record<string, unknown> | null;
+    meta: WorkoutExerciseMeta | null;
 };
 
 /**
  * =========================================================
- * Training sessions & blocks (FE names preserved)
+ * Training sessions & blocks
  * =========================================================
  */
 
-/**
- * Mirrors WorkoutSessionSchema (embedded, _id: true, mapped to "id" in toJSON)
- */
+export type WorkoutSessionMeta = {
+    /**
+     * Existing keys used today
+     */
+    sessionKey?: string | null;
+    trainingSource?: string | null;
+    dayEffortRpe?: number | null;
+
+    /**
+     * New typed import/source fields
+     */
+    source?: WorkoutDataSource | null;
+    sourceDevice?: WorkoutSourceDevice | null;
+    importedAt?: ISODateTime | null;
+    lastSyncedAt?: ISODateTime | null;
+    sessionKind?: WorkoutSessionKind | null;
+
+    /**
+     * Useful import helpers kept flexible
+     */
+    externalId?: string | null;
+    originalType?: string | null;
+    provider?: string | null;
+} & Record<string, unknown>;
+
 export type WorkoutSession = {
     id: string;
 
     type: string;
 
-    startAt: string | null; // ISO datetime string
-    endAt: string | null; // ISO datetime string
+    startAt: ISODateTime | null;
+    endAt: ISODateTime | null;
 
     durationSeconds: number | null;
 
@@ -126,45 +184,27 @@ export type WorkoutSession = {
 
     notes: string | null;
 
-    /**
-     * BE schema: media default null
-     * BE public types (trainer/week) show MediaItem[] always in TrainingSession,
-     * but actual WorkoutDay JSON uses schema defaults.
-     * Keep FE as nullable array to preserve existing FE behavior.
-     */
     media: WorkoutMediaItem[] | null;
-
-    /**
-     * Exercises performed in THIS session
-     * BE schema: default null
-     */
     exercises: WorkoutExercise[] | null;
 
-    // BE uses Record<string, unknown> | null
-    meta: Record<string, unknown> | null;
+    meta: WorkoutSessionMeta | null;
 };
 
-/**
- * Mirrors TrainingBlockSchema (_id: false)
- */
 export type TrainingBlock = {
     sessions: WorkoutSession[] | null;
 
-    source: string | null; // maxlength 120
-    dayEffortRpe: number | null; // 1..10
+    source: WorkoutDataSource | null;
+    dayEffortRpe: number | null;
 
-    raw: unknown | null; // Schema.Types.Mixed
+    raw: unknown | null;
 };
 
 /**
  * =========================================================
- * Sleep (FE names preserved)
+ * Sleep
  * =========================================================
  */
 
-/**
- * Mirrors SleepBlockSchema (_id: false)
- */
 export type SleepBlock = {
     timeAsleepMinutes: number | null;
 
@@ -177,13 +217,21 @@ export type SleepBlock = {
     coreMinutes: number | null;
     deepMinutes: number | null;
 
-    source: string | null;
+    source: WorkoutDataSource | null;
+
+    /**
+     * Import/sync metadata
+     */
+    sourceDevice: WorkoutSourceDevice | null;
+    importedAt: ISODateTime | null;
+    lastSyncedAt: ISODateTime | null;
+
     raw: unknown | null;
 };
 
 /**
  * =========================================================
- * Planned routine (NEW in FE, keep names as introduced)
+ * Planned routine
  * =========================================================
  */
 
@@ -217,52 +265,45 @@ export type PlannedRoutine = {
 };
 
 export type PlannedMeta = {
-    plannedBy: string; // User id
-    plannedAt: string; // ISO datetime
+    plannedBy: string;
+    plannedAt: ISODateTime;
     source: PlannedRoutineSource | null;
 };
 
 /**
  * =========================================================
- * WorkoutDay doc (FE name preserved: WorkoutDay)
+ * WorkoutDay doc
  * =========================================================
  */
 
-/**
- * Mirrors WorkoutDaySchema (+ toJSON transform)
- */
+export type WorkoutDayMeta = Record<string, unknown> | null;
+
 export type WorkoutDay = {
     id: string;
 
-    // In DB it's always there; keep optional only if some endpoints omit it.
     userId?: string;
 
-    date: ISODate; // YYYY-MM-DD
-    weekKey: WeekKey; // e.g. 2026-W07
+    date: ISODate;
+    weekKey: WeekKey;
 
     sleep: SleepBlock | null;
-
-    // actual training
     training: TrainingBlock | null;
 
-    // planned routine (trainer/template-owned)
     plannedRoutine: PlannedRoutine | null;
     plannedMeta: PlannedMeta | null;
 
     notes: string | null;
     tags: string[] | null;
 
-    // BE uses Record<string, unknown> | null
-    meta: Record<string, unknown> | null;
+    meta: WorkoutDayMeta;
 
-    createdAt?: string; // timestamps
-    updatedAt?: string; // timestamps
+    createdAt?: ISODateTime;
+    updatedAt?: ISODateTime;
 };
 
 /**
  * =========================================================
- * Builders outputs (added for trainer/week services)
- * Keep names matching BE here (these are new to FE in most setups)
+ * Calendar / summary / view types
  * =========================================================
  */
 
@@ -314,7 +355,7 @@ export type SleepSummary = {
 };
 
 export type TrainingSummary = {
-    source: string | null;
+    source: WorkoutDataSource | null;
     dayEffortRpe: number | null;
     sessionsCount: number;
 };
@@ -328,17 +369,14 @@ export type CalendarDayFull = {
     hasTraining?: boolean;
 
     sleep?: SleepBlock | null;
-
-    // actual training
     training?: TrainingBlock | null;
 
-    // planned routine (optional in views)
     plannedRoutine?: PlannedRoutine | null;
     plannedMeta?: PlannedMeta | null;
 
     notes?: string | null;
     tags?: string[] | null;
-    meta?: Record<string, unknown> | null;
+    meta?: WorkoutDayMeta;
 
     sleepSummary?: SleepSummary | null;
     trainingSummary?: TrainingSummary | null;
@@ -396,7 +434,92 @@ export type WeekViewResponse = {
 
 /**
  * =========================================================
- * Service args (added to match BE)
+ * Upsert payload helpers
+ * =========================================================
+ */
+
+export type WorkoutExerciseSetUpsert = Partial<WorkoutExerciseSet>;
+
+export type WorkoutExerciseUpsert = Partial<Omit<WorkoutExercise, "id" | "sets">> & {
+    id?: string;
+    sets?: WorkoutExerciseSetUpsert[] | null;
+};
+
+export type WorkoutSessionUpsert = Partial<Omit<WorkoutSession, "id" | "exercises" | "media">> & {
+    id?: string;
+    media?: WorkoutMediaItem[] | null;
+    exercises?: WorkoutExerciseUpsert[] | null;
+};
+
+export type SleepBlockUpsert = Partial<SleepBlock>;
+
+export type TrainingBlockUpsert = Partial<Omit<TrainingBlock, "sessions">> & {
+    sessions?: WorkoutSessionUpsert[] | null;
+};
+
+export type PlannedRoutineExerciseUpsert = Partial<PlannedRoutineExercise> & {
+    id?: string;
+};
+
+export type PlannedRoutineUpsert = Partial<Omit<PlannedRoutine, "exercises">> & {
+    exercises?: PlannedRoutineExerciseUpsert[] | null;
+};
+
+export type PlannedMetaUpsert = Partial<PlannedMeta>;
+
+export type WorkoutDayUpsertBody = {
+    /**
+     * Kept optional only for compatibility with existing FE callers.
+     * Backend derives canonical date/weekKey from the route date.
+     */
+    date?: ISODate;
+    weekKey?: WeekKey;
+
+    sleep?: SleepBlockUpsert | null;
+    training?: TrainingBlockUpsert | null;
+
+    plannedRoutine?: PlannedRoutineUpsert | null;
+    plannedMeta?: PlannedMetaUpsert | null;
+
+    notes?: string | null;
+    tags?: string[] | null;
+    meta?: Record<string, unknown> | null;
+};
+
+/**
+ * =========================================================
+ * Historical backfill
+ * =========================================================
+ */
+
+export type WorkoutDayBackfillItem = {
+    date: ISODate;
+    payload: WorkoutDayUpsertBody;
+};
+
+export type WorkoutDayBackfillBody = {
+    mode: UpsertMode;
+    days: WorkoutDayBackfillItem[];
+};
+
+export type WorkoutDayBackfillItemResult = {
+    date: ISODate;
+    ok: boolean;
+    error: string | null;
+    day: WorkoutDay | Record<string, unknown> | null;
+};
+
+export type WorkoutDayBackfillResult = {
+    mode: UpsertMode;
+    total: number;
+    successCount: number;
+    failedCount: number;
+    results: WorkoutDayBackfillItemResult[];
+};
+
+/**
+ * =========================================================
+ * Service args
  * =========================================================
  */
 
@@ -406,11 +529,9 @@ export type StatsRangeArgs = {
     to: ISODate;
 };
 
-export type UpsertMode = "merge" | "replace";
-
 export type UpsertArgs = {
     userId: string;
     date: ISODate;
-    payload: any;
+    payload: WorkoutDayUpsertBody;
     mode: UpsertMode;
 };

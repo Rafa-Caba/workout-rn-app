@@ -1,9 +1,15 @@
-// app.config.ts
+// /app.config.ts
 import "dotenv/config";
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
 type ExpoConfigExtra = {
     apiBaseUrl?: string;
 };
+
+type PluginTuple = [string, { [key: string]: JsonValue }];
+type PluginEntry = string | PluginTuple;
 
 type AppConfig = {
     expo: {
@@ -28,6 +34,8 @@ type AppConfig = {
         };
         ios: {
             supportsTablet: boolean;
+            bundleIdentifier?: string;
+            infoPlist?: Record<string, JsonValue>;
         };
         android: {
             adaptiveIcon: {
@@ -42,7 +50,7 @@ type AppConfig = {
             output: "static" | "single";
             favicon: string;
         };
-        plugins: Array<string | [string, Record<string, string | number | boolean>]>;
+        plugins: PluginEntry[];
         experiments?: {
             typedRoutes?: boolean;
         };
@@ -54,10 +62,14 @@ type AppConfig = {
 };
 
 function readEnv(name: string): string | undefined {
-    const v = process.env[name];
-    if (typeof v !== "string") return undefined;
-    const t = v.trim();
-    return t.length ? t : undefined;
+    const value = process.env[name];
+
+    if (typeof value !== "string") {
+        return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
 }
 
 const apiBaseUrl =
@@ -88,6 +100,13 @@ const config: AppConfig = {
         },
         ios: {
             supportsTablet: true,
+            bundleIdentifier: "com.rafaelcaba.workoutrn",
+            infoPlist: {
+                NSHealthShareUsageDescription:
+                    "Workout App lee tus datos de sueño, frecuencia cardiaca, pasos, distancia y entrenamientos para autocompletar métricas y mejorar tu seguimiento.",
+                NSHealthUpdateUsageDescription:
+                    "Workout App puede guardar o sincronizar datos relacionados con entrenamientos y salud cuando esa función esté habilitada.",
+            },
         },
         android: {
             adaptiveIcon: {
@@ -95,14 +114,30 @@ const config: AppConfig = {
                 backgroundColor: "#ffffff",
             },
             predictiveBackGestureEnabled: false,
-            package: "com.rafael_caba.workoutrn",
+            package: "com.rafaelcaba.workoutrn",
         },
         web: {
             bundler: "metro",
             output: "static",
             favicon: "./assets/images/favicon.png",
         },
-        plugins: ["expo-router", "expo-secure-store", "@react-native-community/datetimepicker"],
+        plugins: [
+            "expo-router",
+            "expo-secure-store",
+            "@react-native-community/datetimepicker",
+            "react-native-health",
+            "expo-health-connect",
+            [
+                "expo-build-properties",
+                {
+                    android: {
+                        compileSdkVersion: 34,
+                        targetSdkVersion: 34,
+                        minSdkVersion: 26,
+                    },
+                },
+            ],
+        ],
         experiments: {
             typedRoutes: true,
         },

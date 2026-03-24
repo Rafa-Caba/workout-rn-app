@@ -1,4 +1,4 @@
-// src/features/daySummary/screens/DayDetailScreen.tsx
+// /src/features/daySummary/screens/DayDetailScreen.tsx
 
 /**
  * DayDetailScreen
@@ -76,7 +76,11 @@ export function DayDetailScreen({ date }: Props) {
             </View>
 
             <View style={styles.body}>
-                {tab === "summary" ? <DaySummaryScreen date={date} /> : <DayTrainingSessionSleepDetailsScreen date={date} />}
+                {tab === "summary" ? (
+                    <DaySummaryScreen date={date} />
+                ) : (
+                    <DayTrainingSessionSleepDetailsScreen date={date} />
+                )}
             </View>
         </ScrollView>
     );

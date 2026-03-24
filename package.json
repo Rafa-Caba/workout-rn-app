@@ -24,6 +24,7 @@
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
     "expo-font": "~14.0.11",
+    "expo-health-connect": "^0.1.1",
     "expo-image-picker": "~17.0.10",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.23",
@@ -35,6 +36,8 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-health": "^1.19.0",
+    "react-native-health-connect": "^3.5.0",
     "react-native-image-picker": "^8.2.1",
     "react-native-keychain": "^10.0.0",
     "react-native-mmkv": "^4.1.2",
@@ -48,6 +51,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "expo-build-properties": "^55.0.10",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
   },

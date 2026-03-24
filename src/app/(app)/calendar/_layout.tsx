@@ -20,6 +20,8 @@ export default function CalendarLayout() {
             <Stack.Screen name="day/[date]" options={{ title: "Resumen del Día" }} />
 
             <Stack.Screen name="weekView/[weekKey]" options={{ title: "Resumen Semanal" }} />
+
+            <Stack.Screen name="health-backfill" options={{ headerShown: false }} />
         </Stack>
     );
 }

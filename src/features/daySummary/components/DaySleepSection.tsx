@@ -1,4 +1,4 @@
-// src/features/daySummary/components/DaySleepSection.tsx
+// /src/features/daySummary/components/DaySleepSection.tsx
 
 import React from "react";
 import { StyleSheet, Text } from "react-native";
@@ -14,6 +14,17 @@ type Props = {
     sleep: SleepBlock | null;
     colors: DayUiColors;
 };
+
+function formatMetaDate(value: string | null | undefined): string {
+    if (!value) return "—";
+
+    const parsed = new Date(value);
+    if (!Number.isFinite(parsed.getTime())) {
+        return value;
+    }
+
+    return parsed.toLocaleString();
+}
 
 export function DaySleepSection({ sleep, colors }: Props) {
     return (
@@ -56,6 +67,18 @@ export function DaySleepSection({ sleep, colors }: Props) {
                     />
 
                     <DayRowItem label="⌚ Fuente" value={sleep.source ?? "—"} colors={colors} />
+                    <DayRowItem label="📱 Dispositivo" value={sleep.sourceDevice ?? "—"} colors={colors} />
+
+                    <DayRowItem
+                        label="🕒 Importado"
+                        value={formatMetaDate(sleep.importedAt)}
+                        colors={colors}
+                    />
+                    <DayRowItem
+                        label="🔄 Último sync"
+                        value={formatMetaDate(sleep.lastSyncedAt)}
+                        colors={colors}
+                    />
                 </DayTwoColGrid>
             )}
         </DayDetailSection>

@@ -72,15 +72,12 @@ export function RoutinesHomeScreen() {
                 />
             </View>
 
-            {/* App image placeholder (future AppSettings.logoUrl) */}
+            {/* App image */}
             <View
                 style={{
                     alignItems: "center",
                     gap: 10,
                     paddingVertical: 6,
-                    // borderWidth: 1,
-                    // borderColor: colors.border,
-                    // backgroundColor: colors.surface,
                     borderRadius: 16,
                     padding: 12,
                 }}

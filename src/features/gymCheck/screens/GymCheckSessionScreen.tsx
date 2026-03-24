@@ -1,3 +1,4 @@
+// src/features/gymCheck/screens/GymCheckSessionScreen.tsx
 import NetInfo from "@react-native-community/netinfo";
 import { useMutation } from "@tanstack/react-query";
 import React from "react";
@@ -6,19 +7,24 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "rea
 import { useCreateGymCheckSession } from "@/src/hooks/gymCheck/useCreateGymCheckSession";
 import { useGymCheck } from "@/src/hooks/gymCheck/useGymCheck";
 import { useSyncGymCheckDay } from "@/src/hooks/gymCheck/useSyncGymCheckDay";
+import { useBootstrapWorkoutSession } from "@/src/hooks/health/useBootstrapWorkoutSession";
+import { useHealthPermissions } from "@/src/hooks/health/useHealthPermissions";
 import { useRoutineWeek } from "@/src/hooks/routines/useRoutineWeek";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 
+import type { HealthImportedWorkoutSessionMinimal, HealthPermissionsStatus } from "@/src/types/health.types";
 import type { RNFile } from "@/src/types/upload.types";
 import type { WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 
+import { readHealthWorkoutsByDate } from "@/src/services/health/health.service";
+import { uploadRoutineAttachments } from "@/src/services/workout/routineAttachments.service";
+import { getWorkoutDay } from "@/src/services/workout/sessions.service";
+import { hasMeaningfulImportedWorkoutMetrics, mapImportedWorkoutToGymCheckMetricsPatch } from "@/src/utils/health/healthWorkout.mapper";
 import { extractAttachments, toAttachmentOptions, type AttachmentOption } from "@/src/utils/routines/attachments";
 import { DAY_KEYS, type DayKey, type ExerciseItem } from "@/src/utils/routines/plan";
 import { toWeekKey } from "@/src/utils/weekKey";
 
-import { uploadRoutineAttachments } from "@/src/services/workout/routineAttachments.service";
-import { getWorkoutDay } from "@/src/services/workout/sessions.service";
 import {
     buildAttachMediaItemsFromGymDay,
     buildGymCheckSessionPayload,
@@ -29,6 +35,8 @@ import type { ExercisePlanInfo } from "../components/GymCheckExerciseRow";
 import { GymCheckDayScreen } from "./GymCheckDayScreen";
 
 type UploadQuery = Record<string, string | number | boolean | null | undefined>;
+
+type CreateGymCheckPayload = NonNullable<ReturnType<typeof buildGymCheckSessionPayload>>;
 
 function todayIsoLocal(): string {
     const now = new Date();
@@ -157,6 +165,48 @@ function hasGymCheckSession(day: unknown): boolean {
     return sessions.some((s) => String(s?.meta?.sessionKey ?? "") === "gym_check");
 }
 
+function areAllRequestedPermissionsGranted(status: HealthPermissionsStatus): boolean {
+    const values = Object.values(status.permissions);
+    return status.available && values.length > 0 && values.every((value) => value === "granted");
+}
+
+function pickImportedMetricsSession(
+    sessions: HealthImportedWorkoutSessionMinimal[]
+): HealthImportedWorkoutSessionMinimal | null {
+    const candidates = sessions.filter((session) =>
+        hasMeaningfulImportedWorkoutMetrics(session.metrics)
+    );
+
+    return candidates[0] ?? null;
+}
+
+function mergeImportedMetricsIntoPayload(
+    payload: CreateGymCheckPayload,
+    importedSession: HealthImportedWorkoutSessionMinimal
+): CreateGymCheckPayload {
+    const patch = mapImportedWorkoutToGymCheckMetricsPatch(importedSession);
+
+    return {
+        ...payload,
+        startAt: patch.startAt ?? payload.startAt ?? null,
+        endAt: patch.endAt ?? payload.endAt ?? null,
+        durationSeconds: patch.durationSeconds ?? payload.durationSeconds ?? null,
+        activeKcal: patch.activeKcal ?? payload.activeKcal ?? null,
+        totalKcal: patch.totalKcal ?? payload.totalKcal ?? null,
+        avgHr: patch.avgHr ?? payload.avgHr ?? null,
+        maxHr: patch.maxHr ?? payload.maxHr ?? null,
+        distanceKm: patch.distanceKm ?? payload.distanceKm ?? null,
+        steps: patch.steps ?? payload.steps ?? null,
+        elevationGainM: patch.elevationGainM ?? payload.elevationGainM ?? null,
+        paceSecPerKm: patch.paceSecPerKm ?? payload.paceSecPerKm ?? null,
+        cadenceRpm: patch.cadenceRpm ?? payload.cadenceRpm ?? null,
+        meta: {
+            ...(payload.meta ?? {}),
+            ...(patch.meta ?? {}),
+        },
+    };
+}
+
 export function GymCheckSessionScreen() {
     const { colors } = useTheme();
 
@@ -179,6 +229,15 @@ export function GymCheckSessionScreen() {
     const gym = useGymCheck(weekKey);
     const syncDayMutation = useSyncGymCheckDay(weekKey);
     const createSessionMutation = useCreateGymCheckSession();
+    const bootstrapWorkoutMutation = useBootstrapWorkoutSession();
+
+    const {
+        availability: healthAvailable,
+        granted: healthGranted,
+        requestPermissions,
+        refreshAvailability,
+        isRequestingPermissions,
+    } = useHealthPermissions();
 
     const uploadMutation = useMutation({
         mutationFn: (args: { files: RNFile[]; query?: UploadQuery }) =>
@@ -289,6 +348,78 @@ export function GymCheckSessionScreen() {
         };
     }, [weekKey, activeDayKey, exercisesList, gym]);
 
+    async function ensureHealthPermissionAccess(): Promise<boolean> {
+        const available = healthAvailable || (await refreshAvailability());
+
+        if (!available) {
+            return false;
+        }
+
+        if (healthGranted) {
+            return true;
+        }
+
+        const status = await requestPermissions();
+        return areAllRequestedPermissionsGranted(status);
+    }
+
+    async function buildPayloadWithAutoSyncedMetrics(args: {
+        date: string;
+        payload: CreateGymCheckPayload;
+    }): Promise<CreateGymCheckPayload> {
+        const canUseHealth = await ensureHealthPermissionAccess();
+        if (!canUseHealth) {
+            return args.payload;
+        }
+
+        try {
+            const importedSessions = await readHealthWorkoutsByDate({ date: args.date });
+            const importedSession = pickImportedMetricsSession(importedSessions);
+
+            if (!importedSession) {
+                return args.payload;
+            }
+
+            return mergeImportedMetricsIntoPayload(args.payload, importedSession);
+        } catch {
+            return args.payload;
+        }
+    }
+
+    async function resyncWorkoutMetricsForDate(args: { date: string; dayKey: DayKey }): Promise<void> {
+        const canUseHealth = await ensureHealthPermissionAccess();
+
+        if (!canUseHealth) {
+            Alert.alert(
+                "Permisos requeridos",
+                "No se pudieron obtener permisos o Salud no está disponible en este dispositivo."
+            );
+            return;
+        }
+
+        const result = await bootstrapWorkoutMutation.mutateAsync({ date: args.date });
+        const freshDay = await getWorkoutDay(args.date);
+
+        setGymCheckSessionExists(hasGymCheckSession(freshDay));
+        gym.hydrateDayFromWorkoutDay({
+            dayKey: args.dayKey,
+            workoutDay: freshDay,
+            plannedExercises: exercisesList,
+        });
+
+        if (result.mode === "noop") {
+            Alert.alert("Sin datos", "No se encontraron métricas importables para este día.");
+            return;
+        }
+
+        Alert.alert(
+            "Listo",
+            result.mode === "patched-existing-session"
+                ? "Métricas re-sincronizadas en la sesión existente."
+                : "Se creó una sesión mínima automática con métricas importadas."
+        );
+    }
+
     async function uploadExerciseFiles(args: { exerciseId: string; files: RNFile[] }) {
         if (!routine) {
             Alert.alert("Error", "No hay rutina cargada para esta semana.");
@@ -363,7 +494,7 @@ export function GymCheckSessionScreen() {
 
             const dayAfterCommit = gym.getDay(activeDayKey);
 
-            const payload = buildGymCheckSessionPayload({
+            const basePayload = buildGymCheckSessionPayload({
                 gymDay: dayAfterCommit,
                 plan: {
                     dayKey: activeDayKey,
@@ -376,10 +507,15 @@ export function GymCheckSessionScreen() {
                 fallbackType: "Workout",
             });
 
-            if (!payload) {
+            if (!basePayload) {
                 Alert.alert("Error", "Marca al menos un ejercicio como hecho para crear la sesión.");
                 return;
             }
+
+            const payload = await buildPayloadWithAutoSyncedMetrics({
+                date,
+                payload: basePayload,
+            });
 
             const attachMediaItems = buildAttachMediaItemsFromGymDay({
                 gymDay: dayAfterCommit,
@@ -418,6 +554,7 @@ export function GymCheckSessionScreen() {
 
     const canGoPrev = shiftDateIsoByDays(anchorDateIso, -7) !== null;
     const canGoNext = shiftDateIsoByDays(anchorDateIso, 7) !== null;
+    const isHealthSyncBusy = bootstrapWorkoutMutation.isPending || isRequestingPermissions;
 
     return (
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -525,17 +662,43 @@ export function GymCheckSessionScreen() {
                         onPress={() => {
                             void onCreateRealSession();
                         }}
-                        disabled={createSessionMutation.isPending}
+                        disabled={createSessionMutation.isPending || isHealthSyncBusy}
                         style={{
                             paddingHorizontal: 14,
                             paddingVertical: 12,
                             borderRadius: 12,
                             backgroundColor: colors.primary,
-                            opacity: createSessionMutation.isPending ? 0.7 : 1,
+                            opacity: createSessionMutation.isPending || isHealthSyncBusy ? 0.7 : 1,
                         }}
                     >
                         <Text style={{ color: "#fff", fontWeight: "900" }}>
                             {gymCheckSessionExists ? "Actualizar sesión" : "Crear sesión"}
+                        </Text>
+                    </Pressable>
+
+                    <Pressable
+                        onPress={() => {
+                            const date = dayKeyToDateIso(weekKey, activeDayKey);
+                            if (!date) {
+                                Alert.alert("Error", "No se pudo calcular la fecha del día.");
+                                return;
+                            }
+
+                            void resyncWorkoutMetricsForDate({ date, dayKey: activeDayKey });
+                        }}
+                        disabled={isHealthSyncBusy || createSessionMutation.isPending}
+                        style={{
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                            opacity: isHealthSyncBusy || createSessionMutation.isPending ? 0.7 : 1,
+                        }}
+                    >
+                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                            {isHealthSyncBusy ? "Sincronizando..." : "Re-sincronizar métricas"}
                         </Text>
                     </Pressable>
 
