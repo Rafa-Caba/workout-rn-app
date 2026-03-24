@@ -77,6 +77,12 @@ const apiBaseUrl =
     readEnv("PROD_URL") ??
     "https://workout-api-cabanillas.up.railway.app";
 
+const healthSharePermission =
+    "Workout App lee tus datos de sueño, frecuencia cardiaca, pasos, distancia y entrenamientos para autocompletar métricas y mejorar tu seguimiento.";
+
+const healthUpdatePermission =
+    "Workout App puede guardar o sincronizar datos relacionados con entrenamientos y salud cuando esa función esté habilitada.";
+
 const config: AppConfig = {
     expo: {
         name: "Workout App",
@@ -102,10 +108,8 @@ const config: AppConfig = {
             supportsTablet: true,
             bundleIdentifier: "com.rafaelcaba.workoutrn",
             infoPlist: {
-                NSHealthShareUsageDescription:
-                    "Workout App lee tus datos de sueño, frecuencia cardiaca, pasos, distancia y entrenamientos para autocompletar métricas y mejorar tu seguimiento.",
-                NSHealthUpdateUsageDescription:
-                    "Workout App puede guardar o sincronizar datos relacionados con entrenamientos y salud cuando esa función esté habilitada.",
+                NSHealthShareUsageDescription: healthSharePermission,
+                NSHealthUpdateUsageDescription: healthUpdatePermission,
             },
         },
         android: {
@@ -125,7 +129,13 @@ const config: AppConfig = {
             "expo-router",
             "expo-secure-store",
             "@react-native-community/datetimepicker",
-            "react-native-health",
+            [
+                "react-native-health",
+                {
+                    healthSharePermission,
+                    healthUpdatePermission,
+                },
+            ],
             "expo-health-connect",
             [
                 "expo-build-properties",
