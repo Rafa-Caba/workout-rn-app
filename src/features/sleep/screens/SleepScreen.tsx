@@ -24,6 +24,7 @@ import { useHealthPermissions } from "@/src/hooks/health/useHealthPermissions";
 import { useUpdateSleep } from "@/src/hooks/useUpdateSleep";
 import { useWorkoutDay } from "@/src/hooks/workout/useWorkoutDay";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type { HealthPermissionsStatus } from "@/src/types/health.types";
 import type { SleepBlock } from "@/src/types/workoutDay.types";
 
 function safeText(v: unknown): string {
@@ -65,6 +66,37 @@ function hasImportedMetadata(sleep: SleepBlock | null): boolean {
     );
 }
 
+function hasGrantedSleepPermission(status: HealthPermissionsStatus | null): boolean {
+    if (!status || !status.available) {
+        return false;
+    }
+
+    const entries = Object.entries(status.permissions);
+    if (entries.length === 0) {
+        return false;
+    }
+
+    /**
+     * Prefer explicit sleep-related permission keys when available.
+     * If none are present, fall back to checking all returned permissions.
+     */
+    const sleepEntries = entries.filter(([key]) => /sleep/i.test(key));
+    const relevantEntries = sleepEntries.length > 0 ? sleepEntries : entries;
+
+    return relevantEntries.every(([, value]) => value === "granted");
+}
+
+function isMissingSleepPermissionError(error: unknown): boolean {
+    const message = String(error ?? "");
+
+    return (
+        message.includes("READ_SLEEP") ||
+        message.includes("SleepSessionRecord") ||
+        message.includes("HealthConnectException") ||
+        message.includes("SecurityException")
+    );
+}
+
 export default function SleepScreen() {
     const { colors } = useTheme();
 
@@ -81,6 +113,7 @@ export default function SleepScreen() {
         requestPermissions,
         isCheckingAvailability,
         isRequestingPermissions,
+        permissionsStatus,
     } = useHealthPermissions();
 
     const day = dayQ.data ?? null;
@@ -174,18 +207,22 @@ export default function SleepScreen() {
         }
 
         try {
-            if (!granted) {
-                const status = await requestPermissions();
+            /**
+             * Important:
+             * Request permissions explicitly before every import attempt.
+             * This keeps Android Health Connect flows more predictable and avoids
+             * trying to read sleep data with stale or incomplete permission state.
+             */
+            const status = await requestPermissions();
 
-                const permissionGranted = Object.values(status.permissions).every((value) => value === "granted");
+            const permissionGranted = hasGrantedSleepPermission(status);
 
-                if (!status.available || !permissionGranted) {
-                    Alert.alert(
-                        "Permisos requeridos",
-                        "No se concedieron los permisos necesarios para importar datos de Salud."
-                    );
-                    return;
-                }
+            if (!status.available || !permissionGranted) {
+                Alert.alert(
+                    "Permisos requeridos",
+                    "No se concedieron los permisos necesarios para leer sueño desde Salud."
+                );
+                return;
             }
 
             const result = await bootstrapSleepM.mutateAsync({ date });
@@ -205,13 +242,22 @@ export default function SleepScreen() {
 
             Alert.alert("Listo", "Sueño importado desde Salud.");
         } catch (e: unknown) {
+            if (isMissingSleepPermissionError(e)) {
+                Alert.alert(
+                    "Permiso de sueño faltante",
+                    "La app todavía no tiene permiso para leer sueño desde Health Connect / HealthKit. Intenta conceder permisos y vuelve a importar."
+                );
+                return;
+            }
+
             Alert.alert("Error", safeText(e));
         }
     };
 
     const derived: SleepBlock | null = normalizeSleepDraft(draft);
     const importedMetaVisible = hasImportedMetadata(sleep);
-    const providerLabel = provider === "healthkit" ? "HealthKit" : provider === "health-connect" ? "Health Connect" : "Salud";
+    const providerLabel =
+        provider === "healthkit" ? "HealthKit" : provider === "health-connect" ? "Health Connect" : "Salud";
 
     return (
         <ScrollView
@@ -241,11 +287,7 @@ export default function SleepScreen() {
             >
                 <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
                     <View style={{ flex: 1, gap: 6 }}>
-                        <DatePickerField
-                            value={date}
-                            onChange={(next) => setDate(next)}
-                            disabled={busy}
-                        />
+                        <DatePickerField value={date} onChange={(next) => setDate(next)} disabled={busy} />
                     </View>
 
                     <Pressable
@@ -327,6 +369,9 @@ export default function SleepScreen() {
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
                         Permisos: {granted ? "Concedidos" : "Pendientes"}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        Sleep Permission: {hasGrantedSleepPermission(permissionsStatus) ? "Concedido" : "Pendiente"}
                     </Text>
                 </View>
 

@@ -44,6 +44,7 @@ type AppConfig = {
             };
             predictiveBackGestureEnabled?: boolean;
             package: string;
+            permissions?: string[];
         };
         web: {
             bundler: "metro" | "webpack";
@@ -78,10 +79,13 @@ const apiBaseUrl =
     "https://workout-api-cabanillas.up.railway.app";
 
 const healthSharePermission =
-    "Workout App lee tus datos de sueño, frecuencia cardiaca, pasos, distancia y entrenamientos para autocompletar métricas y mejorar tu seguimiento.";
+    "Workout App lee tus datos de sueño, frecuencia cardiaca, pasos, distancia, calorías, elevación, rutas y entrenamientos para autocompletar métricas y mejorar tu seguimiento.";
 
 const healthUpdatePermission =
     "Workout App puede guardar o sincronizar datos relacionados con entrenamientos y salud cuando esa función esté habilitada.";
+
+const locationWhenInUsePermission =
+    "Workout App usa tu ubicación mientras la app está en uso para mostrar mapas y registrar sesiones outdoor como walking y running.";
 
 const config: AppConfig = {
     expo: {
@@ -110,6 +114,7 @@ const config: AppConfig = {
             infoPlist: {
                 NSHealthShareUsageDescription: healthSharePermission,
                 NSHealthUpdateUsageDescription: healthUpdatePermission,
+                NSLocationWhenInUseUsageDescription: locationWhenInUsePermission,
             },
         },
         android: {
@@ -119,6 +124,42 @@ const config: AppConfig = {
             },
             predictiveBackGestureEnabled: false,
             package: "com.rafaelcaba.workoutrn",
+            permissions: [
+                /**
+                 * Android location
+                 * Needed if the app itself will show / capture outdoor routes and maps.
+                 */
+                "android.permission.ACCESS_FINE_LOCATION",
+
+                /**
+                 * Health Connect — sleep
+                 */
+                "android.permission.health.READ_SLEEP",
+
+                /**
+                 * Health Connect — exercise / workout sessions
+                 */
+                "android.permission.health.READ_EXERCISE",
+                "android.permission.health.READ_EXERCISE_ROUTES",
+
+                /**
+                 * Health Connect — common workout metrics
+                 */
+                "android.permission.health.READ_HEART_RATE",
+                "android.permission.health.READ_DISTANCE",
+                "android.permission.health.READ_SPEED",
+                "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+                "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+                "android.permission.health.READ_ELEVATION_GAINED",
+                "android.permission.health.READ_STEPS",
+                "android.permission.health.READ_POWER",
+
+                /**
+                 * Health Connect — broader history access
+                 * Useful for historical backfill/range imports.
+                 */
+                "android.permission.health.READ_HEALTH_DATA_HISTORY",
+            ],
         },
         web: {
             bundler: "metro",
@@ -141,9 +182,10 @@ const config: AppConfig = {
                 "expo-build-properties",
                 {
                     android: {
-                        compileSdkVersion: 34,
-                        targetSdkVersion: 34,
+                        compileSdkVersion: 35,
+                        targetSdkVersion: 35,
                         minSdkVersion: 26,
+                        buildToolsVersion: "35.0.0",
                     },
                 },
             ],
