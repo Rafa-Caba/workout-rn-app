@@ -1,4 +1,4 @@
-// src/features/movements/components/MovementsList.tsx
+// /src/features/movements/components/MovementsList.tsx
 import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
 
@@ -9,20 +9,19 @@ import type { MediaViewerItem } from "../../components/media/MediaViewerModal";
 
 type Props = {
     items: Movement[];
-    onEdit: (m: Movement) => void;
-    onDelete: (m: Movement) => void;
+    onEdit: (movement: Movement) => void;
+    onDelete: (movement: Movement) => void;
     onOpenMedia: (item: MediaViewerItem) => void;
 };
 
-function safeText(v: unknown): string {
-    const s = String(v ?? "").trim();
-    return s.length ? s : "—";
+function safeText(value: unknown): string {
+    const text = String(value ?? "").trim();
+    return text.length ? text : "—";
 }
 
-function buildSubtitle(m: Movement): string | null {
-    const parts = [m.muscleGroup, m.equipment].filter(Boolean) as string[];
-    if (!parts.length) return null;
-    return parts.join(" • ");
+function buildSubtitle(movement: Movement): string | null {
+    const parts = [...movement.muscleGroup, ...movement.equipment].filter((value) => value.trim().length > 0);
+    return parts.length ? parts.join(" • ") : null;
 }
 
 export function MovementsList({ items, onEdit, onDelete, onOpenMedia }: Props) {
@@ -51,36 +50,44 @@ export function MovementsList({ items, onEdit, onDelete, onOpenMedia }: Props) {
 
     return (
         <View style={{ gap: 10 }}>
-            {items.map((m) => {
-                const subtitle = buildSubtitle(m) ?? "Sin detalles";
-                const canViewMedia = Boolean(m.media?.url);
+            {items.map((movement) => {
+                const subtitle = buildSubtitle(movement) ?? "Sin detalles";
+                const canViewMedia = Boolean(movement.media?.url);
 
-                const onPressMedia = () => {
-                    if (!m.media?.url) return;
+                function onPressMedia() {
+                    if (!movement.media?.url) {
+                        return;
+                    }
 
                     const viewerItem: MediaViewerItem = {
-                        url: m.media.url,
-                        resourceType: m.media.resourceType,
-
-                        title: m.name,
-                        subtitle: buildSubtitle(m),
-
+                        url: movement.media.url,
+                        resourceType: movement.media.resourceType,
+                        title: movement.name,
+                        subtitle: buildSubtitle(movement),
                         tags: null,
                         notes: null,
-
                         metaRows: [
-                            { label: "Grupo muscular", value: safeText(m.muscleGroup) },
-                            { label: "Equipo", value: safeText(m.equipment) },
-                            { label: "Estado", value: m.isActive ? "Activo" : "Inactivo" },
+                            {
+                                label: "Grupo muscular",
+                                value: safeText(movement.muscleGroup.join(", ")),
+                            },
+                            {
+                                label: "Equipo",
+                                value: safeText(movement.equipment.join(", ")),
+                            },
+                            {
+                                label: "Estado",
+                                value: movement.isActive ? "Activo" : "Inactivo",
+                            },
                         ],
                     };
 
                     onOpenMedia(viewerItem);
-                };
+                }
 
                 return (
                     <View
-                        key={m.id}
+                        key={movement.id}
                         style={{
                             borderWidth: 1,
                             borderColor: colors.border,
@@ -107,20 +114,22 @@ export function MovementsList({ items, onEdit, onDelete, onOpenMedia }: Props) {
                                     opacity: pressed && canViewMedia ? 0.92 : 1,
                                 })}
                             >
-                                {m.media?.url ? (
-                                    <Image source={{ uri: m.media.url }} style={{ width: "100%", height: "100%" }} />
+                                {movement.media?.url ? (
+                                    <Image source={{ uri: movement.media.url }} style={{ width: "100%", height: "100%" }} />
                                 ) : (
-                                    <Text style={{ fontWeight: "800", color: colors.mutedText, fontSize: 12 }}>IMG</Text>
+                                    <Text style={{ fontWeight: "800", color: colors.mutedText, fontSize: 12 }}>
+                                        IMG
+                                    </Text>
                                 )}
                             </Pressable>
 
                             <View style={{ flex: 1, gap: 2 }}>
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                                     <Text style={{ flex: 1, fontSize: 15, fontWeight: "800", color: colors.text }}>
-                                        {safeText(m.name)}
+                                        {safeText(movement.name)}
                                     </Text>
 
-                                    {!m.isActive ? (
+                                    {!movement.isActive ? (
                                         <View
                                             style={{
                                                 borderWidth: 1,
@@ -149,7 +158,7 @@ export function MovementsList({ items, onEdit, onDelete, onOpenMedia }: Props) {
 
                         <View style={{ flexDirection: "row", gap: 10, justifyContent: "flex-end" }}>
                             <Pressable
-                                onPress={() => onEdit(m)}
+                                onPress={() => onEdit(movement)}
                                 style={({ pressed }) => ({
                                     paddingHorizontal: 14,
                                     paddingVertical: 10,
@@ -164,7 +173,7 @@ export function MovementsList({ items, onEdit, onDelete, onOpenMedia }: Props) {
                             </Pressable>
 
                             <Pressable
-                                onPress={() => onDelete(m)}
+                                onPress={() => onDelete(movement)}
                                 style={({ pressed }) => ({
                                     paddingHorizontal: 14,
                                     paddingVertical: 10,

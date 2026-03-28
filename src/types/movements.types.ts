@@ -1,3 +1,4 @@
+// /src/types/movements.types.ts
 
 export type MediaResourceType = "image" | "video";
 
@@ -15,8 +16,8 @@ export type Movement = {
     id: string;
 
     name: string;
-    muscleGroup: string | null;
-    equipment: string | null;
+    muscleGroup: string[];
+    equipment: string[];
 
     isActive: boolean;
 
@@ -33,14 +34,23 @@ export type MovementsListQuery = {
 
 export type CreateMovementBody = {
     name: string;
-    muscleGroup?: string | null;
-    equipment?: string | null;
+    muscleGroup: string[];
+    equipment: string[];
     isActive?: boolean;
 };
 
 export type UpdateMovementBody = {
     name?: string;
-    muscleGroup?: string | null;
-    equipment?: string | null;
+    muscleGroup?: string[];
+    equipment?: string[];
     isActive?: boolean;
+};
+
+export type MovementListResponse = {
+    movements: Movement[];
+};
+
+export type MovementDeletedResponse = {
+    deleted: true;
+    movement: Movement;
 };

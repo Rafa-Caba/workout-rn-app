@@ -1,14 +1,11 @@
-// src/features/movements/components/MovementFormCard.tsx
+// /src/features/movements/components/MovementFormCard.tsx
 import React from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
-import { useTheme } from "@/src/theme/ThemeProvider";
-import type { RNFile } from "@/src/types/upload.types";
-
-// NOTE:
-// If your select components live in a different path, adjust these imports.
 import { EquipmentSelectRN } from "@/src/features/components/EquipmentSelectRN";
 import { MuscleGroupSelectRN } from "@/src/features/components/MuscleGroupSelectRN";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import type { RNFile } from "@/src/types/upload.types";
 
 import type { MovementFormState } from "./movementFormData";
 import { pickMovementImage } from "./pickMovementImage";
@@ -23,19 +20,35 @@ type Props = {
     disabled?: boolean;
 };
 
-export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit, busy, disabled }: Props) {
-    const theme = useTheme();
-    const { colors } = theme;
+export function MovementFormCard({
+    title,
+    submitLabel,
+    value,
+    onChange,
+    onSubmit,
+    busy,
+    disabled,
+}: Props) {
+    const { colors } = useTheme();
 
     async function onPickImage() {
-        if (disabled || busy) return;
-        const f = await pickMovementImage();
-        if (!f) return;
-        onChange({ ...value, image: f });
+        if (disabled || busy) {
+            return;
+        }
+
+        const file = await pickMovementImage();
+        if (!file) {
+            return;
+        }
+
+        onChange({ ...value, image: file });
     }
 
     function clearImage() {
-        if (disabled || busy) return;
+        if (disabled || busy) {
+            return;
+        }
+
         onChange({ ...value, image: null });
     }
 
@@ -48,7 +61,7 @@ export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit
             <Text style={[styles.label, { color: colors.mutedText }]}>Nombre</Text>
             <TextInput
                 value={value.name}
-                onChangeText={(t) => onChange({ ...value, name: t })}
+                onChangeText={(text) => onChange({ ...value, name: text })}
                 placeholder="Nombre (requerido)"
                 placeholderTextColor={colors.mutedText}
                 editable={!disabled && !busy}
@@ -68,13 +81,13 @@ export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit
                     <MuscleGroupSelectRN
                         value={value.muscleGroup}
                         onChange={(next) => onChange({ ...value, muscleGroup: next })}
-                        label={undefined}
-                        placeholder="Selecciona un grupo..."
+                        label=""
+                        placeholder="Selecciona grupos..."
                         disabled={disabled || busy}
                         allowOther
-                        otherLabel="Otro"
+                        otherLabel="Agregar otro grupo"
                         otherPlaceholder="Escribe el grupo"
-                        otherHint="Se guardará tal cual"
+                        otherHint="Puedes seleccionar varios grupos musculares."
                     />
                 </View>
 
@@ -83,13 +96,13 @@ export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit
                     <EquipmentSelectRN
                         value={value.equipment}
                         onChange={(next) => onChange({ ...value, equipment: next })}
-                        label={undefined}
-                        placeholder="Selecciona un equipo..."
+                        label=""
+                        placeholder="Selecciona equipos..."
                         disabled={disabled || busy}
                         allowOther
-                        otherLabel="Otro"
+                        otherLabel="Agregar otro equipo"
                         otherPlaceholder="Escribe el equipo"
-                        otherHint="Se guardará tal cual"
+                        otherHint="Puedes seleccionar varios equipos."
                     />
                 </View>
             </View>
@@ -134,7 +147,6 @@ export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit
                         value={value.isActive}
                         onValueChange={(next) => onChange({ ...value, isActive: next })}
                         disabled={disabled || busy}
-                        thumbColor={undefined}
                         trackColor={{ false: colors.border, true: colors.primary }}
                     />
                     <Text style={[styles.switchLabel, { color: colors.text }]}>Activo</Text>
@@ -151,7 +163,13 @@ export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit
                         },
                     ]}
                 >
-                    {busy ? <ActivityIndicator /> : <Text style={[styles.primaryBtnText, { color: colors.primaryText }]}>{submitLabel}</Text>}
+                    {busy ? (
+                        <ActivityIndicator />
+                    ) : (
+                        <Text style={[styles.primaryBtnText, { color: colors.primaryText }]}>
+                            {submitLabel}
+                        </Text>
+                    )}
                 </Pressable>
             </View>
         </View>
@@ -159,8 +177,7 @@ export function MovementFormCard({ title, submitLabel, value, onChange, onSubmit
 }
 
 function ImagePreview({ file }: { file: RNFile }) {
-    const theme = useTheme();
-    const { colors } = theme;
+    const { colors } = useTheme();
 
     return (
         <View style={[styles.previewWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>

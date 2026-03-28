@@ -1,4 +1,4 @@
-// src/features/movements/components/MovementForm.tsx
+// /src/features/movements/components/MovementForm.tsx
 import React from "react";
 import { ActivityIndicator, Image, Pressable, Switch, Text, TextInput, View } from "react-native";
 
@@ -19,22 +19,39 @@ type Props = {
     disabled?: boolean;
 };
 
-export function MovementForm({ title, submitLabel, value, onChange, onSubmit, busy, disabled }: Props) {
+export function MovementForm({
+    title,
+    submitLabel,
+    value,
+    onChange,
+    onSubmit,
+    busy,
+    disabled,
+}: Props) {
     const { colors } = useTheme();
 
     const canSubmit = Boolean(value.name.trim()) && !busy && !disabled;
 
-    const onPickImage = async () => {
-        if (disabled || busy) return;
-        const f = await pickMovementImage();
-        if (!f) return;
-        onChange({ ...value, image: f });
-    };
+    async function onPickImage() {
+        if (disabled || busy) {
+            return;
+        }
 
-    const onClearImage = () => {
-        if (disabled || busy) return;
+        const file = await pickMovementImage();
+        if (!file) {
+            return;
+        }
+
+        onChange({ ...value, image: file });
+    }
+
+    function onClearImage() {
+        if (disabled || busy) {
+            return;
+        }
+
         onChange({ ...value, image: null });
-    };
+    }
 
     return (
         <View
@@ -53,7 +70,7 @@ export function MovementForm({ title, submitLabel, value, onChange, onSubmit, bu
                 <Text style={{ fontSize: 12, fontWeight: "800", color: colors.mutedText }}>Nombre</Text>
                 <TextInput
                     value={value.name}
-                    onChangeText={(t) => onChange({ ...value, name: t })}
+                    onChangeText={(text) => onChange({ ...value, name: text })}
                     placeholder="Nombre (requerido)"
                     placeholderTextColor={colors.mutedText}
                     editable={!disabled && !busy}
@@ -70,16 +87,16 @@ export function MovementForm({ title, submitLabel, value, onChange, onSubmit, bu
                 />
             </View>
 
-            <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flexDirection: "column", gap: 10, marginBottom: 5 }}>
                 <View style={{ flex: 1, gap: 6 }}>
                     <MuscleGroupSelectRN
                         value={value.muscleGroup}
                         onChange={(next) => onChange({ ...value, muscleGroup: next })}
-                        placeholder="Selecciona un grupo..."
+                        placeholder="Selecciona grupos..."
                         allowOther
-                        otherLabel="Otro"
+                        otherLabel="Agregar otro grupo"
                         otherPlaceholder="Escribe el grupo"
-                        otherHint="Se guardará tal cual"
+                        otherHint="Puedes seleccionar varios grupos musculares."
                         disabled={disabled || busy}
                     />
                 </View>
@@ -88,11 +105,11 @@ export function MovementForm({ title, submitLabel, value, onChange, onSubmit, bu
                     <EquipmentSelectRN
                         value={value.equipment}
                         onChange={(next) => onChange({ ...value, equipment: next })}
-                        placeholder="Selecciona un equipo..."
+                        placeholder="Selecciona equipos..."
                         allowOther
-                        otherLabel="Otro"
+                        otherLabel="Agregar otro equipo"
                         otherPlaceholder="Escribe el equipo"
-                        otherHint="Se guardará tal cual"
+                        otherHint="Puedes seleccionar varios equipos."
                         disabled={disabled || busy}
                     />
                 </View>
@@ -184,7 +201,15 @@ function ImagePreview({ file }: { file: RNFile }) {
             }}
         >
             <Image source={{ uri: file.uri }} style={{ width: "100%", height: 150 }} />
-            <Text style={{ paddingHorizontal: 12, paddingVertical: 10, color: colors.mutedText, fontWeight: "700" }} numberOfLines={1}>
+            <Text
+                style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: colors.mutedText,
+                    fontWeight: "700",
+                }}
+                numberOfLines={1}
+            >
                 {file.name}
             </Text>
         </View>

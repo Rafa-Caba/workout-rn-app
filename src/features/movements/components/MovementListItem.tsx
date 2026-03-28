@@ -1,4 +1,4 @@
-// src/features/movements/components/MovementListItem.tsx
+// /src/features/movements/components/MovementListItem.tsx
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -10,12 +10,15 @@ type Props = {
     onPress?: () => void;
 };
 
-export function MovementListItem({ movement, onPress }: Props) {
-    const theme = useTheme();
-    const { colors } = theme;
+function buildSubtitle(movement: Movement): string {
+    const parts = [...movement.muscleGroup, ...movement.equipment].filter((value) => value.trim().length > 0);
+    return parts.length ? parts.join(" • ") : "Sin detalles";
+}
 
-    const subtitleParts = [movement.muscleGroup, movement.equipment].filter(Boolean);
-    const subtitle = subtitleParts.length ? subtitleParts.join(" • ") : "Sin detalles";
+export function MovementListItem({ movement, onPress }: Props) {
+    const { colors } = useTheme();
+
+    const subtitle = buildSubtitle(movement);
 
     return (
         <Pressable
@@ -58,7 +61,7 @@ export function MovementListItem({ movement, onPress }: Props) {
                     ) : null}
                 </View>
 
-                <Text numberOfLines={1} style={[styles.subtitle, { color: colors.mutedText }]}>
+                <Text numberOfLines={2} style={[styles.subtitle, { color: colors.mutedText }]}>
                     {subtitle}
                 </Text>
             </View>
