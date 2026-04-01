@@ -1,4 +1,5 @@
 // /src/features/sleep/screens/SleepScreen.tsx
+
 import React from "react";
 import {
     ActivityIndicator,
@@ -24,7 +25,7 @@ import { useHealthPermissions } from "@/src/hooks/health/useHealthPermissions";
 import { useUpdateSleep } from "@/src/hooks/useUpdateSleep";
 import { useWorkoutDay } from "@/src/hooks/workout/useWorkoutDay";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { HealthPermissionsStatus } from "@/src/types/health.types";
+import type { HealthPermissionsStatus } from "@/src/types/health/health.types";
 import type { SleepBlock } from "@/src/types/workoutDay.types";
 
 function safeText(v: unknown): string {
@@ -502,21 +503,12 @@ export default function SleepScreen() {
 
                     <View style={{ width: "50%" }}>
                         <DeviceSelectRN
-                            value={draft.source}
-                            onChange={(next) => patchDraft({ source: next })}
+                            value={draft.sourceDevice}
+                            onChange={(next) => patchDraft({ sourceDevice: next ?? "" })}
                             disabled={busy}
                         />
                     </View>
                 </View>
-
-                <Field
-                    label="Dispositivo / Source Device"
-                    placeholder="Ej. Apple Watch, iPhone, Pixel Watch"
-                    hint="Si no vino desde Salud, puedes capturarlo manualmente."
-                    value={draft.sourceDevice}
-                    onChange={(v) => patchDraft({ sourceDevice: v })}
-                    keyboardType="default"
-                />
 
                 <View style={{ gap: 10, display: "flex", justifyContent: "center", alignItems: "center" }}>
                     <Pressable

@@ -4,13 +4,14 @@ import { api } from "@/src/services/http.client";
 import type {
     HealthImportedSleep,
     HealthImportedWorkoutSessionMinimal,
-} from "@/src/types/health.types";
+} from "@/src/types/health/health.types";
 import type { DaySummary } from "@/src/types/workout.types";
 import type {
     CalendarDayFull,
     SleepBlock,
     TrainingBlock,
     UpsertMode,
+    WorkoutActivityType,
     WorkoutDataSource,
     WorkoutDay,
     WorkoutDayBackfillBody,
@@ -20,6 +21,8 @@ import type {
     WorkoutExerciseMeta,
     WorkoutExerciseSet,
     WorkoutMediaItem,
+    WorkoutOutdoorMetrics,
+    WorkoutRouteSummary,
     WorkoutSession,
     WorkoutSessionKind,
     WorkoutSessionMeta,
@@ -41,10 +44,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isString(value: unknown): value is string {
-    return typeof value === "string";
-}
-
 function isStringArray(value: unknown): value is string[] {
     return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
@@ -57,6 +56,10 @@ function parseWorkoutDataSource(value: unknown): WorkoutDataSource | null {
 
 function parseWorkoutSessionKind(value: unknown): WorkoutSessionKind | null {
     return value === "device-import" || value === "gym-check" ? value : null;
+}
+
+function parseWorkoutActivityType(value: unknown): WorkoutActivityType {
+    return value === "walking" || value === "running" ? value : null;
 }
 
 function parseNullableString(value: unknown): string | null {
@@ -183,6 +186,43 @@ function parseWorkoutSessionMeta(value: unknown): WorkoutSessionMeta | null {
     };
 }
 
+function parseWorkoutRouteSummary(value: unknown): WorkoutRouteSummary | null {
+    if (!isRecord(value)) return null;
+
+    const pointCount = parseNullableNumber(value.pointCount);
+
+    if (pointCount === null) {
+        return null;
+    }
+
+    return {
+        pointCount: Math.max(0, Math.trunc(pointCount)),
+        startLatitude: parseNullableNumber(value.startLatitude),
+        startLongitude: parseNullableNumber(value.startLongitude),
+        endLatitude: parseNullableNumber(value.endLatitude),
+        endLongitude: parseNullableNumber(value.endLongitude),
+        minLatitude: parseNullableNumber(value.minLatitude),
+        maxLatitude: parseNullableNumber(value.maxLatitude),
+        minLongitude: parseNullableNumber(value.minLongitude),
+        maxLongitude: parseNullableNumber(value.maxLongitude),
+    };
+}
+
+function parseWorkoutOutdoorMetrics(value: unknown): WorkoutOutdoorMetrics | null {
+    if (!isRecord(value)) return null;
+
+    return {
+        distanceKm: parseNullableNumber(value.distanceKm),
+        steps: parseNullableNumber(value.steps),
+        elevationGainM: parseNullableNumber(value.elevationGainM),
+        paceSecPerKm: parseNullableNumber(value.paceSecPerKm),
+        avgSpeedKmh: parseNullableNumber(value.avgSpeedKmh),
+        maxSpeedKmh: parseNullableNumber(value.maxSpeedKmh),
+        cadenceRpm: parseNullableNumber(value.cadenceRpm),
+        strideLengthM: parseNullableNumber(value.strideLengthM),
+    };
+}
+
 function parseWorkoutSession(value: unknown): WorkoutSession | null {
     if (!isRecord(value)) return null;
 
@@ -197,6 +237,7 @@ function parseWorkoutSession(value: unknown): WorkoutSession | null {
     return {
         id,
         type,
+        activityType: parseWorkoutActivityType(value.activityType),
         startAt: parseNullableString(value.startAt),
         endAt: parseNullableString(value.endAt),
         durationSeconds: parseNullableNumber(value.durationSeconds),
@@ -209,6 +250,15 @@ function parseWorkoutSession(value: unknown): WorkoutSession | null {
         elevationGainM: parseNullableNumber(value.elevationGainM),
         paceSecPerKm: parseNullableNumber(value.paceSecPerKm),
         cadenceRpm: parseNullableNumber(value.cadenceRpm),
+        hasRoute: value.hasRoute === true,
+        routeSummary:
+            value.routeSummary === null
+                ? null
+                : parseWorkoutRouteSummary(value.routeSummary),
+        outdoorMetrics:
+            value.outdoorMetrics === null
+                ? null
+                : parseWorkoutOutdoorMetrics(value.outdoorMetrics),
         effortRpe: parseNullableNumber(value.effortRpe),
         notes: parseNullableString(value.notes),
         media:
@@ -297,7 +347,9 @@ function parseWorkoutDay(value: unknown): WorkoutDay | null {
                             rpe: parseNullableNumber(item.rpe),
                             load: parseNullableString(item.load),
                             notes: parseNullableString(item.notes),
-                            attachmentPublicIds: parseNullableStringArray(item.attachmentPublicIds),
+                            attachmentPublicIds: parseNullableStringArray(
+                                item.attachmentPublicIds
+                            ),
                         }))
                     : null,
                 notes: parseNullableString(value.plannedRoutine.notes),
@@ -309,7 +361,8 @@ function parseWorkoutDay(value: unknown): WorkoutDay | null {
                 plannedBy: parseNullableString(value.plannedMeta.plannedBy) ?? "",
                 plannedAt: parseNullableString(value.plannedMeta.plannedAt) ?? "",
                 source:
-                    value.plannedMeta.source === "trainer" || value.plannedMeta.source === "template"
+                    value.plannedMeta.source === "trainer" ||
+                        value.plannedMeta.source === "template"
                         ? value.plannedMeta.source
                         : null,
             }
@@ -515,9 +568,6 @@ export async function getWorkoutDayServ(date: string): Promise<WorkoutDay> {
     const res = await api.get(`/workout/days/${encodeURIComponent(date)}`);
     const parsed = parseWorkoutDay(res.data);
 
-    /**
-     * Backend returns null for missing days — treat as NOT_FOUND.
-     */
     if (!parsed) {
         throw createNotFoundError(date);
     }
@@ -535,10 +585,6 @@ export async function getDaySummary(date: string): Promise<DaySummary> {
     }
 }
 
-/**
- * Ensures a workout day exists, because some endpoints may 404 if the day doc doesn't exist yet.
- * NOTE: PUT /days/:date already upserts, so this is mostly useful for older endpoints.
- */
 export async function ensureWorkoutDayExistsDays(date: string): Promise<void> {
     try {
         await api.get(`/workout/days/${encodeURIComponent(date)}`);
@@ -565,10 +611,6 @@ export async function ensureWorkoutDayExistsDays(date: string): Promise<void> {
  * =========================================================
  */
 
-/**
- * Generic upsert for WorkoutDay.
- * Uses backend route: PUT /days/:date?mode=merge|replace
- */
 export async function upsertWorkoutDay(
     date: string,
     body: WorkoutDayUpsertBody,
@@ -616,12 +658,6 @@ function coerceNullableString(value: unknown): string | null {
     return trimmed ? trimmed : null;
 }
 
-/**
- * Sleep-specific upsert:
- * - merge mode by default (only updates sleep block)
- * - supports clearing sleep by passing null
- * - supports sourceDevice / importedAt / lastSyncedAt
- */
 export async function updateSleepForDay(
     date: string,
     sleep: Partial<SleepBlock> | null,
@@ -655,9 +691,6 @@ export async function updateSleepForDay(
     return upsertWorkoutDay(date, { sleep: normalized }, mode);
 }
 
-/**
- * Health sleep helper
- */
 export async function saveImportedSleepForDay(
     importedSleep: HealthImportedSleep,
     mode: UpsertMode = "merge"
@@ -671,9 +704,6 @@ export async function saveImportedSleepForDay(
  * =========================================================
  */
 
-/**
- * Builds a FE/BE-safe session meta block for imported sessions.
- */
 export function buildImportedSessionMeta(
     input: Pick<
         HealthImportedWorkoutSessionMinimal,
@@ -696,15 +726,12 @@ export function buildImportedSessionMeta(
     };
 }
 
-/**
- * Maps a neutral health-imported session into a WorkoutDay session-upsert block.
- * No exercises are attached because this helper is intended for minimal device imports.
- */
 export function buildMinimalImportedSessionUpsert(
     session: HealthImportedWorkoutSessionMinimal
 ): WorkoutSessionUpsert {
     return {
         type: session.type,
+        activityType: null,
         startAt: session.startAt ?? null,
         endAt: session.endAt ?? null,
 
@@ -722,6 +749,10 @@ export function buildMinimalImportedSessionUpsert(
 
         paceSecPerKm: session.metrics.paceSecPerKm ?? null,
         cadenceRpm: session.metrics.cadenceRpm ?? null,
+
+        hasRoute: false,
+        routeSummary: null,
+        outdoorMetrics: null,
 
         effortRpe: session.metrics.effortRpe ?? null,
 
@@ -765,10 +796,6 @@ function matchesImportedSession(
     );
 }
 
-/**
- * Saves a minimal imported device session into workoutDay.training.sessions.
- * This helper preserves existing sessions and avoids obvious duplicates.
- */
 export async function saveMinimalImportedSessionForDay(
     date: string,
     session: HealthImportedWorkoutSessionMinimal,
@@ -868,7 +895,12 @@ export function parseCalendarDayFull(value: unknown): CalendarDayFull | null {
         hasPlanned: typeof value.hasPlanned === "boolean" ? value.hasPlanned : undefined,
         hasSleep: typeof value.hasSleep === "boolean" ? value.hasSleep : undefined,
         hasTraining: typeof value.hasTraining === "boolean" ? value.hasTraining : undefined,
-        sleep: value.sleep === null ? null : value.sleep !== undefined ? parseSleepBlock(value.sleep) : undefined,
+        sleep:
+            value.sleep === null
+                ? null
+                : value.sleep !== undefined
+                    ? parseSleepBlock(value.sleep)
+                    : undefined,
         training:
             value.training === null
                 ? null

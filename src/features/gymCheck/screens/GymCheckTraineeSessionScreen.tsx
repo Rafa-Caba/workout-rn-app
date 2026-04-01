@@ -14,7 +14,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import type {
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
-} from "@/src/types/health.types";
+} from "@/src/types/health/health.types";
 import type { MediaFeedItem } from "@/src/types/media.types";
 import type { RNFile } from "@/src/types/upload.types";
 import type { WorkoutDay } from "@/src/types/workoutDay.types";

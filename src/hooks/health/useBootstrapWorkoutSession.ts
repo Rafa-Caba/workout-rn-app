@@ -9,7 +9,7 @@ import {
     saveMinimalImportedSessionForDay,
     upsertWorkoutDay,
 } from "@/src/services/workout/days.service";
-import type { HealthImportedWorkoutSessionMinimal } from "@/src/types/health.types";
+import type { HealthImportedWorkoutSessionMinimal } from "@/src/types/health/health.types";
 import type {
     WorkoutDay,
     WorkoutSession,

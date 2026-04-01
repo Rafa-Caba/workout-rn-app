@@ -1,4 +1,4 @@
-// src/features/daySummary/components/DaySessionCard.tsx
+// /src/features/daySummary/components/DaySessionCard.tsx
 
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -15,7 +15,10 @@ import {
     safeDecimal,
     safePace,
     safeTime,
+    sessionDisplayDayEffort,
+    sessionDisplayDevice,
     sessionDisplayNote,
+    sessionDisplaySource,
     sessionDisplayTitle,
     toViewerItem,
 } from "./dayDetail.helpers";
@@ -42,10 +45,24 @@ function buildOpenMediaHandler(
     };
 }
 
+function formatDuration(durationSeconds: number | null): string {
+    if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+        return "—";
+    }
+
+    const hours = Math.floor(durationSeconds / 3600);
+    const minutes = Math.round((durationSeconds % 3600) / 60);
+
+    return `${hours}h ${minutes}m`;
+}
+
 export function DaySessionCard({ session, day, colors, onOpenMedia }: Props) {
     const exercises = normalizeExercises(session);
     const media = normalizeMedia(session);
-    const setsCount = exercises.reduce((acc, exercise) => acc + (Array.isArray(exercise.sets) ? exercise.sets.length : 0), 0);
+    const setsCount = exercises.reduce(
+        (acc, exercise) => acc + (Array.isArray(exercise.sets) ? exercise.sets.length : 0),
+        0
+    );
 
     return (
         <View style={[styles.sessionCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -65,11 +82,11 @@ export function DaySessionCard({ session, day, colors, onOpenMedia }: Props) {
 
                 <DayRowItem
                     label="⏱️ Duración"
-                    value={session.durationSeconds ? `${Math.floor(session.durationSeconds / 3600)}h ${Math.round((session.durationSeconds % 3600) / 60)}m` : "—"}
+                    value={formatDuration(session.durationSeconds)}
                     colors={colors}
                 />
                 <DayRowItem
-                    label="🎯 RPE"
+                    label="🎯 RPE sesión"
                     value={session.effortRpe !== null ? String(session.effortRpe) : "—"}
                     colors={colors}
                 />
@@ -79,6 +96,7 @@ export function DaySessionCard({ session, day, colors, onOpenMedia }: Props) {
                     value={session.activeKcal !== null ? `${session.activeKcal} kcal` : "—"}
                     colors={colors}
                 />
+
                 <DayRowItem
                     label="🍽️ Totales"
                     value={session.totalKcal !== null ? `${session.totalKcal} kcal` : "—"}
@@ -123,10 +141,33 @@ export function DaySessionCard({ session, day, colors, onOpenMedia }: Props) {
                     value={session.cadenceRpm !== null ? `${String(session.cadenceRpm)} rpm` : "—"}
                     colors={colors}
                 />
-                <DayRowItem label="🖼️ Media" value={String(media.length)} colors={colors} />
 
+                <DayRowItem
+                    label="📈 RPE del día"
+                    value={sessionDisplayDayEffort(session)}
+                    colors={colors}
+                />
+
+                <DayRowItem
+                    label="⌚ Dispositivo"
+                    value={sessionDisplayDevice(session)}
+                    colors={colors}
+                />
+                <DayRowItem
+                    label="📦 Fuente"
+                    value={sessionDisplaySource(session)}
+                    colors={colors}
+                />
+
+                <DayRowItem label="🖼️ Media" value={String(media.length)} colors={colors} />
                 <DayRowItem label="🏋️ Ejercicios" value={String(exercises.length)} colors={colors} />
+
                 <DayRowItem label="📦 Sets" value={String(setsCount)} colors={colors} />
+                <DayRowItem
+                    label="🧾 Tipo"
+                    value={session.type?.trim() ? session.type : "—"}
+                    colors={colors}
+                />
             </DayTwoColGrid>
 
             <View style={[styles.exercisesBox, { borderColor: colors.border }]}>
@@ -149,16 +190,13 @@ export function DaySessionCard({ session, day, colors, onOpenMedia }: Props) {
                 {media.length === 0 ? (
                     <Text style={[styles.emptyText, { color: colors.mutedText }]}>Sin media en esta sesión.</Text>
                 ) : (
-                    <DaySessionMediaGrid
-                        items={media}
-                        colors={colors}
-                        onPress={onOpenMedia}
-                    />
+                    <DaySessionMediaGrid items={media} colors={colors} onPress={onOpenMedia} />
                 )}
             </View>
         </View>
     );
 }
+
 const styles = StyleSheet.create({
     sessionCard: {
         borderWidth: 1,

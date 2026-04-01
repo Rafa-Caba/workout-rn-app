@@ -44,17 +44,25 @@ export function DaySessionsSection({ day, sessions, colors, onOpenMedia }: Props
     const shouldShowDayTotals = sessionsCount > 1;
 
     return (
-        <DayDetailSection title="🏋️ Sesiones" colors={colors}>
+        <DayDetailSection title="🏋️ Gym / Training" colors={colors}>
             {sessionsCount === 0 ? (
-                <Text style={[styles.emptyText, { color: colors.mutedText }]}>Sin sesiones registradas.</Text>
+                <Text style={[styles.emptyText, { color: colors.mutedText }]}>
+                    Sin sesiones de gym o training registradas.
+                </Text>
             ) : (
                 <>
                     {shouldShowDayTotals ? (
                         <View style={[styles.rollupCard, { borderColor: colors.border }]}>
-                            <Text style={[styles.rollupTitle, { color: colors.text }]}>Totales del día</Text>
+                            <Text style={[styles.rollupTitle, { color: colors.text }]}>
+                                Totales del bloque Gym / Training
+                            </Text>
 
                             <DayTwoColGrid>
-                                <DayRowItem label="⏱️ Duración" value={secondsToHhMm(totalDurationSec)} colors={colors} />
+                                <DayRowItem
+                                    label="⏱️ Duración"
+                                    value={secondsToHhMm(totalDurationSec)}
+                                    colors={colors}
+                                />
                                 <DayRowItem
                                     label="🔥 Kcal activas"
                                     value={totalActiveKcal > 0 ? `${totalActiveKcal} kcal` : "—"}

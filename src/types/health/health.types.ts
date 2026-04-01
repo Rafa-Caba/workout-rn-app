@@ -6,7 +6,7 @@ import type {
     WorkoutDataSource,
     WorkoutSessionKind,
     WorkoutSourceDevice,
-} from "./workoutDay.types";
+} from "../workoutDay.types";
 
 /**
  * Neutral provider names for mobile health integrations.

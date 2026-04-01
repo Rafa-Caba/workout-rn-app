@@ -9,7 +9,7 @@ import {
 } from "@/src/services/health/health.service";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import { DEFAULT_HEALTH_READ_PERMISSIONS } from "@/src/services/health/healthPermissionKeys";
-import type { HealthPermissionsStatus, HealthProvider } from "@/src/types/health.types";
+import type { HealthPermissionsStatus, HealthProvider } from "@/src/types/health/health.types";
 
 type UseHealthPermissionsResult = {
     availability: boolean;

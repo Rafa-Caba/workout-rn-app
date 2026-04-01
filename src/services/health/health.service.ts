@@ -9,7 +9,7 @@ import type {
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
     HealthProvider,
-} from "@/src/types/health.types";
+} from "@/src/types/health/health.types";
 import type { ISODate, ISODateTime } from "@/src/types/workoutDay.types";
 
 import {

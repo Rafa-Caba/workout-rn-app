@@ -30,7 +30,7 @@ import { useDayAutoBootstrap } from "@/src/hooks/health/useDayAutoBootstrap";
 import { useHealthPermissions } from "@/src/hooks/health/useHealthPermissions";
 import { useWorkoutDay } from "@/src/hooks/workout/useWorkoutDay";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { HealthPermissionsStatus } from "@/src/types/health.types";
+import type { HealthPermissionsStatus } from "@/src/types/health/health.types";
 import type { WorkoutDay } from "@/src/types/workoutDay.types";
 
 import { DayPill } from "../components/DayMetricGrid";

@@ -1,5 +1,14 @@
+// src/services/workout/sessions.service.ts
+
 import { api } from "@/src/services/http.client";
-import { WorkoutDay, WorkoutExercise, WorkoutSession } from "@/src/types/workoutDay.types";
+import type {
+    WorkoutActivityType,
+    WorkoutDay,
+    WorkoutExercise,
+    WorkoutOutdoorMetrics,
+    WorkoutRouteSummary,
+    WorkoutSession,
+} from "@/src/types/workoutDay.types";
 
 export type SessionReturnMode = "day" | "session";
 
@@ -7,6 +16,8 @@ export type CreateSessionExerciseInput = Omit<WorkoutExercise, "id">;
 
 export type CreateSessionBody = {
     type: string;
+
+    activityType?: WorkoutActivityType;
 
     startAt?: string | null;
     endAt?: string | null;
@@ -26,6 +37,10 @@ export type CreateSessionBody = {
     paceSecPerKm?: number | null;
     cadenceRpm?: number | null;
 
+    hasRoute?: boolean;
+    routeSummary?: WorkoutRouteSummary | null;
+    outdoorMetrics?: WorkoutOutdoorMetrics | null;
+
     effortRpe?: number | null;
 
     notes?: string | null;
@@ -38,10 +53,6 @@ export type PatchSessionBody = Partial<CreateSessionBody> & {
     deleteMedia?: boolean;
 };
 
-/**
- * Mirrors backend WorkoutMediaItemSchema (WorkoutDay.model).
- * Used by POST /days/:date/sessions/:sessionId/media/attach
- */
 export type AttachMediaItem = {
     publicId: string;
     url: string;
@@ -55,9 +66,6 @@ export type AttachSessionMediaBody = {
     items: AttachMediaItem[];
 };
 
-/**
- * Backend returnMode shapes (FE-safe union).
- */
 export type ReturnDay = WorkoutDay;
 export type ReturnSession = { session: WorkoutSession; day?: WorkoutDay | null };
 
@@ -102,19 +110,21 @@ export async function deleteSession(
     sessionId: string,
     opts?: { returnMode?: SessionReturnMode; deleteMedia?: boolean }
 ): Promise<ReturnDay | ReturnSession> {
-    const res = await api.delete(`/workout/days/${encodeURIComponent(date)}/sessions/${encodeURIComponent(sessionId)}`, {
-        params: {
-            ...(opts?.returnMode ? { returnMode: opts.returnMode } : {}),
-            ...(typeof opts?.deleteMedia === "boolean" ? { deleteMedia: opts.deleteMedia } : {}),
-        },
-    });
+    const res = await api.delete(
+        `/workout/days/${encodeURIComponent(date)}/sessions/${encodeURIComponent(sessionId)}`,
+        {
+            params: {
+                ...(opts?.returnMode ? { returnMode: opts.returnMode } : {}),
+                ...(typeof opts?.deleteMedia === "boolean"
+                    ? { deleteMedia: opts.deleteMedia }
+                    : {}),
+            },
+        }
+    );
+
     return res.data as ReturnDay | ReturnSession;
 }
 
-/**
- * Attach EXISTING Cloudinary assets to a Day's session media array (no upload).
- * POST /workout/days/:date/sessions/:sessionId/media/attach?returnMode=day|session
- */
 export async function attachSessionMedia(
     date: string,
     sessionId: string,
@@ -128,6 +138,7 @@ export async function attachSessionMedia(
             params: opts?.returnMode ? { returnMode: opts.returnMode } : undefined,
         }
     );
+
     return res.data as ReturnDay | ReturnSession;
 }
 
@@ -139,9 +150,10 @@ function findGymCheckSessionIdFromDay(day: WorkoutDay): string | null {
 
 function extractSessionIdFromReturn(payload: ReturnDay | ReturnSession): string | null {
     if (payload && typeof payload === "object" && "session" in payload) {
-        const s = (payload as ReturnSession).session;
-        return typeof s?.id === "string" ? s.id : null;
+        const session = (payload as ReturnSession).session;
+        return typeof session?.id === "string" ? session.id : null;
     }
+
     return null;
 }
 

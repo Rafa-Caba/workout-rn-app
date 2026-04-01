@@ -23,6 +23,13 @@ export type WorkoutDataSource = "manual" | "healthkit" | "health-connect";
 export type WorkoutSessionKind = "device-import" | "gym-check";
 
 /**
+ * Neutral activity family used by training sessions.
+ * Keep current compatibility with existing gym/manual/device-import sessions,
+ * while adding explicit outdoor support.
+ */
+export type WorkoutActivityType = "walking" | "running" | null;
+
+/**
  * Keep broad string support because device names may vary:
  * - "Apple Watch"
  * - "iPhone"
@@ -132,6 +139,46 @@ export type WorkoutExercise = {
  * =========================================================
  */
 
+/**
+ * Outdoor-specific normalized metrics.
+ * These are kept grouped so outdoor screens can read them directly
+ * without overloading the generic session root fields.
+ */
+export type WorkoutOutdoorMetrics = {
+    distanceKm: number | null;
+    steps: number | null;
+    elevationGainM: number | null;
+
+    paceSecPerKm: number | null;
+    avgSpeedKmh: number | null;
+    maxSpeedKmh: number | null;
+
+    cadenceRpm: number | null;
+    strideLengthM: number | null;
+};
+
+/**
+ * Lightweight route summary persisted with the session so the UI can:
+ * - know if a route exists
+ * - render future preview/map placeholders
+ * - avoid recalculating bounds from raw points each time
+ */
+export type WorkoutRouteSummary = {
+    pointCount: number;
+
+    startLatitude: number | null;
+    startLongitude: number | null;
+
+    endLatitude: number | null;
+    endLongitude: number | null;
+
+    minLatitude: number | null;
+    maxLatitude: number | null;
+
+    minLongitude: number | null;
+    maxLongitude: number | null;
+};
+
 export type WorkoutSessionMeta = {
     /**
      * Existing keys used today
@@ -162,6 +209,13 @@ export type WorkoutSession = {
 
     type: string;
 
+    /**
+     * Neutral activity family.
+     * - walking / running for outdoor module
+     * - null for existing gym/manual sessions that do not need this field
+     */
+    activityType: WorkoutActivityType;
+
     startAt: ISODateTime | null;
     endAt: ISODateTime | null;
 
@@ -179,6 +233,14 @@ export type WorkoutSession = {
 
     paceSecPerKm: number | null;
     cadenceRpm: number | null;
+
+    /**
+     * Outdoor route support.
+     * No real map yet, but enough for session cards/detail state.
+     */
+    hasRoute: boolean;
+    routeSummary: WorkoutRouteSummary | null;
+    outdoorMetrics: WorkoutOutdoorMetrics | null;
 
     effortRpe: number | null;
 
@@ -445,7 +507,9 @@ export type WorkoutExerciseUpsert = Partial<Omit<WorkoutExercise, "id" | "sets">
     sets?: WorkoutExerciseSetUpsert[] | null;
 };
 
-export type WorkoutSessionUpsert = Partial<Omit<WorkoutSession, "id" | "exercises" | "media">> & {
+export type WorkoutSessionUpsert = Partial<
+    Omit<WorkoutSession, "id" | "exercises" | "media">
+> & {
     id?: string;
     media?: WorkoutMediaItem[] | null;
     exercises?: WorkoutExerciseUpsert[] | null;

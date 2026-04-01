@@ -1,6 +1,6 @@
 // src/utils/health/healthSleep.mapper.ts
 
-import type { HealthImportedSleep } from "@/src/types/health.types";
+import type { HealthImportedSleep } from "@/src/types/health/health.types";
 import type {
     SleepBlock,
     WorkoutDataSource,

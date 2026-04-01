@@ -20,8 +20,12 @@ function safeText(value: unknown): string {
 }
 
 function buildSubtitle(movement: Movement): string | null {
-    const parts = [...movement.muscleGroup, ...movement.equipment].filter((value) => value.trim().length > 0);
-    return parts.length ? parts.join(" • ") : null;
+    const muscleGroup = movement.muscleGroup.filter((value) => value.trim().length > 0);
+    const equipment = movement.equipment.filter((value) => value.trim().length > 0);
+
+    return muscleGroup.length && equipment.length
+        ? `Músculo: ${muscleGroup.join(', ')} • \nEquipo: ${equipment.join(', ')}`
+        : null;
 }
 
 export function MovementsList({ items, onEdit, onDelete, onOpenMedia }: Props) {

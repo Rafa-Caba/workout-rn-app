@@ -13,7 +13,7 @@ import type {
     HealthImportedWorkoutMetrics,
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
-} from "@/src/types/health.types";
+} from "@/src/types/health/health.types";
 
 /**
  * Supported Health Connect record types used by this app.

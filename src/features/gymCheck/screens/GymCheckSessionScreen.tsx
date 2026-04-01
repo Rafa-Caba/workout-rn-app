@@ -16,7 +16,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import type {
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
-} from "@/src/types/health.types";
+} from "@/src/types/health/health.types";
 import type { RNFile } from "@/src/types/upload.types";
 import type { WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 

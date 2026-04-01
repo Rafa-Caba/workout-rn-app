@@ -1,5 +1,6 @@
 // /src/features/sleep/components/sleepDraft.ts
-import type { SleepBlock } from "@/src/types/workoutDay.types";
+
+import type { SleepBlock, WorkoutDataSource } from "@/src/types/workoutDay.types";
 
 export type SleepDraft = {
     timeAsleepMinutes: string;
@@ -11,7 +12,7 @@ export type SleepDraft = {
     coreMinutes: string;
     deepMinutes: string;
 
-    source: string | null;
+    source: WorkoutDataSource | null;
     sourceDevice: string;
 };
 
@@ -45,6 +46,12 @@ function coerceNullableString(v: string): string | null {
     return s.length ? s : null;
 }
 
+function coerceNullableSource(value: unknown): WorkoutDataSource | null {
+    return value === "manual" || value === "healthkit" || value === "health-connect"
+        ? value
+        : null;
+}
+
 export function toSleepDraft(sleep: SleepBlock | null): SleepDraft {
     return {
         timeAsleepMinutes: toStr(sleep?.timeAsleepMinutes),
@@ -56,7 +63,7 @@ export function toSleepDraft(sleep: SleepBlock | null): SleepDraft {
         coreMinutes: toStr(sleep?.coreMinutes),
         deepMinutes: toStr(sleep?.deepMinutes),
 
-        source: sleep?.source ?? null,
+        source: coerceNullableSource(sleep?.source),
         sourceDevice: toNullableString(sleep?.sourceDevice),
     };
 }
@@ -72,7 +79,7 @@ export function normalizeSleepDraft(d: SleepDraft): SleepBlock {
         coreMinutes: coerceNullableInt(d.coreMinutes),
         deepMinutes: coerceNullableInt(d.deepMinutes),
 
-        source: typeof d.source === "string" ? (d.source.trim() ? d.source.trim() : null) : null,
+        source: coerceNullableSource(d.source),
         sourceDevice: coerceNullableString(d.sourceDevice),
         importedAt: null,
         lastSyncedAt: null,

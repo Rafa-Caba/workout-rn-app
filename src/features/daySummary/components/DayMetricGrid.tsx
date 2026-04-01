@@ -59,12 +59,12 @@ const styles = StyleSheet.create({
     },
     rowLabel: {
         fontSize: 12,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     rowValue: {
-        marginTop: 6,
+        marginTop: 4,
         fontSize: 14,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     pill: {
         borderWidth: 1,

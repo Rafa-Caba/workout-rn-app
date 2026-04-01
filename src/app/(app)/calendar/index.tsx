@@ -1,4 +1,5 @@
 // src/app/(app)/calendar/index.tsx
+
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -47,7 +48,7 @@ function ActionButton(props: {
                 transform: [{ scale: pressed ? 0.985 : 1 }],
             })}
         >
-            <Text style={{ fontWeight: "900", color: colors.text }}>{props.title}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{props.title}</Text>
 
             {props.subtitle ? (
                 <Text style={{ color: colors.mutedText, marginTop: 2 }}>{props.subtitle}</Text>
@@ -90,7 +91,7 @@ function DayCell(props: {
             >
                 <Text
                     style={{
-                        fontWeight: "900",
+                        fontWeight: "800",
                         color: isToday ? colors.primaryText : colors.text,
                     }}
                 >
@@ -113,6 +114,38 @@ function DayCell(props: {
     );
 }
 
+function SectionHeader(props: {
+    title: string;
+    subtitle?: string;
+    right?: React.ReactNode;
+    colors: ReturnType<typeof useTheme>["colors"];
+}) {
+    const { colors } = props;
+
+    return (
+        <View
+            style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 12,
+            }}
+        >
+            <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 20 }}>
+                    {props.title}
+                </Text>
+
+                {props.subtitle ? (
+                    <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text>
+                ) : null}
+            </View>
+
+            {props.right}
+        </View>
+    );
+}
+
 export default function CalendarMonthRoute() {
     const router = useRouter();
     const { colors } = useTheme();
@@ -121,6 +154,8 @@ export default function CalendarMonthRoute() {
     const todayIso = React.useMemo(() => todayIsoLocal(), []);
 
     const [cursor, setCursor] = React.useState<Date>(() => startOfMonth(today));
+    const [isActionsExpanded, setIsActionsExpanded] = React.useState<boolean>(false);
+
     const headerTitle = React.useMemo(() => format(cursor, "MMMM yyyy"), [cursor]);
 
     const monthStart = React.useMemo(() => startOfMonth(cursor), [cursor]);
@@ -179,6 +214,17 @@ export default function CalendarMonthRoute() {
         });
     }
 
+    function openOutdoor() {
+        toastSuccess(
+            "Abriendo Walking + Running",
+            `Cargando outdoor del día ${todayIso}.`
+        );
+        router.push({
+            pathname: "/(app)/calendar/outdoor/[date]",
+            params: { date: todayIso },
+        });
+    }
+
     function openHealthBackfill() {
         toastSuccess(
             "Abriendo Health Backfill",
@@ -193,7 +239,7 @@ export default function CalendarMonthRoute() {
             contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>
                     Calendario
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -211,42 +257,99 @@ export default function CalendarMonthRoute() {
                     backgroundColor: colors.surface,
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>Accesos</Text>
-
-                <ActionButton
+                <SectionHeader
                     colors={colors}
-                    title="Rutinas"
-                    subtitle="Ver semanas, cargar/editar rutina"
-                    onPress={openRoutines}
+                    title="Accesos"
+                    subtitle={
+                        isActionsExpanded
+                            ? "Accesos rápidos a resumen, outdoor, rutinas, gym y health."
+                            : "Toca para expandir los accesos rápidos."
+                    }
+                    right={
+                        <Pressable
+                            onPress={() => setIsActionsExpanded((prev) => !prev)}
+                            style={({ pressed }) => ({
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                backgroundColor: colors.background,
+                                opacity: pressed ? 0.82 : 1,
+                            })}
+                        >
+                            <Text style={{ fontWeight: "800", color: colors.text }}>
+                                {isActionsExpanded ? "Ocultar" : "Mostrar"}
+                            </Text>
+                        </Pressable>
+                    }
                 />
 
-                <ActionButton
-                    colors={colors}
-                    title="Gym Check"
-                    subtitle="Selector de semana + tabs de días"
-                    onPress={openGymCheck}
-                />
+                {isActionsExpanded ? (
+                    <>
+                        <ActionButton
+                            colors={colors}
+                            title={`Resumen Día (${todayIso})`}
+                            subtitle="Resumen de la Sesión Gym y Sueño"
+                            onPress={openTodaySummary}
+                        />
 
-                <ActionButton
-                    colors={colors}
-                    title={`Resumen Día (${todayIso})`}
-                    subtitle="Resumen de la Sesión Gym y Sueño"
-                    onPress={openTodaySummary}
-                />
+                        <ActionButton
+                            colors={colors}
+                            title="Resumen Semanal"
+                            subtitle="Resumen de toda la semana de Sueño y Training."
+                            onPress={openWeekSummary}
+                        />
 
-                <ActionButton
-                    colors={colors}
-                    title="Resumen Semanal"
-                    subtitle="Resumen de toda la semana de Sueño y Training."
-                    onPress={openWeekSummary}
-                />
+                        <ActionButton
+                            colors={colors}
+                            title="Walking + Running"
+                            subtitle="Dashboard outdoor del día + secciones de Walking y Running."
+                            onPress={openOutdoor}
+                        />
 
-                <ActionButton
-                    colors={colors}
-                    title="Health Backfill"
-                    subtitle="Importar histórico por día o por rango desde HealthKit / Health Connect."
-                    onPress={openHealthBackfill}
-                />
+                        <ActionButton
+                            colors={colors}
+                            title="Rutinas"
+                            subtitle="Ver semanas, cargar/editar rutina"
+                            onPress={openRoutines}
+                        />
+
+                        <ActionButton
+                            colors={colors}
+                            title="Gym Check"
+                            subtitle="Selector de semana + tabs de días"
+                            onPress={openGymCheck}
+                        />
+
+                        <ActionButton
+                            colors={colors}
+                            title="Health Backfill"
+                            subtitle="Importar histórico por día o por rango desde HealthKit / Health Connect."
+                            onPress={openHealthBackfill}
+                        />
+                    </>
+                ) : (
+                    <Pressable
+                        onPress={() => setIsActionsExpanded(true)}
+                        style={({ pressed }) => ({
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            borderRadius: 12,
+                            paddingHorizontal: 14,
+                            paddingVertical: 14,
+                            backgroundColor: colors.background,
+                            opacity: pressed ? 0.82 : 1,
+                        })}
+                    >
+                        <Text style={{ fontWeight: "800", color: colors.text }}>
+                            Ver accesos rápidos
+                        </Text>
+                        <Text style={{ color: colors.mutedText, marginTop: 2 }}>
+                            Día, Semana, Walking + Running, Rutinas, Gym Check y Health Backfill.
+                        </Text>
+                    </Pressable>
+                )}
             </View>
 
             <View
@@ -280,10 +383,10 @@ export default function CalendarMonthRoute() {
                             transform: [{ scale: pressed ? 0.97 : 1 }],
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>←</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>←</Text>
                     </Pressable>
 
-                    <Text style={{ fontWeight: "900", fontSize: 16, color: colors.text }}>
+                    <Text style={{ fontWeight: "800", fontSize: 16, color: colors.text }}>
                         {headerTitle}
                     </Text>
 
@@ -300,7 +403,7 @@ export default function CalendarMonthRoute() {
                             transform: [{ scale: pressed ? 0.97 : 1 }],
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>→</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>→</Text>
                     </Pressable>
                 </View>
 
@@ -317,7 +420,7 @@ export default function CalendarMonthRoute() {
                             <Text
                                 style={{
                                     fontSize: 12,
-                                    fontWeight: "900",
+                                    fontWeight: "800",
                                     color: colors.mutedText,
                                 }}
                             >
