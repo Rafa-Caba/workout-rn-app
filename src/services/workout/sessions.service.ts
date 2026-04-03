@@ -67,7 +67,7 @@ export type AttachSessionMediaBody = {
 };
 
 export type ReturnDay = WorkoutDay;
-export type ReturnSession = { session: WorkoutSession; day?: WorkoutDay | null };
+export type ReturnSession = { session: WorkoutSession | null; day?: WorkoutDay | null };
 
 export async function ensureWorkoutDayExists(date: string): Promise<void> {
     await api.put(`/workout/days/${encodeURIComponent(date)}`, {});

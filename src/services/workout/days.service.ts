@@ -55,7 +55,11 @@ function parseWorkoutDataSource(value: unknown): WorkoutDataSource | null {
 }
 
 function parseWorkoutSessionKind(value: unknown): WorkoutSessionKind | null {
-    return value === "device-import" || value === "gym-check" ? value : null;
+    return value === "device-import" ||
+        value === "gym-check" ||
+        value === "manual-outdoor"
+        ? value
+        : null;
 }
 
 function parseWorkoutActivityType(value: unknown): WorkoutActivityType {
@@ -587,8 +591,11 @@ export async function getDaySummary(date: string): Promise<DaySummary> {
 
 export async function ensureWorkoutDayExistsDays(date: string): Promise<void> {
     try {
-        await api.get(`/workout/days/${encodeURIComponent(date)}`);
-        return;
+        const day = await getWorkoutDayServ(date);
+
+        if (day) {
+            return;
+        }
     } catch (error: unknown) {
         const status = toStatus(error);
         if (status !== 404) throw error;

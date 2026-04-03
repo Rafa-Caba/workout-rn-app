@@ -1,7 +1,8 @@
-// src/features/health/outdoor/screens/OutdoorSessionDetailsScreen.tsx
+// /src/features/health/outdoor/screens/OutdoorSessionDetailsScreen.tsx
 
+import { useRouter } from "expo-router";
 import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import OutdoorEmptyState from "@/src/features/health/outdoor/components/OutdoorEmptyState";
 import OutdoorRouteMap from "@/src/features/health/outdoor/components/OutdoorRouteMap";
@@ -10,7 +11,8 @@ import OutdoorSessionBadge from "@/src/features/health/outdoor/components/Outdoo
 import OutdoorSessionMetrics from "@/src/features/health/outdoor/components/OutdoorSessionMetrics";
 import { useOutdoorSessionDetails } from "@/src/hooks/health/outdoor/useOutdoorSessionDetails";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { ISODate } from "@/src/types/workoutDay.types";
+import type { ISODate, WorkoutSession } from "@/src/types/workoutDay.types";
+import { formatFlexibleDateLabel } from "@/src/utils/dates/dateDisplay";
 import { buildOutdoorSessionTitleFromWorkoutSession } from "@/src/utils/health/outdoor/outdoorSession.helpers";
 
 type Props = {
@@ -58,8 +60,48 @@ function formatDateTime(value: string | null | undefined): string {
     return date.toLocaleString();
 }
 
+function formatSourceLabel(value: string | null | undefined): string {
+    if (value === "healthkit") return "HealthKit";
+    if (value === "health-connect") return "Health Connect";
+    if (value === "manual") return "Manual";
+    return "—";
+}
+
+function formatSessionKindLabel(value: string | null | undefined): string {
+    if (value === "device-import") return "Importada del dispositivo";
+    if (value === "manual-outdoor") return "Manual outdoor";
+    if (value === "gym-check") return "Gym Check";
+    return "—";
+}
+
+function formatImportMetaDate(
+    source: string | null | undefined,
+    value: string | null | undefined
+): string {
+    if (source === "manual" && !value) {
+        return "No aplica";
+    }
+
+    return formatDateTime(value);
+}
+
+function isManualOutdoorEditable(session: WorkoutSession | null): boolean {
+    if (!session) {
+        return false;
+    }
+
+    console.log({ session });
+
+    return (
+        session.meta?.source === "manual" &&
+        session.meta?.sessionKind === "manual-outdoor" &&
+        (session.activityType === "walking" || session.activityType === "running")
+    );
+}
+
 export function OutdoorSessionDetailsScreen({ date, sessionId }: Props) {
     const { colors } = useTheme();
+    const router = useRouter();
 
     const details = useOutdoorSessionDetails({
         date,
@@ -102,6 +144,18 @@ export function OutdoorSessionDetailsScreen({ date, sessionId }: Props) {
     }
 
     const session = details.session;
+    const source = session.meta?.source ?? null;
+    const canEditManualSession = isManualOutdoorEditable(session);
+
+    function openEditManualSession() {
+        router.push({
+            pathname: "/(app)/calendar/outdoor/edit/[date]/[sessionId]",
+            params: {
+                date,
+                sessionId,
+            },
+        });
+    }
 
     return (
         <ScrollView
@@ -118,21 +172,56 @@ export function OutdoorSessionDetailsScreen({ date, sessionId }: Props) {
                     gap: 10,
                 }}
             >
-                {session.activityType ? (
-                    <OutdoorSessionBadge activityType={session.activityType} />
-                ) : null}
+                <View
+                    style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 12,
+                    }}
+                >
+                    {session.activityType ? (
+                        <OutdoorSessionBadge activityType={session.activityType} />
+                    ) : (
+                        <View />
+                    )}
 
-                <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>
+                    {canEditManualSession ? (
+                        <Pressable
+                            onPress={openEditManualSession}
+                            style={({ pressed }) => ({
+                                borderWidth: 1,
+                                borderColor: colors.primary,
+                                borderRadius: 12,
+                                paddingHorizontal: 14,
+                                paddingVertical: 7,
+                                backgroundColor: colors.primary,
+                                opacity: pressed ? 0.9 : 1,
+                            })}
+                        >
+                            <Text
+                                style={{
+                                    color: colors.primaryText,
+                                    fontWeight: "800",
+                                }}
+                            >
+                                Editar
+                            </Text>
+                        </Pressable>
+                    ) : null}
+                </View>
+
+                <Text style={{ fontSize: 24, fontWeight: "800", color: colors.text }}>
                     {buildOutdoorSessionTitleFromWorkoutSession(session)}
                 </Text>
 
                 <Text style={{ color: colors.mutedText }}>
-                    Fecha: {date}
+                    Fecha: {formatFlexibleDateLabel(date, "es")}
                 </Text>
             </View>
 
             <View style={{ gap: 10 }}>
-                <Text style={{ fontSize: 20, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>
                     Métricas
                 </Text>
                 <OutdoorSessionMetrics session={session} />
@@ -158,21 +247,25 @@ export function OutdoorSessionDetailsScreen({ date, sessionId }: Props) {
                     gap: 12,
                 }}
             >
-                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
-                    Metadata importada
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+                    Metadata de sesión
                 </Text>
 
-                <MetaRow label="Fuente" value={session.meta?.source ?? "—"} />
+                <MetaRow label="Fuente" value={formatSourceLabel(source)} />
+                <MetaRow
+                    label="Tipo de sesión"
+                    value={formatSessionKindLabel(session.meta?.sessionKind ?? null)}
+                />
                 <MetaRow label="Dispositivo" value={session.meta?.sourceDevice ?? "—"} />
                 <MetaRow label="External ID" value={session.meta?.externalId ?? "—"} />
                 <MetaRow label="Tipo original" value={session.meta?.originalType ?? "—"} />
                 <MetaRow
                     label="Importado"
-                    value={formatDateTime(session.meta?.importedAt ?? null)}
+                    value={formatImportMetaDate(source, session.meta?.importedAt ?? null)}
                 />
                 <MetaRow
                     label="Último sync"
-                    value={formatDateTime(session.meta?.lastSyncedAt ?? null)}
+                    value={formatImportMetaDate(source, session.meta?.lastSyncedAt ?? null)}
                 />
                 <MetaRow
                     label="Inicio"

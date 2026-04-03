@@ -9,7 +9,7 @@ import { useAuthStore } from "@/src/store/auth.store";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { AuthUser, Units } from "@/src/types/auth.types";
 import type { WeekStartsOn } from "@/src/types/settings.types";
-import { formatWeirdUsDateTime } from "@/src/utils/dates/formatWeirdDate";
+import { formatWeirdUsDateTime } from "@/src/utils/dates/dateDisplay";
 
 function initialsFromName(name: string): string {
     const parts = String(name ?? "")

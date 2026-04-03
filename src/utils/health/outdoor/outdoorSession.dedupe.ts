@@ -1,4 +1,4 @@
-// src/utils/health/outdoor/outdoorSession.dedupe.ts
+// /src/utils/health/outdoor/outdoorSession.dedupe.ts
 
 import type { HealthImportedOutdoorSession } from "@/src/types/health/healthOutdoor.types";
 import type { WorkoutSession } from "@/src/types/workoutDay.types";
@@ -10,6 +10,7 @@ type OutdoorSessionLike = {
     activityType: string | null;
     startAt: string | null;
     endAt: string | null;
+    durationSeconds: number | null;
     distanceKm: number | null;
     source: string | null;
 };
@@ -26,12 +27,49 @@ function normalizeNumber(value: number | null | undefined): string {
     return isFiniteNumber(value) ? String(Math.round(value * 1000) / 1000) : "";
 }
 
+function toMillis(value: string | null | undefined): number | null {
+    if (!value) {
+        return null;
+    }
+
+    const result = new Date(value).getTime();
+    return Number.isFinite(result) ? result : null;
+}
+
+function isCloseNumber(
+    left: number | null | undefined,
+    right: number | null | undefined,
+    tolerance: number
+): boolean {
+    if (!isFiniteNumber(left) || !isFiniteNumber(right)) {
+        return false;
+    }
+
+    return Math.abs(left - right) <= tolerance;
+}
+
+function isCloseDateTime(
+    left: string | null | undefined,
+    right: string | null | undefined,
+    toleranceMs: number
+): boolean {
+    const leftMs = toMillis(left);
+    const rightMs = toMillis(right);
+
+    if (leftMs === null || rightMs === null) {
+        return false;
+    }
+
+    return Math.abs(leftMs - rightMs) <= toleranceMs;
+}
+
 function toOutdoorSessionLikeFromWorkoutSession(session: WorkoutSession): OutdoorSessionLike {
     return {
         externalId: normalizeString(session.meta?.externalId ?? null) || null,
         activityType: isOutdoorActivityType(session.activityType) ? session.activityType : null,
         startAt: session.startAt ?? null,
         endAt: session.endAt ?? null,
+        durationSeconds: session.durationSeconds ?? null,
         distanceKm: session.distanceKm ?? null,
         source: session.meta?.source ?? null,
     };
@@ -45,6 +83,7 @@ function toOutdoorSessionLikeFromImported(
         activityType: session.activityType,
         startAt: session.startAt ?? null,
         endAt: session.endAt ?? null,
+        durationSeconds: session.metrics.durationSeconds ?? null,
         distanceKm: session.metrics.distanceKm ?? null,
         source: session.source,
     };
@@ -61,6 +100,7 @@ export function buildOutdoorSessionSignature(session: OutdoorSessionLike): strin
         normalizeString(session.activityType),
         normalizeString(session.startAt),
         normalizeString(session.endAt),
+        normalizeNumber(session.durationSeconds),
         normalizeNumber(session.distanceKm),
     ].join("|");
 }
@@ -88,6 +128,8 @@ export function isSameOutdoorSession(
         normalizeString(existingLike.activityType) === normalizeString(incomingLike.activityType) &&
         normalizeString(existingLike.startAt) === normalizeString(incomingLike.startAt) &&
         normalizeString(existingLike.endAt) === normalizeString(incomingLike.endAt) &&
+        normalizeNumber(existingLike.durationSeconds) ===
+        normalizeNumber(incomingLike.durationSeconds) &&
         normalizeNumber(existingLike.distanceKm) === normalizeNumber(incomingLike.distanceKm)
     );
 }
@@ -101,6 +143,60 @@ function isHealthImportedOutdoorWorkoutSession(session: WorkoutSession): boolean
         sessionKind === "device-import" &&
         (source === "healthkit" || source === "health-connect")
     );
+}
+
+function isManualOutdoorFallbackSession(session: WorkoutSession): boolean {
+    const source = session.meta?.source ?? null;
+    const sessionKind = session.meta?.sessionKind ?? null;
+
+    return (
+        isOutdoorActivityType(session.activityType) &&
+        source === "manual" &&
+        (sessionKind === "manual-outdoor" || sessionKind === null || sessionKind === undefined)
+    );
+}
+
+/**
+ * Manual fallback sessions will not have second-level precision like provider imports,
+ * so we match them with relaxed tolerances when a real Health import arrives later.
+ */
+function isSameManualFallbackAsImported(
+    existingManual: WorkoutSession,
+    importedIncoming: WorkoutSession
+): boolean {
+    const existingLike = toOutdoorSessionLikeFromWorkoutSession(existingManual);
+    const incomingLike = toOutdoorSessionLikeFromWorkoutSession(importedIncoming);
+
+    if (
+        normalizeString(existingLike.activityType) !== normalizeString(incomingLike.activityType)
+    ) {
+        return false;
+    }
+
+    const startMatches = isCloseDateTime(existingLike.startAt, incomingLike.startAt, 15 * 60 * 1000);
+    if (!startMatches) {
+        return false;
+    }
+
+    const endMatches = isCloseDateTime(existingLike.endAt, incomingLike.endAt, 15 * 60 * 1000);
+    const durationMatches = isCloseNumber(
+        existingLike.durationSeconds,
+        incomingLike.durationSeconds,
+        15 * 60
+    );
+
+    if (!endMatches && !durationMatches) {
+        return false;
+    }
+
+    const bothHaveDistance =
+        isFiniteNumber(existingLike.distanceKm) && isFiniteNumber(incomingLike.distanceKm);
+
+    if (bothHaveDistance) {
+        return isCloseNumber(existingLike.distanceKm, incomingLike.distanceKm, 0.5);
+    }
+
+    return true;
 }
 
 export function mergeOutdoorSessionsIntoExistingSessions(
@@ -122,13 +218,27 @@ export function mergeOutdoorSessionsIntoExistingSessions(
     let unchangedCount = 0;
 
     for (const incomingSession of mappedIncomingSessions) {
-        const existingIndex = mergedSessions.findIndex((existingSession) => {
+        const importedExistingIndex = mergedSessions.findIndex((existingSession) => {
             if (!isHealthImportedOutdoorWorkoutSession(existingSession)) {
                 return false;
             }
 
             return isSameOutdoorSession(existingSession, incomingSession);
         });
+
+        const manualFallbackIndex =
+            importedExistingIndex >= 0
+                ? -1
+                : mergedSessions.findIndex((existingSession) => {
+                    if (!isManualOutdoorFallbackSession(existingSession)) {
+                        return false;
+                    }
+
+                    return isSameManualFallbackAsImported(existingSession, incomingSession);
+                });
+
+        const existingIndex =
+            importedExistingIndex >= 0 ? importedExistingIndex : manualFallbackIndex;
 
         if (existingIndex < 0) {
             mergedSessions.push(incomingSession);

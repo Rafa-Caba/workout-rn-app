@@ -20,7 +20,7 @@ export type WeekKey = string; // "YYYY-W##"
 
 export type WorkoutDataSource = "manual" | "healthkit" | "health-connect";
 
-export type WorkoutSessionKind = "device-import" | "gym-check";
+export type WorkoutSessionKind = "device-import" | "gym-check" | "manual-outdoor";
 
 /**
  * Neutral activity family used by training sessions.

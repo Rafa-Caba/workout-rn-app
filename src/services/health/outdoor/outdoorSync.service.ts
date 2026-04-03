@@ -1,7 +1,13 @@
-// src/services/health/outdoor/outdoorSync.service.ts
+// /src/services/health/outdoor/outdoorSync.service.ts
 
-import { getOutdoorHealthProvider, readOutdoorSessions } from "@/src/services/health/outdoor/outdoorHealth.service";
-import { getWorkoutDayServ, upsertWorkoutDay } from "@/src/services/workout/days.service";
+import {
+    getOutdoorHealthProvider,
+    readOutdoorSessions,
+} from "@/src/services/health/outdoor/outdoorHealth.service";
+import {
+    getWorkoutDayServ,
+    upsertWorkoutDay,
+} from "@/src/services/workout/days.service";
 import type {
     HealthImportedOutdoorQuery,
     HealthImportedOutdoorSession,
@@ -63,6 +69,31 @@ export type OutdoorSessionDetailsResult = {
     updated: boolean;
 };
 
+function extractHttpStatus(error: unknown): number | null {
+    if (typeof error !== "object" || error === null) {
+        return null;
+    }
+
+    if (
+        "status" in error &&
+        typeof (error as { status?: unknown }).status === "number"
+    ) {
+        return (error as { status: number }).status;
+    }
+
+    if (
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object" &&
+        (error as { response?: unknown }).response !== null &&
+        "status" in ((error as { response: { status?: unknown } }).response) &&
+        typeof (error as { response: { status?: unknown } }).response.status === "number"
+    ) {
+        return (error as { response: { status: number } }).response.status;
+    }
+
+    return null;
+}
+
 function normalizeActivityTypes(
     activityTypes?: OutdoorActivityType[]
 ): OutdoorActivityType[] {
@@ -97,11 +128,24 @@ function getExistingSessions(day: WorkoutDay | null): WorkoutSession[] {
     return Array.isArray(sessions) ? sessions : [];
 }
 
-function getExistingOutdoorImportedSessions(day: WorkoutDay | null): WorkoutSession[] {
-    return getOutdoorSessionsForDate(getExistingSessions(day), day?.date ?? "", [
-        "walking",
-        "running",
-    ]).filter((session) => {
+function getExistingOutdoorSessions(
+    day: WorkoutDay | null,
+    date: ISODate,
+    activityTypes?: OutdoorActivityType[]
+): WorkoutSession[] {
+    return getOutdoorSessionsForDate(
+        getExistingSessions(day),
+        date,
+        normalizeActivityTypes(activityTypes)
+    );
+}
+
+function getExistingOutdoorImportedSessions(
+    day: WorkoutDay | null,
+    date: ISODate,
+    activityTypes?: OutdoorActivityType[]
+): WorkoutSession[] {
+    return getExistingOutdoorSessions(day, date, activityTypes).filter((session) => {
         const source = session.meta?.source ?? null;
         const sessionKind = session.meta?.sessionKind ?? null;
 
@@ -116,13 +160,7 @@ async function safeGetWorkoutDay(date: ISODate): Promise<WorkoutDay | null> {
     try {
         return await getWorkoutDayServ(date);
     } catch (error: unknown) {
-        const maybeStatus =
-            typeof error === "object" &&
-                error !== null &&
-                "status" in error &&
-                typeof (error as { status?: unknown }).status === "number"
-                ? (error as { status: number }).status
-                : null;
+        const maybeStatus = extractHttpStatus(error);
 
         if (maybeStatus === 404) {
             return null;
@@ -212,10 +250,75 @@ export async function syncOutdoorSessionsForDate(
     const existingDay = await safeGetWorkoutDay(input.date);
     const existingSessions = getExistingSessions(existingDay);
 
+    /**
+     * If provider returned nothing and there is no existing day,
+     * avoid a no-op upsert request entirely.
+     */
+    if (importedSessions.length === 0 && existingDay === null) {
+        return {
+            provider: readResult.provider,
+            date: input.date,
+            importedCount: 0,
+            insertedCount: 0,
+            updatedCount: 0,
+            unchangedCount: 0,
+            importedSessions: [],
+            mappedSessions: [],
+            persistedSessions: [],
+            day: null,
+        };
+    }
+
+    /**
+     * If provider returned nothing but the day already exists,
+     * keep the existing outdoor sessions and skip unnecessary upsert.
+     */
+    if (importedSessions.length === 0 && existingDay !== null) {
+        return {
+            provider: readResult.provider,
+            date: input.date,
+            importedCount: 0,
+            insertedCount: 0,
+            updatedCount: 0,
+            unchangedCount: getExistingOutdoorSessions(
+                existingDay,
+                input.date,
+                input.activityTypes
+            ).length,
+            importedSessions: [],
+            mappedSessions: [],
+            persistedSessions: getExistingSessions(existingDay),
+            day: existingDay,
+        };
+    }
+
     const mergeResult = mergeOutdoorSessionsIntoExistingSessions(
         existingSessions,
         importedSessions
     );
+
+    /**
+     * If merge produced no effective changes and we already have a day,
+     * avoid a no-op write.
+     */
+    if (
+        existingDay !== null &&
+        mergeResult.insertedCount === 0 &&
+        mergeResult.updatedCount === 0
+    ) {
+        return {
+            provider: readResult.provider,
+            date: input.date,
+            importedCount: importedSessions.length,
+            insertedCount: 0,
+            updatedCount: 0,
+            unchangedCount: mergeResult.unchangedCount,
+            importedSessions,
+            mappedSessions,
+            persistedSessions: mergeResult.mergedSessions,
+            day: existingDay,
+        };
+    }
 
     const day = await upsertWorkoutDay(
         input.date,
@@ -253,7 +356,22 @@ export async function ensureOutdoorSessionsForDate(
     input: OutdoorSyncDateInput
 ): Promise<OutdoorEnsureResult> {
     const existingDay = await safeGetWorkoutDay(input.date);
-    const existingOutdoorSessions = getExistingOutdoorImportedSessions(existingDay);
+
+    /**
+     * For screen bootstrap, any outdoor session already present for the day
+     * should prevent automatic re-import.
+     *
+     * This includes:
+     * - imported device sessions
+     * - manual outdoor fallback sessions
+     *
+     * Explicit re-fetch remains available via "Resync".
+     */
+    const existingOutdoorSessions = getExistingOutdoorSessions(
+        existingDay,
+        input.date,
+        input.activityTypes
+    );
 
     if (existingOutdoorSessions.length > 0) {
         return {
@@ -268,6 +386,33 @@ export async function ensureOutdoorSessionsForDate(
             importedSessions: [],
             mappedSessions: [],
             persistedSessions: existingOutdoorSessions,
+
+            day: existingDay,
+
+            hadExistingOutdoorSessions: true,
+            skippedImport: true,
+        };
+    }
+
+    const existingImportedSessions = getExistingOutdoorImportedSessions(
+        existingDay,
+        input.date,
+        input.activityTypes
+    );
+
+    if (existingImportedSessions.length > 0) {
+        return {
+            provider: (await getOutdoorHealthProvider()) ?? "healthkit",
+            date: input.date,
+
+            importedCount: 0,
+            insertedCount: 0,
+            updatedCount: 0,
+            unchangedCount: existingImportedSessions.length,
+
+            importedSessions: [],
+            mappedSessions: [],
+            persistedSessions: existingImportedSessions,
 
             day: existingDay,
 
@@ -330,6 +475,21 @@ export async function syncOutdoorSessionDetails(
     const mergeResult = mergeOutdoorSessionsIntoExistingSessions(existingSessions, [
         matchedImportedSession,
     ]);
+
+    if (
+        existingDay !== null &&
+        mergeResult.insertedCount === 0 &&
+        mergeResult.updatedCount === 0
+    ) {
+        return {
+            provider: readResult.provider,
+            date: input.date,
+            matchedImportedSession,
+            mappedSession,
+            day: existingDay,
+            updated: false,
+        };
+    }
 
     const day = await upsertWorkoutDay(
         input.date,

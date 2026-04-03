@@ -6,7 +6,7 @@ import {
     ensureOutdoorSessionsForDate,
     syncOutdoorSessionsForDate,
     type OutdoorEnsureResult,
-    type OutdoorSyncResult
+    type OutdoorSyncResult,
 } from "@/src/services/health/outdoor/outdoorSync.service";
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
 import type { OutdoorActivityType } from "@/src/types/health/healthOutdoor.types";
@@ -35,7 +35,55 @@ type UseOutdoorBootstrapResult = {
     refresh: () => Promise<void>;
 };
 
+function extractHttpStatus(error: unknown): number | null {
+    if (typeof error !== "object" || error === null) {
+        return null;
+    }
+
+    if (
+        "status" in error &&
+        typeof (error as { status?: unknown }).status === "number"
+    ) {
+        return (error as { status: number }).status;
+    }
+
+    if (
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object" &&
+        (error as { response?: unknown }).response !== null &&
+        "status" in ((error as { response: { status?: unknown } }).response) &&
+        typeof (error as { response: { status?: unknown } }).response.status === "number"
+    ) {
+        return (error as { response: { status: number } }).response.status;
+    }
+
+    return null;
+}
+
 function toErrorMessage(error: unknown, fallback: string): string {
+    if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object" &&
+        (error as { response?: unknown }).response !== null
+    ) {
+        const response = (error as {
+            response: {
+                data?: {
+                    error?: {
+                        message?: string;
+                    };
+                };
+            };
+        }).response;
+
+        const apiMessage = response.data?.error?.message;
+        if (typeof apiMessage === "string" && apiMessage.trim().length > 0) {
+            return apiMessage;
+        }
+    }
+
     return error instanceof Error ? error.message : fallback;
 }
 
@@ -74,13 +122,7 @@ export function useOutdoorBootstrap(
             const nextDay = await getWorkoutDayServ(date);
             setDay(nextDay);
         } catch (err: unknown) {
-            const maybeStatus =
-                typeof err === "object" &&
-                    err !== null &&
-                    "status" in err &&
-                    typeof (err as { status?: unknown }).status === "number"
-                    ? (err as { status: number }).status
-                    : null;
+            const maybeStatus = extractHttpStatus(err);
 
             if (maybeStatus === 404) {
                 setDay(null);
@@ -149,13 +191,7 @@ export function useOutdoorBootstrap(
                 if (!isMounted) return;
                 setDay(nextDay);
             } catch (err: unknown) {
-                const maybeStatus =
-                    typeof err === "object" &&
-                        err !== null &&
-                        "status" in err &&
-                        typeof (err as { status?: unknown }).status === "number"
-                        ? (err as { status: number }).status
-                        : null;
+                const maybeStatus = extractHttpStatus(err);
 
                 if (!isMounted) return;
 
@@ -182,6 +218,11 @@ export function useOutdoorBootstrap(
 
         void (async () => {
             try {
+                if (isMounted) {
+                    setLoading(true);
+                    setError(null);
+                }
+
                 const result = await ensureOutdoorSessionsForDate({
                     date,
                     activityTypes,
@@ -195,6 +236,10 @@ export function useOutdoorBootstrap(
             } catch (err: unknown) {
                 if (!isMounted) return;
                 setError(toErrorMessage(err, "Failed to auto-bootstrap outdoor sessions."));
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         })();
 

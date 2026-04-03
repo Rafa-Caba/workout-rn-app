@@ -9,7 +9,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import type { AdminSettingsPalette, AdminSettingsThemeMode } from "@/src/types/adminSettings.types";
 import type { RNFile } from "@/src/types/upload.types";
 
-import { formatWeirdUsDateTime } from "@/src/utils/dates/formatWeirdDate";
+import { formatWeirdUsDateTime } from "@/src/utils/dates/dateDisplay";
 import { AppSettingsSelectModal } from "../components/AppSettingsSelectModal";
 import { AppSettingsSelectRow } from "../components/AppSettingsSelectRow";
 
