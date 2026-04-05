@@ -1,4 +1,8 @@
 // /src/hooks/useDashboard.ts
+
+import { useQuery } from "@tanstack/react-query";
+import * as React from "react";
+
 import {
     getDashboardDaySummary,
     getDashboardRangeSummary,
@@ -10,7 +14,18 @@ import {
 import type { ApiAxiosError } from "@/src/services/http.client";
 import type { WeekKey } from "@/src/types/workoutDashboard.types";
 import { last7Range, todayIso, weekKeyFromIso } from "@/src/utils/dashboard/date";
-import { useQuery } from "@tanstack/react-query";
+
+type DashboardQueryError = ApiAxiosError | null;
+
+function pickFirstDashboardError(errors: unknown[]): DashboardQueryError {
+    for (const error of errors) {
+        if (error) {
+            return error as ApiAxiosError;
+        }
+    }
+
+    return null;
+}
 
 export function useDashboard() {
     const today = todayIso();
@@ -55,21 +70,49 @@ export function useDashboard() {
         streaks.isLoading ||
         media.isLoading;
 
-    const error: ApiAxiosError | null =
-        (daySummary.error as any) ||
-        (rangeSummary.error as any) ||
-        (weekSummary.error as any) ||
-        (weekTrend.error as any) ||
-        (streaks.error as any) ||
-        (media.error as any) ||
-        null;
+    const isRefreshing =
+        daySummary.isRefetching ||
+        rangeSummary.isRefetching ||
+        weekSummary.isRefetching ||
+        weekTrend.isRefetching ||
+        streaks.isRefetching ||
+        media.isRefetching;
+
+    const error = pickFirstDashboardError([
+        daySummary.error,
+        rangeSummary.error,
+        weekSummary.error,
+        weekTrend.error,
+        streaks.error,
+        media.error,
+    ]);
+
+    const refreshAll = React.useCallback(async (): Promise<void> => {
+        await Promise.all([
+            daySummary.refetch(),
+            rangeSummary.refetch(),
+            weekSummary.refetch(),
+            weekTrend.refetch(),
+            streaks.refetch(),
+            media.refetch(),
+        ]);
+    }, [
+        daySummary,
+        rangeSummary,
+        weekSummary,
+        weekTrend,
+        streaks,
+        media,
+    ]);
 
     return {
         today,
         weekKey,
         range,
         isLoading,
+        isRefreshing,
         error,
+        refreshAll,
         daySummary,
         rangeSummary,
         weekSummary,
