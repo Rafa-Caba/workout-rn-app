@@ -1,4 +1,5 @@
-// src/components/media/MediaViewerModal.tsx
+// src/features/components/media/MediaViewerModal.tsx
+
 import React from "react";
 import { ActivityIndicator, Image, Linking, Modal, Pressable, Text, View } from "react-native";
 
@@ -76,7 +77,12 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
 
     const tags = Array.isArray(item.tags) ? item.tags : [];
     const notes = typeof item.notes === "string" && item.notes.trim() ? item.notes.trim() : null;
-    const metaRows = Array.isArray(item.metaRows) ? item.metaRows : [];
+    const metaRows: {
+        label: string;
+        value: string;
+    }[] = [];
+    // const metaRows = Array.isArray(item.metaRows) ? item.metaRows : [];
+    // console.log({ metaRows });
 
     const onOpenUrl = async () => {
         try {

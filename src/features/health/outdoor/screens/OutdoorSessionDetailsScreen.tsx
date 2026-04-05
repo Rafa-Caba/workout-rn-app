@@ -8,6 +8,7 @@ import OutdoorEmptyState from "@/src/features/health/outdoor/components/OutdoorE
 import OutdoorRouteMap from "@/src/features/health/outdoor/components/OutdoorRouteMap";
 import OutdoorRoutePreview from "@/src/features/health/outdoor/components/OutdoorRoutePreview";
 import OutdoorSessionBadge from "@/src/features/health/outdoor/components/OutdoorSessionBadge";
+import OutdoorSessionMediaSection from "@/src/features/health/outdoor/components/OutdoorSessionMediaSection";
 import OutdoorSessionMetrics from "@/src/features/health/outdoor/components/OutdoorSessionMetrics";
 import { useOutdoorSessionDetails } from "@/src/hooks/health/outdoor/useOutdoorSessionDetails";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -52,12 +53,12 @@ function formatDateTime(value: string | null | undefined): string {
         return "—";
     }
 
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) {
+    const dateValue = new Date(value);
+    if (!Number.isFinite(dateValue.getTime())) {
         return "—";
     }
 
-    return date.toLocaleString();
+    return dateValue.toLocaleString();
 }
 
 function formatSourceLabel(value: string | null | undefined): string {
@@ -89,8 +90,6 @@ function isManualOutdoorEditable(session: WorkoutSession | null): boolean {
     if (!session) {
         return false;
     }
-
-    console.log({ session });
 
     return (
         session.meta?.source === "manual" &&
@@ -235,6 +234,12 @@ export function OutdoorSessionDetailsScreen({ date, sessionId }: Props) {
             <OutdoorRoutePreview
                 hasRoute={session.hasRoute}
                 routeSummary={session.routeSummary}
+            />
+
+            <OutdoorSessionMediaSection
+                date={date}
+                session={session}
+                onRefresh={details.refresh}
             />
 
             <View

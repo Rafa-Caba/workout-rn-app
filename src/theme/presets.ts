@@ -19,6 +19,7 @@ export type ThemeColors = {
     border: string;
     primary: string;
     primaryText: string;
+    card: string;
 
     // NEW
     danger: string;
@@ -158,6 +159,19 @@ export function paletteBackground(palette: Palette, mode: Exclude<Mode, "system"
     return mixHex(base, primary, 0.08);
 }
 
+export function paletteCard(palette: Palette, mode: Exclude<Mode, "system">): string {
+    if (isNeutralPalette(palette)) return neutralBackground(mode);
+
+    const primary = palettePrimary(palette);
+    if (mode === "dark") {
+        const base = "#09204f";
+        return mixHex(base, primary, 0.14);
+    }
+
+    const base = "#badbfc";
+    return mixHex(base, primary, 0.08);
+}
+
 export function paletteSurface(palette: Palette, mode: Exclude<Mode, "system">): string {
     if (isNeutralPalette(palette)) return neutralSurface(mode);
 
@@ -220,6 +234,7 @@ export function buildThemeColors(palette: Palette, mode: Mode): ThemeColors {
         border: paletteBorder(palette, m),
         primary,
         primaryText: palettePrimaryText(palette),
+        card: paletteCard(palette, m),
 
         danger,
         dangerText: paletteDangerText(),

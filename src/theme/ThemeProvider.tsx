@@ -7,6 +7,7 @@ import type { Mode, Palette } from "./presets";
 import {
     paletteBackground,
     paletteBorder,
+    paletteCard,
     paletteDanger,
     paletteDangerText,
     paletteMutedText,
@@ -24,6 +25,7 @@ type ThemeColors = {
     border: string;
     primary: string;
     primaryText: string;
+    card: string;
 
     // NEW
     danger: string;
@@ -78,6 +80,7 @@ function buildColors(args: { scheme: "light" | "dark"; palette: Palette }): Them
         border: paletteBorder(args.palette, args.scheme),
         primary,
         primaryText: palettePrimaryText(args.palette),
+        card: paletteCard(args.palette, args.scheme),
 
         danger,
         dangerText: paletteDangerText(),
