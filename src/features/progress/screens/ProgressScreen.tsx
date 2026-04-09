@@ -11,6 +11,7 @@ import type {
 } from "@/src/types/workoutProgress.types";
 
 import { ExerciseProgressSection } from "../components/ExerciseProgressSection";
+import { ProgressCustomRangeModal } from "../components/ProgressCustomRangeModal";
 import { ProgressExerciseTableCard } from "../components/ProgressExerciseTableCard";
 import { ProgressHeroCard } from "../components/ProgressHeroCard";
 import { ProgressHighlightsCard } from "../components/ProgressHighlightsCard";
@@ -26,9 +27,19 @@ export function ProgressScreen() {
     const [compareTo, setCompareTo] =
         React.useState<WorkoutProgressCompareTo>("previous_period");
 
+    const [customRangeVisible, setCustomRangeVisible] = React.useState(false);
+
+    const [draftFrom, setDraftFrom] = React.useState<string | null>(null);
+    const [draftTo, setDraftTo] = React.useState<string | null>(null);
+
+    const [appliedFrom, setAppliedFrom] = React.useState<string | undefined>(undefined);
+    const [appliedTo, setAppliedTo] = React.useState<string | undefined>(undefined);
+
     const progressQuery = useWorkoutProgress({
         mode,
         compareTo,
+        from: mode === "customRange" ? appliedFrom : undefined,
+        to: mode === "customRange" ? appliedTo : undefined,
         includeExerciseProgress: true,
     });
 
@@ -38,93 +49,138 @@ export function ProgressScreen() {
         void progressQuery.refetch();
     }, [progressQuery]);
 
+    const customRangeLabel = React.useMemo(() => {
+        if (mode !== "customRange" || !appliedFrom || !appliedTo) {
+            return null;
+        }
+
+        return `${appliedFrom} → ${appliedTo}`;
+    }, [mode, appliedFrom, appliedTo]);
+
+    const handleChangeMode = React.useCallback((nextMode: WorkoutProgressMode) => {
+        setMode(nextMode);
+
+        if (nextMode === "customRange") {
+            setCustomRangeVisible(true);
+        }
+    }, []);
+
+    const handleOpenCustomRange = React.useCallback(() => {
+        setCustomRangeVisible(true);
+    }, []);
+
+    const handleApplyCustomRange = React.useCallback(() => {
+        if (!draftFrom || !draftTo || draftFrom > draftTo) {
+            return;
+        }
+
+        setAppliedFrom(draftFrom);
+        setAppliedTo(draftTo);
+        setMode("customRange");
+        setCustomRangeVisible(false);
+    }, [draftFrom, draftTo]);
+
     return (
-        <ScrollView
-            style={{ flex: 1, backgroundColor: colors.background }}
-            contentContainerStyle={styles.container}
-            refreshControl={
-                <RefreshControl
-                    refreshing={progressQuery.isRefetching}
-                    onRefresh={onRefresh}
-                    tintColor={colors.primary}
-                />
-            }
-        >
-            <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
-                    Progreso
-                </Text>
-                <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                    Compara entrenamiento, sueño, adherencia y mejoras por ejercicio.
-                </Text>
-            </View>
-
-            <ProgressPeriodSelector
-                mode={mode}
-                compareTo={compareTo}
-                onChangeMode={setMode}
-                onChangeCompareTo={setCompareTo}
-            />
-
-            {progressQuery.isLoading ? (
-                <View style={[styles.centerCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                    <ActivityIndicator />
+        <>
+            <ScrollView
+                style={{ flex: 1, backgroundColor: colors.background }}
+                contentContainerStyle={styles.container}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={progressQuery.isRefetching}
+                        onRefresh={onRefresh}
+                        tintColor={colors.primary}
+                    />
+                }
+            >
+                <View style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                        Progreso
+                    </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                        Cargando progreso...
+                        Compara entrenamiento, sueño, adherencia y mejoras por ejercicio.
                     </Text>
                 </View>
-            ) : progressQuery.isError || !data ? (
-                <View style={[styles.centerCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>
-                        No se pudo cargar progreso
-                    </Text>
-                    <Text style={{ color: colors.mutedText }}>
-                        Intenta nuevamente.
-                    </Text>
-                </View>
-            ) : (
-                <>
-                    <ProgressHeroCard
-                        hero={data.hero}
-                        range={data.range}
-                        compareRange={data.compareRange}
-                    />
 
-                    <ProgressMetricsSection
-                        title="Entrenamiento"
-                        subtitle="Sesiones, duración, kcal, HR, distancia y pasos"
-                        metrics={data.training}
-                    />
+                <ProgressPeriodSelector
+                    mode={mode}
+                    compareTo={compareTo}
+                    customRangeLabel={customRangeLabel}
+                    onChangeMode={handleChangeMode}
+                    onChangeCompareTo={setCompareTo}
+                    onOpenCustomRange={handleOpenCustomRange}
+                />
 
-                    <ProgressMetricsSection
-                        title="Sueño"
-                        subtitle="Sueño promedio, deep, REM y score"
-                        metrics={data.sleep}
-                    />
+                {progressQuery.isLoading ? (
+                    <View style={[styles.centerCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                        <ActivityIndicator />
+                        <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                            Cargando progreso...
+                        </Text>
+                    </View>
+                ) : progressQuery.isError || !data ? (
+                    <View style={[styles.centerCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                            No se pudo cargar progreso
+                        </Text>
+                        <Text style={{ color: colors.mutedText }}>
+                            Intenta nuevamente.
+                        </Text>
+                    </View>
+                ) : (
+                    <>
+                        <ProgressHeroCard
+                            hero={data.hero}
+                            range={data.range}
+                            compareRange={data.compareRange}
+                        />
 
-                    <ProgressMetricsSection
-                        title="Adherencia"
-                        subtitle="Planeado vs completado, ejercicios, sets y calidad"
-                        metrics={data.adherence}
-                    />
+                        <ProgressMetricsSection
+                            title="Entrenamiento"
+                            subtitle="Sesiones, duración, kcal, HR, distancia y pasos"
+                            metrics={data.training}
+                        />
 
-                    <ProgressHighlightsCard
-                        title="Highlights automáticos"
-                        items={data.highlights}
-                    />
+                        <ProgressMetricsSection
+                            title="Sueño"
+                            subtitle="Sueño promedio, deep, REM y score"
+                            metrics={data.sleep}
+                        />
 
-                    <ProgressExerciseTableCard rows={data.exerciseTable} />
+                        <ProgressMetricsSection
+                            title="Adherencia"
+                            subtitle="Planeado vs completado, ejercicios, sets y calidad"
+                            metrics={data.adherence}
+                        />
 
-                    <TopExerciseHighlightsCard items={data.exerciseHighlights} />
+                        <ProgressHighlightsCard
+                            title="Highlights automáticos"
+                            items={data.highlights}
+                        />
 
-                    <ExerciseProgressSection items={data.exerciseProgress} />
+                        <ProgressExerciseTableCard rows={data.exerciseTable} />
 
-                    <SessionTypeProgressCard items={data.sessionTypeProgress} />
-                </>
-            )}
+                        <TopExerciseHighlightsCard items={data.exerciseHighlights} />
 
-            <AppBrandFooter />
-        </ScrollView>
+                        <ExerciseProgressSection items={data.exerciseProgress} />
+
+                        <SessionTypeProgressCard items={data.sessionTypeProgress} />
+                    </>
+                )}
+
+                <AppBrandFooter />
+            </ScrollView>
+
+            <ProgressCustomRangeModal
+                visible={customRangeVisible}
+                from={draftFrom}
+                to={draftTo}
+                onChangeFrom={setDraftFrom}
+                onChangeTo={setDraftTo}
+                onApply={handleApplyCustomRange}
+                onClose={() => setCustomRangeVisible(false)}
+            />
+        </>
     );
 }
 

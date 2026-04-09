@@ -11,14 +11,17 @@ import type {
 type ProgressPeriodSelectorProps = {
     mode: WorkoutProgressMode;
     compareTo: WorkoutProgressCompareTo;
+    customRangeLabel?: string | null;
     onChangeMode: (value: WorkoutProgressMode) => void;
     onChangeCompareTo: (value: WorkoutProgressCompareTo) => void;
+    onOpenCustomRange?: () => void;
 };
 
 const MODE_OPTIONS: Array<{ value: WorkoutProgressMode; label: string }> = [
     { value: "last7", label: "7 días" },
     { value: "last30", label: "30 días" },
     { value: "currentMonth", label: "Mes actual" },
+    { value: "customRange", label: "Personalizado" },
 ];
 
 const COMPARE_OPTIONS: Array<{ value: WorkoutProgressCompareTo; label: string }> = [
@@ -30,10 +33,23 @@ const COMPARE_OPTIONS: Array<{ value: WorkoutProgressCompareTo; label: string }>
 export function ProgressPeriodSelector({
     mode,
     compareTo,
+    customRangeLabel = null,
     onChangeMode,
     onChangeCompareTo,
+    onOpenCustomRange,
 }: ProgressPeriodSelectorProps) {
     const { colors } = useTheme();
+
+    const handleModePress = React.useCallback(
+        (value: WorkoutProgressMode) => {
+            onChangeMode(value);
+
+            if (value === "customRange") {
+                onOpenCustomRange?.();
+            }
+        },
+        [onChangeMode, onOpenCustomRange]
+    );
 
     return (
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -46,7 +62,7 @@ export function ProgressPeriodSelector({
                         return (
                             <Pressable
                                 key={option.value}
-                                onPress={() => onChangeMode(option.value)}
+                                onPress={() => handleModePress(option.value)}
                                 style={({ pressed }) => [
                                     styles.chip,
                                     {
@@ -69,6 +85,12 @@ export function ProgressPeriodSelector({
                         );
                     })}
                 </View>
+
+                {mode === "customRange" && customRangeLabel ? (
+                    <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
+                        {customRangeLabel}
+                    </Text>
+                ) : null}
             </View>
 
             <View style={{ gap: 6 }}>
