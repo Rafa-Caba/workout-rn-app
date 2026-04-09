@@ -67,7 +67,7 @@ function Row(props: { label: string; value: string }) {
     return (
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
             <Text style={{ color: colors.mutedText, fontWeight: "800" }}>{props.label}</Text>
-            <Text style={{ fontWeight: "900", color: colors.text }}>{props.value}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{props.value}</Text>
         </View>
     );
 }
@@ -121,7 +121,7 @@ export function GymCheckExerciseRow({
                     }}
                 >
                     <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontWeight: "900", fontSize: 16, color: colors.text }}>
+                        <Text style={{ fontWeight: "800", fontSize: 16, color: colors.text }}>
                             {title}
                         </Text>
                         {String(plan?.notes ?? "").trim() ? (
@@ -143,7 +143,7 @@ export function GymCheckExerciseRow({
                             opacity: busy ? 0.6 : 1,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", color: done ? colors.primary : colors.text }}>
+                        <Text style={{ fontWeight: "800", color: done ? colors.primary : colors.text }}>
                             {done ? "Hecho" : "Pendiente"}
                         </Text>
                     </Pressable>
@@ -195,7 +195,7 @@ export function GymCheckExerciseRow({
                             }}
                             style={{ flex: 1 }}
                         >
-                            <Text style={{ color: colors.text, fontWeight: "900", fontSize: 15 }}>
+                            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 15 }}>
                                 {setsOpen ? "▼" : "▶"} Sets reales
                             </Text>
 
@@ -231,7 +231,7 @@ export function GymCheckExerciseRow({
                                 opacity: setsLocked ? 0.5 : 1,
                             }}
                         >
-                            <Text style={{ color: colors.text, fontWeight: "900" }}>+ Set</Text>
+                            <Text style={{ color: colors.text, fontWeight: "800" }}>+ Set</Text>
                         </Pressable>
                     </View>
 
@@ -279,7 +279,7 @@ export function GymCheckExerciseRow({
                         opacity: busy ? 0.6 : 1,
                     }}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900", textAlign: "center" }}>
+                    <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
                         Subir media
                     </Text>
                 </Pressable>
@@ -335,7 +335,7 @@ export function GymCheckExerciseRow({
                                                     fadeDuration={0}
                                                 />
                                             ) : (
-                                                <Text style={{ fontWeight: "900", color: colors.mutedText }}>
+                                                <Text style={{ fontWeight: "800", color: colors.mutedText }}>
                                                     VIDEO
                                                 </Text>
                                             )}
@@ -358,7 +358,7 @@ export function GymCheckExerciseRow({
                                                 opacity: busy ? 0.6 : 1,
                                             }}
                                         >
-                                            <Text style={{ fontWeight: "900", color: colors.text }}>✕</Text>
+                                            <Text style={{ fontWeight: "800", color: colors.text }}>✕</Text>
                                         </Pressable>
                                     </View>
                                 );

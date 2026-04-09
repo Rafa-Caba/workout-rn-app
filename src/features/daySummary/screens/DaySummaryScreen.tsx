@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     topTitle: { fontSize: 12, fontWeight: "800" },
-    topValue: { fontSize: 16, fontWeight: "900" },
+    topValue: { fontSize: 16, fontWeight: "800" },
     badgesRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
 
     badge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     metricValue: { marginTop: 6, fontSize: 16, fontWeight: "800" },
 
     section: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
-    sectionTitle: { fontSize: 14, fontWeight: "900" },
+    sectionTitle: { fontSize: 14, fontWeight: "800" },
     metaRow: { gap: 6 },
     metaLabel: { fontSize: 12, fontWeight: "800" },
     metaValue: { fontSize: 13, fontWeight: "600", lineHeight: 18 },

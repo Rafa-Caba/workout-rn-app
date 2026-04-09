@@ -1,4 +1,5 @@
 // src/app/(app)/calendar/routines/_layout.tsx
+
 import { Stack } from "expo-router";
 import React from "react";
 
@@ -10,7 +11,7 @@ export default function RoutinesLayout() {
 
     return (
         <Stack screenOptions={getStackHeaderScreenOptions(theme)}>
-            <Stack.Screen name="index" options={{ title: "Rutinas" }} />
+            <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="week/[weekKey]" options={{ title: "Rutina (Semana)" }} />
             <Stack.Screen name="day/[date]" options={{ title: "Rutina (Día)" }} />
         </Stack>

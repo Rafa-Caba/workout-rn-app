@@ -26,7 +26,7 @@ export function AppSettingsLogoCard(props: {
         >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Logo de la app</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Logo de la app</Text>
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>PNG / JPG / WEBP hasta 1,024px aprox.</Text>
                 </View>
 
@@ -42,7 +42,7 @@ export function AppSettingsLogoCard(props: {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Seleccionar logo</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Seleccionar logo</Text>
                 </Pressable>
             </View>
 
@@ -76,7 +76,7 @@ export function AppSettingsLogoCard(props: {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: "#EF4444" }}>Quitar logo</Text>
+                        <Text style={{ fontWeight: "800", color: "#EF4444" }}>Quitar logo</Text>
                     </Pressable>
                 </View>
             ) : (

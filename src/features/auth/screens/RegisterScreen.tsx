@@ -61,7 +61,7 @@ export default function RegisterScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Crear cuenta</Text>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Crear cuenta</Text>
                 <Text style={{ color: colors.mutedText }}>
                     Regístrate para guardar tus rutinas y progreso.
                 </Text>
@@ -151,7 +151,7 @@ export default function RegisterScreen() {
                             justifyContent: "center",
                         }}
                     >
-                        <Text style={{ color: colors.primaryText, fontWeight: "900" }}>
+                        <Text style={{ color: colors.primaryText, fontWeight: "800" }}>
                             {registerMutation.isPending ? "Creando..." : "Crear cuenta"}
                         </Text>
                     </Pressable>
@@ -168,7 +168,7 @@ export default function RegisterScreen() {
                             justifyContent: "center",
                         }}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>
                             Ya tengo cuenta → Iniciar sesión
                         </Text>
                     </Pressable>

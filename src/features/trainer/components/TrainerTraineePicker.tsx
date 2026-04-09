@@ -79,7 +79,7 @@ export function TrainerTraineePicker(props: Props) {
                     gap: 10,
                 })}
             >
-                <Text style={{ color: colors.text, fontWeight: "900", flex: 1 }} numberOfLines={1}>
+                <Text style={{ color: colors.text, fontWeight: "800", flex: 1 }} numberOfLines={1}>
                     {label}
                 </Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "800" }}>▾</Text>
@@ -90,9 +90,9 @@ export function TrainerTraineePicker(props: Props) {
 
                 <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                        <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>Selecciona un trainee</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>Selecciona un trainee</Text>
                         <Pressable onPress={() => setOpen(false)}>
-                            <Text style={{ fontWeight: "900", color: colors.mutedText }}>Cerrar</Text>
+                            <Text style={{ fontWeight: "800", color: colors.mutedText }}>Cerrar</Text>
                         </Pressable>
                     </View>
 
@@ -110,13 +110,13 @@ export function TrainerTraineePicker(props: Props) {
                                 opacity: pressed ? 0.92 : 1,
                             })}
                         >
-                            <Text style={{ color: colors.text, fontWeight: "900" }}>
+                            <Text style={{ color: colors.text, fontWeight: "800" }}>
                                 Error al cargar. Toca para reintentar.
                             </Text>
                         </Pressable>
                     ) : props.items.length === 0 ? (
                         <View style={[styles.empty, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                            <Text style={{ color: colors.mutedText, fontWeight: "900" }}>Aún no hay trainees asignados</Text>
+                            <Text style={{ color: colors.mutedText, fontWeight: "800" }}>Aún no hay trainees asignados</Text>
                         </View>
                     ) : (
                         <FlatList
@@ -141,7 +141,7 @@ export function TrainerTraineePicker(props: Props) {
                                             opacity: pressed ? 0.92 : 1,
                                         })}
                                     >
-                                        <Text style={{ color: active ? "#fff" : colors.text, fontWeight: "900" }} numberOfLines={1}>
+                                        <Text style={{ color: active ? "#fff" : colors.text, fontWeight: "800" }} numberOfLines={1}>
                                             {item.name}
                                         </Text>
                                         {item.subtitle ? (
@@ -172,7 +172,7 @@ export function TrainerTraineePicker(props: Props) {
                                     opacity: pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ color: colors.text, fontWeight: "900" }}>Limpiar selección</Text>
+                                <Text style={{ color: colors.text, fontWeight: "800" }}>Limpiar selección</Text>
                             </Pressable>
                         </>
                     ) : null}

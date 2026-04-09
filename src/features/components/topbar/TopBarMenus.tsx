@@ -72,7 +72,7 @@ function MenuCard(props: { title?: string; children: React.ReactNode }) {
                         borderBottomColor: colors.border,
                     }}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>{props.title}</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>{props.title}</Text>
                 </View>
             ) : null}
 
@@ -115,7 +115,7 @@ function MenuItem(props: {
                         color={props.danger ? "#EF4444" : colors.text}
                     />
                 ) : null}
-                <Text style={{ fontWeight: "900", color: props.danger ? "#EF4444" : colors.text, flex: 1 }}>
+                <Text style={{ fontWeight: "800", color: props.danger ? "#EF4444" : colors.text, flex: 1 }}>
                     {props.title}
                 </Text>
             </View>
@@ -167,7 +167,7 @@ function PreferencesMenu(props: { visible: boolean; onClose: () => void }) {
 
                         <Divider />
 
-                        <Text style={{ fontWeight: "900", color: colors.text, paddingHorizontal: 6, paddingTop: 4 }}>
+                        <Text style={{ fontWeight: "800", color: colors.text, paddingHorizontal: 6, paddingTop: 4 }}>
                             Paleta
                         </Text>
 
@@ -191,7 +191,7 @@ function PreferencesMenu(props: { visible: boolean; onClose: () => void }) {
                                             opacity: pressed ? 0.95 : 1,
                                         })}
                                     >
-                                        <Text style={{ fontWeight: "900", color: colors.text }}>{p.label}</Text>
+                                        <Text style={{ fontWeight: "800", color: colors.text }}>{p.label}</Text>
                                         {selected ? (
                                             <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
                                         ) : null}
@@ -237,7 +237,7 @@ function ProfileMenu(props: { visible: boolean; onClose: () => void }) {
                 <Pressable onPress={() => undefined} style={{ alignSelf: "flex-end", marginTop: 64, marginRight: 12 }}>
                     <MenuCard title={user?.name ?? "Cuenta"}>
                         <MenuItem leftIcon="account-circle-outline" title="Mi Perfil" onPress={() => go("/(app)/me")} />
-                        <MenuItem leftIcon="cog-outline" title="Ajustes" onPress={() => go("/(app)/settings")} />
+                        <MenuItem leftIcon="cog-outline" title="Ajustes" onPress={() => go("/(app)/admin/settings")} />
 
                         <Divider />
 
@@ -283,7 +283,7 @@ export function TopBarMenus() {
                     {avatarUrl ? (
                         <Image source={{ uri: avatarUrl }} style={{ height: "100%", width: "100%" }} resizeMode="cover" />
                     ) : (
-                        <Text style={{ fontWeight: "900", color: colors.mutedText }}>{initials}</Text>
+                        <Text style={{ fontWeight: "800", color: colors.mutedText }}>{initials}</Text>
                     )}
                 </Pressable>
             </View>

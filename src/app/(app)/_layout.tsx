@@ -40,6 +40,7 @@ export default function AppLayout() {
         const list: MoreItem[] = [
             { key: "media", title: "Media", icon: "image-multiple-outline", href: "/media" },
             { key: "trends", title: "Tendencias (Semanas)", icon: "trending-up", href: "/trends" },
+            { key: "progress", title: "Progreso", icon: "chart-timeline-variant", href: "/progress" },
             { key: "insights", title: "Insights", icon: "chart-bell-curve", href: "/insights" },
             { key: "pva", title: "Plan vs Real", icon: "chart-box-multiple", href: "/pva" },
             { key: "me", title: "Perfil", icon: "face-man-outline", href: "/me" },
@@ -82,17 +83,14 @@ export default function AppLayout() {
                     tabBarLabelStyle: { fontWeight: "600", fontSize: 8 },
                 }}
             >
-                {/* FIXED */}
                 <Tabs.Screen name="dashboard" options={{ title: "Dashboard", tabBarIcon: tabIcon("cat") }} />
                 <Tabs.Screen name="calendar" options={{ title: "Calendario", tabBarIcon: tabIcon("calendar-month-outline") }} />
                 <Tabs.Screen name="movements" options={{ title: "Ejercicios", tabBarIcon: tabIcon("dumbbell") }} />
                 <Tabs.Screen name="sleep" options={{ title: "Sueño", tabBarIcon: tabIcon("bed-clock") }} />
 
-                {/* These are FIXED when allowed, fully hidden when not */}
                 <Tabs.Screen name="trainer" options={trainerTabOptions as any} />
                 <Tabs.Screen name="admin" options={adminTabOptions as any} />
 
-                {/* "Más" */}
                 <Tabs.Screen
                     name="more"
                     options={{ title: "Más", tabBarIcon: tabIcon("dots-horizontal") }}
@@ -104,19 +102,14 @@ export default function AppLayout() {
                     }}
                 />
 
-                {/* NOT FIXED (hidden from tab bar, reachable via "Más") */}
                 <Tabs.Screen name="media" options={{ href: null }} />
                 <Tabs.Screen name="trends" options={{ href: null }} />
+                <Tabs.Screen name="progress" options={{ href: null }} />
                 <Tabs.Screen name="insights" options={{ href: null }} />
                 <Tabs.Screen name="pva" options={{ href: null }} />
-
-                {/* Hide non-tab routes from the bottom bar */}
                 <Tabs.Screen name="me" options={{ href: null }} />
             </Tabs>
 
-            {/* =========================
-               More Modal
-               ========================= */}
             <Modal visible={moreOpen} animationType="slide" transparent onRequestClose={closeMore}>
                 <View
                     style={{
@@ -139,7 +132,7 @@ export default function AppLayout() {
                     >
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                             <View style={{ flex: 1 }}>
-                                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>Más</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>Más</Text>
                                 <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
                                     Navega a secciones extra.
                                 </Text>
@@ -157,7 +150,7 @@ export default function AppLayout() {
                                     opacity: pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar</Text>
                             </Pressable>
                         </View>
 
@@ -183,10 +176,10 @@ export default function AppLayout() {
                                         })}
                                     >
                                         <MaterialCommunityIcons name={it.icon} size={20} color={colors.text} />
-                                        <Text style={{ color: colors.text, fontWeight: "900", flex: 1 }} numberOfLines={1}>
+                                        <Text style={{ color: colors.text, fontWeight: "800", flex: 1 }} numberOfLines={1}>
                                             {it.title}
                                         </Text>
-                                        <Text style={{ color: colors.mutedText, fontWeight: "900" }}>›</Text>
+                                        <Text style={{ color: colors.mutedText, fontWeight: "800" }}>›</Text>
                                     </Pressable>
                                 ))}
                             </View>

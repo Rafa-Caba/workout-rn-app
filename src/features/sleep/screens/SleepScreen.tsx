@@ -323,7 +323,7 @@ export default function SleepScreen() {
                             opacity: busy ? 0.6 : pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ color: colors.primaryText, fontWeight: "900", textAlign: "center" }}>
+                        <Text style={{ color: colors.primaryText, fontWeight: "800", textAlign: "center" }}>
                             {syncLoading ? "Importando..." : `Importar desde ${providerLabel}`}
                         </Text>
                     </Pressable>
@@ -342,7 +342,7 @@ export default function SleepScreen() {
                             opacity: busy ? 0.6 : pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900", textAlign: "center" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
                             Reintentar sync
                         </Text>
                     </Pressable>
@@ -358,7 +358,7 @@ export default function SleepScreen() {
                         gap: 8,
                     }}
                 >
-                    <Text style={{ fontSize: 12, fontWeight: "900", color: colors.text }}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: colors.text }}>
                         Estado de Salud
                     </Text>
 
@@ -387,7 +387,7 @@ export default function SleepScreen() {
                             gap: 8,
                         }}
                     >
-                        <Text style={{ fontSize: 12, fontWeight: "900", color: colors.text }}>
+                        <Text style={{ fontSize: 12, fontWeight: "800", color: colors.text }}>
                             Metadata importada
                         </Text>
 

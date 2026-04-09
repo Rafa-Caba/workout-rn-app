@@ -20,7 +20,7 @@ function Btn(props: { label: string; onPress: () => void; disabled?: boolean }) 
                 opacity: props.disabled ? 0.5 : pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color: colors.text }}>{props.label}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{props.label}</Text>
         </Pressable>
     );
 }
@@ -46,7 +46,7 @@ export function AdminUsersPagination(props: {
                 gap: 10,
             }}
         >
-            <Text style={{ fontWeight: "900", color: colors.text }}>Paginación</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>Paginación</Text>
 
             <Text style={{ color: colors.mutedText }}>
                 Página {props.page} de {props.totalPages} · Total: {props.total}

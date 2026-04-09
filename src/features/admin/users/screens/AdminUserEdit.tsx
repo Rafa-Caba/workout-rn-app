@@ -106,7 +106,7 @@ export default function AdminUserEdit() {
     if (!id) {
         return (
             <View style={{ flex: 1, backgroundColor: colors.background, padding: 16, gap: 10 }}>
-                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 18 }}>Error</Text>
+                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 18 }}>Error</Text>
                 <Text style={{ color: colors.mutedText }}>No se recibió el id del usuario.</Text>
             </View>
         );
@@ -124,7 +124,7 @@ export default function AdminUserEdit() {
     if (!user) {
         return (
             <View style={{ flex: 1, backgroundColor: colors.background, padding: 16, gap: 10 }}>
-                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 18 }}>No encontrado</Text>
+                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 18 }}>No encontrado</Text>
                 <Text style={{ color: colors.mutedText }}>No se encontró el usuario con id: {id}</Text>
                 {storeError ? <Text style={{ color: colors.mutedText }}>{storeError}</Text> : null}
             </View>

@@ -41,7 +41,7 @@ export function OutdoorRoutePreview({ hasRoute, routeSummary }: Props) {
                 gap: 8,
             }}
         >
-            <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
                 Ruta
             </Text>
 
@@ -55,7 +55,7 @@ export function OutdoorRoutePreview({ hasRoute, routeSummary }: Props) {
                 <>
                     <Text style={{ color: colors.text }}>
                         Puntos detectados:{" "}
-                        <Text style={{ fontWeight: "900" }}>
+                        <Text style={{ fontWeight: "800" }}>
                             {routeSummary?.pointCount ?? 0}
                         </Text>
                     </Text>
@@ -82,7 +82,7 @@ export function OutdoorRoutePreview({ hasRoute, routeSummary }: Props) {
 
                     <Text style={{ color: colors.mutedText, marginTop: 4 }}>
                         Mapa real: recomendado en fase siguiente con{" "}
-                        <Text style={{ fontWeight: "900", color: colors.text }}>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>
                             react-native-maps
                         </Text>{" "}
                         para mantenerlo simple y nativo en iOS/Android.

@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     sectionBody: {
         marginTop: 10,

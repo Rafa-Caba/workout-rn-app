@@ -92,7 +92,7 @@ export function WeekViewScreen({ weekKey }: Props) {
             contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>
                     Resumen semanal
                 </Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "600" }}>
@@ -121,7 +121,7 @@ export function WeekViewScreen({ weekKey }: Props) {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>← Semana anterior</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>← Semana anterior</Text>
                     </Pressable>
 
                     <Pressable
@@ -136,18 +136,18 @@ export function WeekViewScreen({ weekKey }: Props) {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Semana siguiente →</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Semana siguiente →</Text>
                     </Pressable>
                 </View>
 
                 <View style={[styles.rangeRow, { borderColor: colors.border, backgroundColor: colors.background, alignItems: 'flex-start' }]}>
                     <Text style={{ color: colors.mutedText, fontWeight: "800" }}>Rango de semana:</Text>
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>{rangeLabel}</Text>
+                    <Text style={{ color: colors.text, fontWeight: "800" }}>{rangeLabel}</Text>
                 </View>
 
                 <View style={styles.metaRight}>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                        weekKey seleccionado: <Text style={{ color: colors.text, fontWeight: "900" }}>{wk}</Text>
+                        weekKey seleccionado: <Text style={{ color: colors.text, fontWeight: "800" }}>{wk}</Text>
                     </Text>
 
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>

@@ -276,6 +276,7 @@ export function buildGymCheckSessionPayload(args: {
             sessionKey: "gym_check",
             trainingSource: cleanString(metrics.trainingSource) ?? null,
             dayEffortRpe: toNumberOrNull(metrics.dayEffortRpe),
+            sessionKind: "gym-check",
         },
     };
 }

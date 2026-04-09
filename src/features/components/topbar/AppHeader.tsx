@@ -68,7 +68,7 @@ export function AppHeader(props: Props) {
                         numberOfLines={1}
                         style={{
                             fontSize: 18,
-                            fontWeight: "900",
+                            fontWeight: "800",
                             color: colors.text,
                         }}
                     >

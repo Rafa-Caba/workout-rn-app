@@ -27,7 +27,7 @@ export default function DashboardSectionBox({
                 backgroundColor: colors.background,
             }}
         >
-            <Text style={{ fontWeight: "900", color: colors.text }}>{title}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{title}</Text>
             {children}
         </View>
     );

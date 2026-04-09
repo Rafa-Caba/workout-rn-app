@@ -41,7 +41,7 @@ function RowButton(props: { title: string; onPress: () => void; disabled?: boole
                 opacity: props.disabled ? 0.5 : pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color }}>{props.title}</Text>
+            <Text style={{ fontWeight: "800", color }}>{props.title}</Text>
         </Pressable>
     );
 }
@@ -74,7 +74,7 @@ function Avatar(props: { name: string; imageUrl?: string | null }) {
                 justifyContent: "center",
             }}
         >
-            <Text style={{ fontWeight: "900", color: colors.text }}>{letter}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{letter}</Text>
         </View>
     );
 }
@@ -136,7 +136,7 @@ export function MovementPickerInline({ value, onChange, movements, disabled, tit
                 <View style={{ flex: 1, padding: 16, gap: 12, backgroundColor: colors.background }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                         <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>Movimientos</Text>
+                            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>Movimientos</Text>
                             <Text style={{ color: colors.mutedText }}>Selecciona un movimiento</Text>
                         </View>
                         <RowButton title="Cerrar" onPress={() => setOpen(false)} />
@@ -180,7 +180,7 @@ export function MovementPickerInline({ value, onChange, movements, disabled, tit
                             >
                                 <Avatar name={item.name} imageUrl={item.imageUrl} />
                                 <View style={{ flex: 1, gap: 2 }}>
-                                    <Text style={{ fontWeight: "900", color: colors.text }}>{item.name}</Text>
+                                    <Text style={{ fontWeight: "800", color: colors.text }}>{item.name}</Text>
                                     <Text style={{ color: colors.mutedText }} numberOfLines={1}>
                                         <Text style={{ fontFamily: "Menlo" }}>{item.id}</Text>
                                     </Text>

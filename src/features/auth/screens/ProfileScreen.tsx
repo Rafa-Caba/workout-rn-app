@@ -106,7 +106,7 @@ function CardHeader(props: { title: string; subtitle?: string }) {
     const { colors } = useTheme();
     return (
         <View style={{ gap: 2 }}>
-            <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>{props.title}</Text>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{props.title}</Text>
             {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
         </View>
     );
@@ -179,7 +179,7 @@ export default function ProfileScreen() {
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Mi perfil</Text>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Mi perfil</Text>
                     <Text style={{ color: colors.mutedText }}>Gestiona tu información personal y preferencias.</Text>
                 </View>
 
@@ -195,7 +195,7 @@ export default function ProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Editar perfil</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Editar perfil</Text>
                 </Pressable>
             </View>
 
@@ -222,7 +222,7 @@ export default function ProfileScreen() {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Reintentar</Text>
+                        <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Reintentar</Text>
                     </Pressable>
                 </Card>
             ) : null}
@@ -250,12 +250,12 @@ export default function ProfileScreen() {
                         {avatarUrl ? (
                             <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} resizeMode="cover" fadeDuration={0} />
                         ) : (
-                            <Text style={{ fontWeight: "900", color: colors.mutedText, fontSize: 20 }}>{initials}</Text>
+                            <Text style={{ fontWeight: "800", color: colors.mutedText, fontSize: 20 }}>{initials}</Text>
                         )}
                     </Pressable>
 
                     <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={{ fontWeight: "900", color: colors.text, fontSize: 18 }}>{safeText(profile?.name)}</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text, fontSize: 18 }}>{safeText(profile?.name)}</Text>
                         <Text style={{ color: colors.mutedText, fontWeight: "700" }}>{safeText(profile?.email)}</Text>
 
                         <Text style={{ color: colors.mutedText }}>
@@ -300,7 +300,7 @@ export default function ProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Editar perfil</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Editar perfil</Text>
                 </Pressable>
             </Card>
 
@@ -349,7 +349,7 @@ export default function ProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Editar preferencias</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Editar preferencias</Text>
                 </Pressable>
             </Card>
 
@@ -365,7 +365,7 @@ export default function ProfileScreen() {
                     opacity: pressed ? 0.92 : 1,
                 })}
             >
-                <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Cerrar sesión</Text>
+                <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Cerrar sesión</Text>
             </Pressable>
         </ScrollView>
     );

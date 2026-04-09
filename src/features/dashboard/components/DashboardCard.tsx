@@ -33,7 +33,7 @@ export default function DashboardCard({
                 <Text
                     style={{
                         fontSize: 16,
-                        fontWeight: "900",
+                        fontWeight: "800",
                         color: colors.text,
                     }}
                 >

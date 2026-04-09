@@ -40,7 +40,7 @@ export function AppBrandFooter({ useAppName }: Props) {
                     maxWidth: "92%",
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>{appName}</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>{appName}</Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12, fontStyle: 'italic' }}>{subtitle}</Text>
             </View>
 

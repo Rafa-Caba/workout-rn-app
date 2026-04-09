@@ -10,7 +10,7 @@ export default function PreferencesScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: colors.background, padding: 16, gap: 12 }}>
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Preferencias</Text>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Preferencias</Text>
                 <Text style={{ color: colors.mutedText }}>Placeholder</Text>
             </View>
 
@@ -24,7 +24,7 @@ export default function PreferencesScreen() {
                     gap: 6,
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>Tema</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>Tema</Text>
                 <Text style={{ color: colors.mutedText }}>
                     Aquí irá el selector de modo (claro/oscuro/sistema) y paleta.
                 </Text>
@@ -40,7 +40,7 @@ export default function PreferencesScreen() {
                     gap: 6,
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>Unidades</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>Unidades</Text>
                 <Text style={{ color: colors.mutedText }}>
                     Aquí irán unidades (kg/lb) y otras preferencias.
                 </Text>

@@ -1,7 +1,9 @@
 // src/features/routines/components/RoutineDayEditor.tsx
+
 import React from "react";
 import { Text, TextInput, View } from "react-native";
 
+import { SessionTypeSelector } from "@/src/features/components";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 import type { DayKey } from "../../../types/workoutRoutine.types";
@@ -65,11 +67,10 @@ export function RoutineDayEditor({ dayKey, date, value, onChange }: Props) {
                 <Text style={{ fontFamily: "Menlo", color: colors.text }}>{date}</Text>
             </Text>
 
-            <Field
-                label="Tipo de sesión"
+            <SessionTypeSelector
                 value={value.sessionType}
-                onChange={(v) => onChange({ sessionType: v })}
-                placeholder="Ej. Pull Power"
+                onChange={(nextValue) => onChange({ sessionType: nextValue })}
+                helperText="Usa un tipo canónico para mejorar progreso, adherencia y comparaciones."
             />
 
             <Field

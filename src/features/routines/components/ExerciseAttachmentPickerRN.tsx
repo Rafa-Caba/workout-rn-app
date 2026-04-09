@@ -50,7 +50,7 @@ function Button(props: { title: string; onPress: () => void; disabled?: boolean;
                 opacity: props.disabled ? 0.5 : pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color }}>{props.title}</Text>
+            <Text style={{ fontWeight: "800", color }}>{props.title}</Text>
         </Pressable>
     );
 }
@@ -200,7 +200,7 @@ export function ExerciseAttachmentPickerRN({
                     }}
                 >
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Pendiente</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Pendiente</Text>
                         <Button title="Quitar todo" onPress={() => onRemovePending()} disabled={disabled} />
                     </View>
 
@@ -225,7 +225,7 @@ export function ExerciseAttachmentPickerRN({
                                                 justifyContent: "center",
                                             }}
                                         >
-                                            <Text style={{ fontWeight: "900", fontSize: 12, color: colors.text }}>Video</Text>
+                                            <Text style={{ fontWeight: "800", fontSize: 12, color: colors.text }}>Video</Text>
                                         </View>
                                     ) : (
                                         <Image
@@ -246,7 +246,7 @@ export function ExerciseAttachmentPickerRN({
                                             {name}
                                         </Text>
                                         <Text style={{ color: colors.mutedText, fontSize: 11, marginTop: 2 }}>
-                                            Se subirá cuando presiones <Text style={{ fontWeight: "900", color: colors.text }}>Guardar</Text>.
+                                            Se subirá cuando presiones <Text style={{ fontWeight: "800", color: colors.text }}>Guardar</Text>.
                                         </Text>
                                     </View>
 
@@ -260,7 +260,7 @@ export function ExerciseAttachmentPickerRN({
 
             {/* Linked */}
             <View style={{ gap: 6 }}>
-                <Text style={{ fontWeight: "900", color: colors.text }}>Enlazados</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>Enlazados</Text>
 
                 {linked.length === 0 ? (
                     <Text style={{ color: colors.mutedText }}>{emptyText}</Text>
@@ -295,7 +295,7 @@ export function ExerciseAttachmentPickerRN({
                                             ) : kind === "image" ? (
                                                 <Image source={{ uri: url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                                             ) : kind === "video" ? (
-                                                <Text style={{ fontWeight: "900", fontSize: 12, color: colors.text }}>Video</Text>
+                                                <Text style={{ fontWeight: "800", fontSize: 12, color: colors.text }}>Video</Text>
                                             ) : (
                                                 <Text style={{ color: colors.mutedText, fontSize: 12 }}>Abrir</Text>
                                             )}

@@ -75,7 +75,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <View style={styles.headerRow}>
                 <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Perfil del coach</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Perfil del coach</Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
                         Estos datos los llena el coach (ej. después de la primera cita).
                     </Text>
@@ -94,7 +94,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
                         opacity: isLoading || isSaving || !dirty ? 0.5 : pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>
                         {isSaving ? "Guardando…" : "Guardar"}
                     </Text>
                 </Pressable>
@@ -102,7 +102,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
 
             {q.isError ? (
                 <View style={[styles.notice, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                    <Text style={{ color: colors.mutedText, fontWeight: "900" }}>
+                    <Text style={{ color: colors.mutedText, fontWeight: "800" }}>
                         Error al cargar el perfil del coach. Intenta recargar.
                     </Text>
                 </View>
@@ -110,7 +110,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
 
             <View style={styles.gridRow}>
                 <View style={{ flex: 1, gap: 6 }}>
-                    <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>Nivel (coach)</Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>Nivel (coach)</Text>
 
                     <Pressable
                         onPress={() => !isLoading && setLevelModalOpen(true)}
@@ -129,15 +129,15 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
                             gap: 10,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }} numberOfLines={1}>
+                        <Text style={{ fontWeight: "800", color: colors.text }} numberOfLines={1}>
                             {levelLabelEs(level)}
                         </Text>
-                        <Text style={{ color: colors.mutedText, fontWeight: "900" }}>▾</Text>
+                        <Text style={{ color: colors.mutedText, fontWeight: "800" }}>▾</Text>
                     </Pressable>
                 </View>
 
                 <View style={{ width: 140, gap: 6 }}>
-                    <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>Estado</Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>Estado</Text>
                     <View
                         style={{
                             paddingHorizontal: 12,
@@ -149,13 +149,13 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
                             justifyContent: "center",
                         }}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>{statusLabel}</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>{statusLabel}</Text>
                     </View>
                 </View>
             </View>
 
             <View style={{ gap: 6 }}>
-                <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>Notas del coach</Text>
+                <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>Notas del coach</Text>
 
                 <TextInput
                     value={notes}
@@ -183,7 +183,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
             <Modal visible={levelModalOpen} transparent animationType="fade" onRequestClose={() => setLevelModalOpen(false)}>
                 <Pressable style={styles.backdrop} onPress={() => setLevelModalOpen(false)} />
                 <View style={[styles.sheet, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                    <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>Nivel (coach)</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>Nivel (coach)</Text>
 
                     <View style={{ height: 10 }} />
 
@@ -202,7 +202,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Sin definir</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Sin definir</Text>
                     </Pressable>
 
                     <View style={{ height: 8 }} />
@@ -224,7 +224,7 @@ export function TrainerCoachProfileCard({ traineeId }: Props) {
                                 opacity: pressed ? 0.92 : 1,
                             })}
                         >
-                            <Text style={{ fontWeight: "900", color: colors.text }}>{o.labelEs}</Text>
+                            <Text style={{ fontWeight: "800", color: colors.text }}>{o.labelEs}</Text>
                         </Pressable>
                     ))}
                 </View>

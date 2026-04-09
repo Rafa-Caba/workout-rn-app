@@ -29,11 +29,11 @@ export function AppSettingsSelectRow(props: {
             })}
         >
             <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontWeight: "900", color: colors.text }}>{props.label}</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>{props.label}</Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "800" }}>{props.valueLabel}</Text>
             </View>
 
-            <Text style={{ color: colors.mutedText, fontWeight: "900" }}>›</Text>
+            <Text style={{ color: colors.mutedText, fontWeight: "800" }}>›</Text>
         </Pressable>
     );
 }

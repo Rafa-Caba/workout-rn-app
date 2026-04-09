@@ -32,7 +32,7 @@ export function AppSettingsSelectModal<T extends string>(props: {
                         maxHeight: "80%",
                     }}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>{props.title}</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>{props.title}</Text>
 
                     <ScrollView contentContainerStyle={{ gap: 10 }} showsVerticalScrollIndicator={false}>
                         {props.options.map((o) => {
@@ -51,7 +51,7 @@ export function AppSettingsSelectModal<T extends string>(props: {
                                         opacity: pressed ? 0.92 : 1,
                                     })}
                                 >
-                                    <Text style={{ fontWeight: "900", color: colors.text }}>{o.label}</Text>
+                                    <Text style={{ fontWeight: "800", color: colors.text }}>{o.label}</Text>
                                 </Pressable>
                             );
                         })}
@@ -69,7 +69,7 @@ export function AppSettingsSelectModal<T extends string>(props: {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar</Text>
                     </Pressable>
                 </Pressable>
             </Pressable>

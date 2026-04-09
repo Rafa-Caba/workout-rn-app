@@ -39,6 +39,7 @@ import {
     dayKeyToDateIso,
 } from "@/src/utils/gymCheck/sessionPayload";
 
+import { ApiAxiosError } from "@/src/services/http.client";
 import type { ExercisePlanInfo } from "../components/GymCheckExerciseRow";
 import { GymCheckDayScreen } from "./GymCheckDayScreen";
 
@@ -763,8 +764,16 @@ export function GymCheckTraineeSessionScreen() {
                 plannedExercises: exercisesList,
             });
         } catch (e: unknown) {
+            const apiError = e as ApiAxiosError;
+            const backendMessage =
+                apiError.response?.data?.error?.message ??
+                apiError.response?.data?.error.message ??
+                null;
+
             const message =
-                e instanceof Error ? e.message : "No se pudo crear la sesión.";
+                backendMessage ??
+                (e instanceof Error ? e.message : "No se pudo crear la sesión");
+
             Alert.alert("Error", message);
         }
     }
@@ -780,7 +789,7 @@ export function GymCheckTraineeSessionScreen() {
             contentContainerStyle={{ padding: 16, gap: 16 }}
         >
             <View style={{ gap: 8 }}>
-                <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 24, fontWeight: "800", color: colors.text }}>
                     Gym Check
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -798,7 +807,7 @@ export function GymCheckTraineeSessionScreen() {
                     gap: 12,
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>Semana</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>Semana</Text>
 
                 <View style={{ flexDirection: "row", gap: 10 }}>
                     <Pressable
@@ -877,7 +886,7 @@ export function GymCheckTraineeSessionScreen() {
                                 <Text
                                     style={{
                                         color: active ? colors.primary : colors.text,
-                                        fontWeight: "900",
+                                        fontWeight: "800",
                                     }}
                                 >
                                     {dayLabelEs(k)}
@@ -897,7 +906,7 @@ export function GymCheckTraineeSessionScreen() {
                         gap: 6,
                     }}
                 >
-                    <Text style={{ fontSize: 12, fontWeight: "900", color: colors.text }}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: colors.text }}>
                         Estado de Salud
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
@@ -927,7 +936,7 @@ export function GymCheckTraineeSessionScreen() {
                                 createSessionMutation.isPending || isHealthSyncBusy ? 0.7 : 1,
                         }}
                     >
-                        <Text style={{ color: "#fff", fontWeight: "900" }}>
+                        <Text style={{ color: "#fff", fontWeight: "800" }}>
                             {gymCheckSessionExists ? "Actualizar sesión" : "Crear sesión"}
                         </Text>
                     </Pressable>
@@ -960,7 +969,7 @@ export function GymCheckTraineeSessionScreen() {
                                 isHealthSyncBusy || createSessionMutation.isPending ? 0.7 : 1,
                         }}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>
                             {isHealthSyncBusy ? "Sincronizando..." : "Re-sincronizar métricas"}
                         </Text>
                     </Pressable>
@@ -976,7 +985,7 @@ export function GymCheckTraineeSessionScreen() {
                             backgroundColor: colors.background,
                         }}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>
                             Reset local
                         </Text>
                     </Pressable>
@@ -1005,7 +1014,7 @@ export function GymCheckTraineeSessionScreen() {
                         backgroundColor: colors.surface,
                     }}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900", marginBottom: 6 }}>
+                    <Text style={{ color: colors.text, fontWeight: "800", marginBottom: 6 }}>
                         Error
                     </Text>
                     <Text style={{ color: colors.mutedText }}>{weekError}</Text>
@@ -1020,7 +1029,7 @@ export function GymCheckTraineeSessionScreen() {
                         backgroundColor: colors.surface,
                     }}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900", marginBottom: 6 }}>
+                    <Text style={{ color: colors.text, fontWeight: "800", marginBottom: 6 }}>
                         Sin plan asignado
                     </Text>
                     <Text style={{ color: colors.mutedText }}>

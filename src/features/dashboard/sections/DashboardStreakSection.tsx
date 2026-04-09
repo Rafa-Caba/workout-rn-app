@@ -55,7 +55,7 @@ export default function DashboardStreakSection({
                     <Text
                         style={{
                             fontSize: 36,
-                            fontWeight: "900",
+                            fontWeight: "800",
                             color: colors.primary,
                         }}
                     >
@@ -66,11 +66,11 @@ export default function DashboardStreakSection({
 
                     <Text style={{ color: colors.mutedText }}>
                         Más larga:{" "}
-                        <Text style={{ fontWeight: "900", color: colors.text }}>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>
                             {data.longestStreakDays}
                         </Text>{" "}
                         · Último día:{" "}
-                        <Text style={{ fontWeight: "900", color: colors.text }}>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>
                             {data.lastQualifiedDate ?? "—"}
                         </Text>
                     </Text>

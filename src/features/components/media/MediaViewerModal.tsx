@@ -111,7 +111,7 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
                     }}
                 >
                     <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>{title}</Text>
+                        <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>{title}</Text>
                         {subtitle ? (
                             <Text style={{ color: colors.mutedText }} numberOfLines={1}>
                                 {subtitle}
@@ -130,7 +130,7 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
                             backgroundColor: colors.surface,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar</Text>
                     </Pressable>
                 </View>
 
@@ -166,7 +166,7 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
                         </View>
                     ) : (
                         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 16, gap: 8 }}>
-                            <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>Video</Text>
+                            <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Video</Text>
                             <Text style={{ color: colors.mutedText, textAlign: "center" }}>
                                 Por ahora abrimos el video en el reproductor externo.
                             </Text>
@@ -181,7 +181,7 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
                                     backgroundColor: colors.primary,
                                 }}
                             >
-                                <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Abrir video</Text>
+                                <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Abrir video</Text>
                             </Pressable>
                         </View>
                     )}
@@ -201,14 +201,14 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
                     >
                         {notes ? (
                             <View style={{ gap: 6 }}>
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Notas</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Notas</Text>
                                 <Text style={{ color: colors.text }}>{notes}</Text>
                             </View>
                         ) : null}
 
                         {tags.length > 0 ? (
                             <View style={{ gap: 6 }}>
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Tags</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Tags</Text>
                                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                                     {tags.map((t) => (
                                         <Chip key={t} text={t} />
@@ -219,7 +219,7 @@ export function MediaViewerModal({ visible, item, onClose }: Props) {
 
                         {metaRows.length > 0 ? (
                             <View style={{ gap: 6 }}>
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Detalles</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Detalles</Text>
                                 <View style={{ gap: 6 }}>
                                     {metaRows.map((r) => (
                                         <MetaRow key={`${r.label}:${r.value}`} label={r.label} value={r.value} />

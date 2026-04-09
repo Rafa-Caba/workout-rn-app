@@ -40,7 +40,7 @@ function isValidEmail(email: string): boolean {
 
 function Label({ text }: { text: string }) {
     const { colors } = useTheme();
-    return <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>{text}</Text>;
+    return <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>{text}</Text>;
 }
 
 function Input(props: {
@@ -96,7 +96,7 @@ function PillOption<T extends string>(props: {
                 opacity: pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color: props.active ? colors.primaryText : colors.text }}>
+            <Text style={{ fontWeight: "800", color: props.active ? colors.primaryText : colors.text }}>
                 {props.label}
             </Text>
         </Pressable>
@@ -117,7 +117,7 @@ function SectionCard(props: { title: string; subtitle?: string; children: React.
             }}
         >
             <View style={{ gap: 2 }}>
-                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>{props.title}</Text>
+                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>{props.title}</Text>
                 {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
             </View>
             {props.children}
@@ -141,7 +141,7 @@ function ActionButton(props: { label: string; onPress: () => void; disabled?: bo
                 opacity: props.disabled ? 0.55 : pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color: props.primary ? colors.primaryText : colors.text }}>
+            <Text style={{ fontWeight: "800", color: props.primary ? colors.primaryText : colors.text }}>
                 {props.label}
             </Text>
         </Pressable>
@@ -306,7 +306,7 @@ export function AdminUserForm(props: {
                             gap: 6,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Error</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Error</Text>
                         <Text style={{ color: colors.mutedText }}>{props.errorText}</Text>
                     </View>
                 ) : null}
@@ -444,7 +444,7 @@ export function AdminUserForm(props: {
                                 ) : null}
                             </View>
 
-                            <Text style={{ color: colors.mutedText, fontWeight: "900" }}>▾</Text>
+                            <Text style={{ color: colors.mutedText, fontWeight: "800" }}>▾</Text>
                         </Pressable>
 
                         {canPickTrainer ? (
@@ -471,7 +471,7 @@ export function AdminUserForm(props: {
                     <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                             <View style={{ flex: 1 }}>
-                                <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>Selecciona un trainer</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>Selecciona un trainer</Text>
                                 <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
                                     {trainersLoading ? "Cargando…" : `${trainers.length} trainer(s)`}
                                 </Text>
@@ -489,7 +489,7 @@ export function AdminUserForm(props: {
                                     opacity: pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar</Text>
                             </Pressable>
                         </View>
 
@@ -531,7 +531,7 @@ export function AdminUserForm(props: {
                                         alignItems: "center",
                                     })}
                                 >
-                                    <Text style={{ fontWeight: "900", color: colors.text }}>Reintentar</Text>
+                                    <Text style={{ fontWeight: "800", color: colors.text }}>Reintentar</Text>
                                 </Pressable>
                             </View>
                         ) : trainersLoading ? (
@@ -562,7 +562,7 @@ export function AdminUserForm(props: {
                                                     opacity: pressed ? 0.92 : 1,
                                                 })}
                                             >
-                                                <Text style={{ fontWeight: "900", color: active ? colors.primaryText : colors.text }} numberOfLines={1}>
+                                                <Text style={{ fontWeight: "800", color: active ? colors.primaryText : colors.text }} numberOfLines={1}>
                                                     {t.name || "Usuario"}
                                                 </Text>
                                                 {t.email ? (
@@ -597,7 +597,7 @@ export function AdminUserForm(props: {
                                             alignItems: "center",
                                         })}
                                     >
-                                        <Text style={{ fontWeight: "900", color: colors.text }}>Limpiar selección</Text>
+                                        <Text style={{ fontWeight: "800", color: colors.text }}>Limpiar selección</Text>
                                     </Pressable>
                                 ) : null}
                             </ScrollView>

@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     },
     sessionTitle: {
         fontSize: 14,
-        fontWeight: "900",
+        fontWeight: "800",
         flex: 1,
     },
     sessionMeta: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     },
     exercisesTitle: {
         fontSize: 14,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     exercisesList: {
         gap: 10,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     },
     mediaTitle: {
         fontSize: 14,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     emptyText: {
         fontSize: 13,

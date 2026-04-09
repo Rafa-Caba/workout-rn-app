@@ -215,7 +215,7 @@ export function EquipmentSelectRN({
                 >
                     {displayValue ?? placeholder}
                 </Text>
-                <Text style={{ color: colors.text, fontWeight: "900", marginLeft: 10 }}>▾</Text>
+                <Text style={{ color: colors.text, fontWeight: "800", marginLeft: 10 }}>▾</Text>
             </Pressable>
 
             {selectedValues.length ? (
@@ -268,7 +268,7 @@ export function EquipmentSelectRN({
                             gap: 12,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", fontSize: 16, color: colors.text }}>
+                        <Text style={{ fontWeight: "800", fontSize: 16, color: colors.text }}>
                             {label || "Equipo"}
                         </Text>
 
@@ -299,7 +299,7 @@ export function EquipmentSelectRN({
                                         <Text style={{ fontWeight: "800", color: colors.text, flex: 1 }}>
                                             {option.label}
                                         </Text>
-                                        <Text style={{ color: selected ? colors.primary : colors.mutedText, fontWeight: "900" }}>
+                                        <Text style={{ color: selected ? colors.primary : colors.mutedText, fontWeight: "800" }}>
                                             {selected ? "✓" : "○"}
                                         </Text>
                                     </Pressable>

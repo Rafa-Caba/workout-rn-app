@@ -62,7 +62,7 @@ export default function AdminHome() {
                             alignItems: "center",
                         })}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>Usuarios</Text>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>Usuarios</Text>
                     </Pressable>
 
                     <Pressable
@@ -80,7 +80,7 @@ export default function AdminHome() {
                             alignItems: "center",
                         })}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>Ajustes de la app</Text>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>Ajustes de la app</Text>
                     </Pressable>
                 </View> */}
             </View>

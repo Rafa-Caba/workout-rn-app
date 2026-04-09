@@ -44,7 +44,7 @@ function Pill(props: { text: string; tone?: "default" | "good" | "bad" }) {
                 backgroundColor: bg,
             }}
         >
-            <Text style={{ fontWeight: "900", color: fg, fontSize: 12 }}>{props.text}</Text>
+            <Text style={{ fontWeight: "800", color: fg, fontSize: 12 }}>{props.text}</Text>
         </View>
     );
 }
@@ -65,7 +65,7 @@ function ActionButton(props: { label: string; onPress: () => void; danger?: bool
                 opacity: pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color: props.danger ? "#EF4444" : colors.text }}>
+            <Text style={{ fontWeight: "800", color: props.danger ? "#EF4444" : colors.text }}>
                 {props.label}
             </Text>
         </Pressable>
@@ -112,12 +112,12 @@ function UserCard(props: {
                     {avatarUrl ? (
                         <Image source={{ uri: avatarUrl }} style={{ height: "100%", width: "100%" }} resizeMode="cover" />
                     ) : (
-                        <Text style={{ fontWeight: "900", color: colors.mutedText }}>{initials}</Text>
+                        <Text style={{ fontWeight: "800", color: colors.mutedText }}>{initials}</Text>
                     )}
                 </View>
 
                 <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>{u.name}</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>{u.name}</Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "800" }}>{u.email}</Text>
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>
                         Último acceso: {formatDateTime(u.lastLoginAt)}
@@ -161,7 +161,7 @@ export function AdminUsersList(props: {
                     alignItems: "center",
                 }}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>Sin resultados</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>Sin resultados</Text>
                 <Text style={{ color: colors.mutedText, textAlign: "center" }}>
                     No hay usuarios con los filtros actuales.
                 </Text>

@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     },
     exerciseName: {
         fontSize: 14,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     exerciseMeta: {
         fontSize: 12,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     },
     exerciseNotesLabel: {
         fontSize: 12,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     exerciseNotesText: {
         marginTop: 6,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     setHeaderCell: {
         flex: 1,
         fontSize: 12,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     setRow: {
         flexDirection: "row",

@@ -121,7 +121,7 @@ export function OutdoorRouteMap({
                     gap: 8,
                 }}
             >
-                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
                     Mapa
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -143,7 +143,7 @@ export function OutdoorRouteMap({
                     gap: 8,
                 }}
             >
-                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
                     Mapa
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -167,7 +167,7 @@ export function OutdoorRouteMap({
                     gap: 8,
                 }}
             >
-                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
                     Mapa
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -199,7 +199,7 @@ export function OutdoorRouteMap({
             }}
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
                     Mapa
                 </Text>
                 <Text style={{ color: colors.mutedText }}>

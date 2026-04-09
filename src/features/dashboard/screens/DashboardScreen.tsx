@@ -1,4 +1,4 @@
-// /src/features/dashboard/screens/DashboardScreen.tsx
+// src/features/dashboard/screens/DashboardScreen.tsx
 
 import React from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
@@ -10,6 +10,8 @@ import DashboardRecentMediaSection from "@/src/features/dashboard/sections/Dashb
 import DashboardStreakSection from "@/src/features/dashboard/sections/DashboardStreakSection";
 import DashboardTodaySection from "@/src/features/dashboard/sections/DashboardTodaySection";
 import DashboardWeekSection from "@/src/features/dashboard/sections/DashboardWeekSection";
+import { ProgressExercisePreviewCard } from "@/src/features/progress/components/ProgressExercisePreviewCard";
+import { useWorkoutProgress } from "@/src/hooks/summary/useWorkoutProgress";
 import { useDashboard } from "@/src/hooks/useDashboard";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -33,6 +35,12 @@ export default function DashboardScreen() {
     const [selected, setSelected] = React.useState<MediaFeedItem | null>(null);
 
     const dashboard = useDashboard();
+    const progress = useWorkoutProgress({
+        mode: "last30",
+        compareTo: "previous_period",
+        includeExerciseProgress: true,
+    });
+
     const todayLabel = React.useMemo(
         () => formatIsoToPPP(dashboard.today),
         [dashboard.today]
@@ -52,8 +60,8 @@ export default function DashboardScreen() {
     );
 
     const handleRefresh = React.useCallback(() => {
-        void dashboard.refreshAll();
-    }, [dashboard]);
+        void Promise.all([dashboard.refreshAll(), progress.refetch()]);
+    }, [dashboard, progress]);
 
     return (
         <>
@@ -62,7 +70,7 @@ export default function DashboardScreen() {
                 contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 26 }}
                 refreshControl={
                     <RefreshControl
-                        refreshing={dashboard.isRefreshing && !dashboard.isLoading}
+                        refreshing={(dashboard.isRefreshing && !dashboard.isLoading) || progress.isRefetching}
                         onRefresh={handleRefresh}
                         tintColor={colors.primary}
                     />
@@ -112,7 +120,7 @@ export default function DashboardScreen() {
                             <Text
                                 style={{
                                     fontSize: 16,
-                                    fontWeight: "900",
+                                    fontWeight: "800",
                                     color: colors.text,
                                 }}
                             >
@@ -139,6 +147,11 @@ export default function DashboardScreen() {
                     data={week}
                     trendPoint={trendPoint}
                     isLoading={dashboard.isLoading}
+                />
+
+                <ProgressExercisePreviewCard
+                    data={progress.data ?? null}
+                    isLoading={progress.isLoading}
                 />
 
                 <DashboardRangeSection

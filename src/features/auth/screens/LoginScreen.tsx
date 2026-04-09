@@ -58,7 +58,7 @@ export default function LoginScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 <View style={{ gap: 12 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>
                         Iniciar sesión
                     </Text>
 
@@ -130,7 +130,7 @@ export default function LoginScreen() {
                                 justifyContent: "center",
                             }}
                         >
-                            <Text style={{ color: colors.primaryText, fontWeight: "900" }}>
+                            <Text style={{ color: colors.primaryText, fontWeight: "800" }}>
                                 {loginMutation.isPending ? "Entrando..." : "Entrar"}
                             </Text>
                         </Pressable>
@@ -147,7 +147,7 @@ export default function LoginScreen() {
                                 justifyContent: "center",
                             }}
                         >
-                            <Text style={{ color: colors.text, fontWeight: "900" }}>Crear cuenta</Text>
+                            <Text style={{ color: colors.text, fontWeight: "800" }}>Crear cuenta</Text>
                         </Pressable>
                     </View>
                 </View>

@@ -90,11 +90,11 @@ export default function DashboardWeekSection({
                         ) : (
                             <Text style={{ color: colors.mutedText }}>
                                 Días loggeados:{" "}
-                                <Text style={{ fontWeight: "900", color: colors.text }}>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>
                                     {trendPoint.daysCount}
                                 </Text>{" "}
                                 · Media:{" "}
-                                <Text style={{ fontWeight: "900", color: colors.text }}>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>
                                     {trendPoint.mediaCount}
                                 </Text>
                             </Text>

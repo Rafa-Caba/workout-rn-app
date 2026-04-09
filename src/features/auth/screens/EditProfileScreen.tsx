@@ -170,7 +170,7 @@ function isPrefsDirty(a: PrefState, b: PrefState): boolean {
 
 function Label({ text }: { text: string }) {
     const { colors } = useTheme();
-    return <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>{text}</Text>;
+    return <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>{text}</Text>;
 }
 
 function Input(props: {
@@ -236,7 +236,7 @@ function SelectPill<T extends string>(props: {
                                 opacity: active ? 1 : 0.95,
                             }}
                         >
-                            <Text style={{ fontWeight: "900", color: active ? colors.primaryText : colors.text }}>
+                            <Text style={{ fontWeight: "800", color: active ? colors.primaryText : colors.text }}>
                                 {o.label}
                             </Text>
                         </Pressable>
@@ -287,7 +287,7 @@ function ModalShell(props: {
             <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", padding: 16, justifyContent: "center" }}>
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.surface, padding: 14, gap: 12, maxHeight: "80%" }}>
                     <View style={{ gap: 2 }}>
-                        <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>{props.title}</Text>
+                        <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{props.title}</Text>
                         {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
                     </View>
 
@@ -307,7 +307,7 @@ function ModalShell(props: {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar</Text>
                     </Pressable>
                 </View>
             </View>
@@ -385,7 +385,7 @@ function BirthDatePicker(props: {
                     })}
                 >
                     <Text style={{ color: colors.text, fontWeight: "800" }}>{displayValue}</Text>
-                    <Text style={{ color: colors.mutedText, fontWeight: "900" }}>📅</Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "800" }}>📅</Text>
                 </Pressable>
 
                 {props.error ? (
@@ -420,10 +420,10 @@ function BirthDatePicker(props: {
                                     backgroundColor: pressed ? colors.background : colors.surface,
                                 })}
                             >
-                                <Text style={{ color: colors.text, fontWeight: "900" }}>←</Text>
+                                <Text style={{ color: colors.text, fontWeight: "800" }}>←</Text>
                             </Pressable>
 
-                            <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>{headerTitle}</Text>
+                            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16 }}>{headerTitle}</Text>
 
                             <Pressable
                                 onPress={() => setCursor((d) => addMonths(d, 1))}
@@ -436,14 +436,14 @@ function BirthDatePicker(props: {
                                     backgroundColor: pressed ? colors.background : colors.surface,
                                 })}
                             >
-                                <Text style={{ color: colors.text, fontWeight: "900" }}>→</Text>
+                                <Text style={{ color: colors.text, fontWeight: "800" }}>→</Text>
                             </Pressable>
                         </View>
 
                         <View style={{ flexDirection: "row" }}>
                             {["L", "M", "X", "J", "V", "S", "D"].map((w) => (
                                 <View key={w} style={{ width: "14.2857%", alignItems: "center", paddingVertical: 6 }}>
-                                    <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>{w}</Text>
+                                    <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>{w}</Text>
                                 </View>
                             ))}
                         </View>
@@ -472,7 +472,7 @@ function BirthDatePicker(props: {
                                                 justifyContent: "center",
                                             }}
                                         >
-                                            <Text style={{ fontWeight: "900", color: isSelected ? colors.primaryText : colors.text }}>{format(d, "d")}</Text>
+                                            <Text style={{ fontWeight: "800", color: isSelected ? colors.primaryText : colors.text }}>{format(d, "d")}</Text>
                                         </View>
                                     </Pressable>
                                 );
@@ -492,7 +492,7 @@ function BirthDatePicker(props: {
                                     alignItems: "center",
                                 })}
                             >
-                                <Text style={{ color: colors.text, fontWeight: "900" }}>Quitar</Text>
+                                <Text style={{ color: colors.text, fontWeight: "800" }}>Quitar</Text>
                             </Pressable>
 
                             <Pressable
@@ -506,7 +506,7 @@ function BirthDatePicker(props: {
                                     opacity: pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Listo</Text>
+                                <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Listo</Text>
                             </Pressable>
                         </View>
                     </Pressable>
@@ -681,7 +681,7 @@ export default function EditProfileScreen() {
     return (
         <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}>
             <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Editar perfil</Text>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Editar perfil</Text>
                 <Text style={{ color: colors.mutedText }}>Actualiza tu información personal.</Text>
             </View>
 
@@ -699,7 +699,7 @@ export default function EditProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Cancelar</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Cancelar</Text>
                 </Pressable>
 
                 <Pressable
@@ -714,7 +714,7 @@ export default function EditProfileScreen() {
                         opacity: !canSave ? 0.6 : pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: canSave ? colors.primaryText : colors.mutedText }}>Guardar</Text>
+                    <Text style={{ fontWeight: "800", color: canSave ? colors.primaryText : colors.mutedText }}>Guardar</Text>
                 </Pressable>
             </View>
 
@@ -813,7 +813,7 @@ export default function EditProfileScreen() {
                 <View style={{ gap: 6 }}>
                     <Label text="Modo Coach (solo lectura)" />
                     <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: colors.background }}>
-                        <Text style={{ fontWeight: "900", color: colors.text }}>{cmLabel}</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>{cmLabel}</Text>
                     </View>
                 </View>
             </View>
@@ -821,7 +821,7 @@ export default function EditProfileScreen() {
             {/* APLICACIÓN (Preferencias) */}
             <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 14, gap: 12 }}>
                 <View style={{ gap: 2 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>Aplicación</Text>
+                    <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Aplicación</Text>
                     <Text style={{ color: colors.mutedText }}>Preferencias de comportamiento y visualización.</Text>
                 </View>
 
@@ -865,7 +865,7 @@ export default function EditProfileScreen() {
                         opacity: !(dirtyProfile || dirtyPrefs) ? 0.6 : pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text }}>Restablecer</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Restablecer</Text>
                 </Pressable>
 
                 <Pressable
@@ -880,7 +880,7 @@ export default function EditProfileScreen() {
                         opacity: !canSave ? 0.6 : pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "900", color: canSave ? colors.primaryText : colors.mutedText }}>Guardar</Text>
+                    <Text style={{ fontWeight: "800", color: canSave ? colors.primaryText : colors.mutedText }}>Guardar</Text>
                 </Pressable>
             </View>
 
@@ -906,7 +906,7 @@ export default function EditProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>Lunes</Text>
+                    <Text style={{ color: colors.text, fontWeight: "800" }}>Lunes</Text>
                     <Text style={{ color: colors.mutedText }}>Por defecto.</Text>
                 </Pressable>
 
@@ -925,7 +925,7 @@ export default function EditProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>Domingo</Text>
+                    <Text style={{ color: colors.text, fontWeight: "800" }}>Domingo</Text>
                     <Text style={{ color: colors.mutedText }}>Alternativa.</Text>
                 </Pressable>
             </ModalShell>
@@ -952,7 +952,7 @@ export default function EditProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>—</Text>
+                    <Text style={{ color: colors.text, fontWeight: "800" }}>—</Text>
                     <Text style={{ color: colors.mutedText }}>Sin valor por defecto.</Text>
                 </Pressable>
 
@@ -973,7 +973,7 @@ export default function EditProfileScreen() {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>{n}</Text>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>{n}</Text>
                     </Pressable>
                 ))}
             </ModalShell>

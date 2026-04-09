@@ -32,7 +32,7 @@ export default function CalendarOutdoorSessionDetailsRoute() {
                     justifyContent: "center",
                 }}
             >
-                <Text style={{ color: colors.text, fontWeight: "900" }}>
+                <Text style={{ color: colors.text, fontWeight: "800" }}>
                     Faltan parámetros para abrir el detalle outdoor.
                 </Text>
             </View>

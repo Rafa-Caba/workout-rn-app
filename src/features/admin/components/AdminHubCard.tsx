@@ -40,7 +40,7 @@ export function AdminHubCard(props: {
                     opacity: pressed ? 0.8 : 1,
                 })}
             >
-                <Text style={{ fontWeight: "900", color: colors.text }}>{props.buttonText}</Text>
+                <Text style={{ fontWeight: "800", color: colors.text }}>{props.buttonText}</Text>
             </Pressable>
         </View>
     );

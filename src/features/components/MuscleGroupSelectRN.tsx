@@ -212,7 +212,7 @@ export function MuscleGroupSelectRN({
                 >
                     {displayValue ?? placeholder}
                 </Text>
-                <Text style={{ color: colors.text, fontWeight: "900", marginLeft: 10 }}>▾</Text>
+                <Text style={{ color: colors.text, fontWeight: "800", marginLeft: 10 }}>▾</Text>
             </Pressable>
 
             {selectedValues.length ? (
@@ -265,7 +265,7 @@ export function MuscleGroupSelectRN({
                             gap: 12,
                         }}
                     >
-                        <Text style={{ fontWeight: "900", fontSize: 16, color: colors.text }}>
+                        <Text style={{ fontWeight: "800", fontSize: 16, color: colors.text }}>
                             {label || "Grupo muscular"}
                         </Text>
 
@@ -296,7 +296,7 @@ export function MuscleGroupSelectRN({
                                         <Text style={{ fontWeight: "800", color: colors.text, flex: 1 }}>
                                             {option.label}
                                         </Text>
-                                        <Text style={{ color: selected ? colors.primary : colors.mutedText, fontWeight: "900" }}>
+                                        <Text style={{ color: selected ? colors.primary : colors.mutedText, fontWeight: "800" }}>
                                             {selected ? "✓" : "○"}
                                         </Text>
                                     </Pressable>

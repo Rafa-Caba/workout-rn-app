@@ -65,7 +65,7 @@ export default function DashboardRecentMediaSection({
                                         <Text
                                             style={{
                                                 color: colors.mutedText,
-                                                fontWeight: "900",
+                                                fontWeight: "800",
                                             }}
                                         >
                                             Video

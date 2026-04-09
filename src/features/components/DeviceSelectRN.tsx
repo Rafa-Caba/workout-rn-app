@@ -203,7 +203,7 @@ export function DeviceSelectRN({
                 <Text style={{ color: displayValue ? colors.text : colors.mutedText, fontWeight: "700" }}>
                     {displayValue ?? placeholder}
                 </Text>
-                <Text style={{ color: colors.text, fontWeight: "900" }}>▾</Text>
+                <Text style={{ color: colors.text, fontWeight: "800" }}>▾</Text>
             </Pressable>
 
             {allowOther && otherSelected ? (
@@ -246,7 +246,7 @@ export function DeviceSelectRN({
                             maxHeight: "70%",
                         }}
                     >
-                        <Text style={{ fontWeight: "900", fontSize: 16, marginBottom: 10, color: colors.text }}>
+                        <Text style={{ fontWeight: "800", fontSize: 16, marginBottom: 10, color: colors.text }}>
                             {label}
                         </Text>
 

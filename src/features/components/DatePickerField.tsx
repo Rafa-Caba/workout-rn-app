@@ -82,7 +82,7 @@ export function DatePickerField({
                         opacity: disabled ? 0.6 : pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "900", textAlign: 'center' }}>
+                    <Text style={{ color: colors.text, fontWeight: "800", textAlign: 'center' }}>
                         {safeDisplay(value, displayFormat)}
                     </Text>
                 </Pressable>
@@ -109,7 +109,7 @@ export function DatePickerField({
                             gap: 12,
                         }}
                     >
-                        <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>
+                        <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>
                             Selecciona fecha
                         </Text>
 
@@ -144,7 +144,7 @@ export function DatePickerField({
                                         opacity: pressed ? 0.92 : 1,
                                     })}
                                 >
-                                    <Text style={{ color: colors.text, fontWeight: "900" }}>Cancelar</Text>
+                                    <Text style={{ color: colors.text, fontWeight: "800" }}>Cancelar</Text>
                                 </Pressable>
 
                                 <Pressable
@@ -157,7 +157,7 @@ export function DatePickerField({
                                         opacity: pressed ? 0.92 : 1,
                                     })}
                                 >
-                                    <Text style={{ color: colors.primaryText, fontWeight: "900" }}>Elegir</Text>
+                                    <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Elegir</Text>
                                 </Pressable>
                             </View>
                         ) : null}

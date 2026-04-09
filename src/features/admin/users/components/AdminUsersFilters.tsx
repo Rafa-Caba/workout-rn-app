@@ -12,7 +12,7 @@ type CoachModeFilter = "all" | "NONE" | "TRAINER" | "TRAINEE";
 
 function Label({ text }: { text: string }) {
     const { colors } = useTheme();
-    return <Text style={{ color: colors.mutedText, fontWeight: "900", fontSize: 12 }}>{text}</Text>;
+    return <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>{text}</Text>;
 }
 
 function SelectModal<T extends string>(props: {
@@ -42,7 +42,7 @@ function SelectModal<T extends string>(props: {
                         gap: 10,
                     }}
                 >
-                    <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>{props.title}</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>{props.title}</Text>
 
                     {props.options.map((o) => {
                         const active = o.value === props.value;
@@ -60,7 +60,7 @@ function SelectModal<T extends string>(props: {
                                     opacity: pressed ? 0.92 : 1,
                                 })}
                             >
-                                <Text style={{ fontWeight: "900", color: colors.text }}>{o.label}</Text>
+                                <Text style={{ fontWeight: "800", color: colors.text }}>{o.label}</Text>
                             </Pressable>
                         );
                     })}
@@ -78,7 +78,7 @@ function SelectModal<T extends string>(props: {
                             opacity: pressed ? 0.92 : 1,
                         })}
                     >
-                        <Text style={{ fontWeight: "900", color: colors.text }}>Cerrar</Text>
+                        <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar</Text>
                     </Pressable>
                 </Pressable>
             </Pressable>
@@ -105,8 +105,8 @@ function SelectRow(props: { label: string; valueLabel: string; onPress: () => vo
                 opacity: pressed ? 0.92 : 1,
             })}
         >
-            <Text style={{ fontWeight: "900", color: colors.text }}>{props.label}</Text>
-            <Text style={{ fontWeight: "900", color: colors.mutedText }}>{props.valueLabel}</Text>
+            <Text style={{ fontWeight: "800", color: colors.text }}>{props.label}</Text>
+            <Text style={{ fontWeight: "800", color: colors.mutedText }}>{props.valueLabel}</Text>
         </Pressable>
     );
 }
@@ -154,7 +154,7 @@ export function AdminUsersFilters(props: {
                 gap: 12,
             }}
         >
-            <Text style={{ fontWeight: "900", color: colors.text, fontSize: 16 }}>Filtros</Text>
+            <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>Filtros</Text>
 
             <View style={{ gap: 6 }}>
                 <Label text="Buscar" />
