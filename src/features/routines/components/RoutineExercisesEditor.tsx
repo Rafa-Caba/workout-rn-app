@@ -29,10 +29,7 @@ export type RoutineExerciseDraft = {
 
 type Props = {
     movements: MovementOption[];
-
-    // week-level attachments catalog
     attachmentOptions: AttachmentOption[];
-
     value: RoutineExerciseDraft[];
     onChange: (next: RoutineExerciseDraft[]) => void;
 };
@@ -205,7 +202,12 @@ export function RoutineExercisesEditor({ movements, attachmentOptions, value, on
                             <Field label="RPE (planeado)" value={ex.rpe} onChange={(v) => patch(ex.id, { rpe: v })} placeholder="7" />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Field label="Carga" value={ex.load} onChange={(v) => patch(ex.id, { load: v })} placeholder="75 lb" />
+                            <Field
+                                label="Carga"
+                                value={ex.load}
+                                onChange={(v) => patch(ex.id, { load: v })}
+                                placeholder="Ej. 45, 9 placas, barra + 25"
+                            />
                         </View>
                     </View>
 
