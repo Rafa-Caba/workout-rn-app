@@ -39,7 +39,7 @@ export function ProgressHighlightsCard({
                         >
                             <View style={[styles.dot, { backgroundColor: badgeColor }]} />
                             <View style={{ flex: 1, gap: 2 }}>
-                                <Text style={{ color: colors.text, fontWeight: "900" }}>
+                                <Text style={{ color: colors.text, fontWeight: "800" }}>
                                     {item.title}
                                 </Text>
                                 <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 17,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     row: {
         borderWidth: 1,

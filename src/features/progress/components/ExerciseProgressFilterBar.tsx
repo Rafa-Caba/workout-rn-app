@@ -49,7 +49,7 @@ export function ExerciseProgressFilterBar({
                         <Text
                             style={{
                                 color: active ? colors.primaryText : colors.text,
-                                fontWeight: "900",
+                                fontWeight: "800",
                                 fontSize: 12,
                             }}
                         >

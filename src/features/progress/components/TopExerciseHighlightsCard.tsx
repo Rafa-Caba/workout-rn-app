@@ -36,7 +36,7 @@ export function TopExerciseHighlightsCard({
                             { borderColor: colors.border, backgroundColor: colors.background },
                         ]}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>{item.title}</Text>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>{item.title}</Text>
                         <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
                             {item.message}
                         </Text>
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 17,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     row: {
         borderWidth: 1,

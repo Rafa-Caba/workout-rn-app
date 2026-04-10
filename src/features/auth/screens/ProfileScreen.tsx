@@ -3,8 +3,10 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
+import { BodyMetricsIllustration } from "@/src/features/bodyMetrics/components/BodyMetricsIllustration";
 import { useMe } from "@/src/hooks/auth/useMe";
 import { useSettings } from "@/src/hooks/auth/useSettings";
+import { useLatestBodyMetric } from "@/src/hooks/bodyMetrics/useLatestBodyMetric";
 import { useAuthStore } from "@/src/store/auth.store";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { AuthUser, Units } from "@/src/types/auth.types";
@@ -72,6 +74,16 @@ function rpeLabel(v: number | null | undefined): string {
     return typeof v === "number" && Number.isFinite(v) ? String(v) : "—";
 }
 
+function formatPercent(v: number | null | undefined): string {
+    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+    return `${v.toFixed(1)}%`;
+}
+
+function formatCm(v: number | null | undefined): string {
+    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+    return `${v.toFixed(1)} cm`;
+}
+
 type ThemeColors = ReturnType<typeof useTheme>["colors"];
 
 function Row(props: { label: string; value: string; colors: ThemeColors }) {
@@ -119,7 +131,7 @@ export default function ProfileScreen() {
     const logout = useAuthStore((s) => s.logout);
 
     const { me, loading, error, refetch } = useMe(true);
-
+    const latestBodyMetricQuery = useLatestBodyMetric();
     const { settings, loading: settingsLoading, error: settingsError, lastLoadedAt } = useSettings(true);
 
     const profile: AuthUser | null = me;
@@ -137,6 +149,10 @@ export default function ProfileScreen() {
 
     const onEditProfile = () => {
         router.push("/(app)/me/edit");
+    };
+
+    const onOpenBodyMetrics = () => {
+        router.push("/(app)/me/body-metrics");
     };
 
     const onAvatarPress = () => {
@@ -169,6 +185,7 @@ export default function ProfileScreen() {
 
     const goalLabel = safeText(profile?.activityGoal);
     const trainingLevelLabel = safeText(profile?.trainingLevel);
+    const latestMetric = latestBodyMetricQuery.data?.latest ?? null;
 
     return (
         <ScrollView
@@ -176,7 +193,6 @@ export default function ProfileScreen() {
             contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}
             refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refetch()} />}
         >
-            {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <View style={{ flex: 1, gap: 4 }}>
                     <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Mi perfil</Text>
@@ -199,7 +215,6 @@ export default function ProfileScreen() {
                 </Pressable>
             </View>
 
-            {/* Loading / Error */}
             {loading && !profile ? (
                 <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center", gap: 10 }}>
                     <ActivityIndicator />
@@ -227,7 +242,6 @@ export default function ProfileScreen() {
                 </Card>
             ) : null}
 
-            {/* Cuenta */}
             <Card>
                 <CardHeader title="Cuenta" subtitle="Información de tu cuenta y perfil." />
 
@@ -304,7 +318,81 @@ export default function ProfileScreen() {
                 </Pressable>
             </Card>
 
-            {/* Aplicación (read-only) */}
+            <Card>
+                <CardHeader
+                    title="Historial corporal"
+                    subtitle="Sigue tu peso, cintura y composición corporal desde una sola pantalla."
+                />
+
+                <View
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 14,
+                        padding: 12,
+                        backgroundColor: colors.background,
+                        gap: 12,
+                    }}
+                >
+                    <View style={{ alignItems: "center" }}>
+                        <BodyMetricsIllustration />
+                    </View>
+
+                    <View style={{ gap: 8 }}>
+                        <Row
+                            colors={colors}
+                            label="Último registro"
+                            value={latestMetric ? latestMetric.date : "—"}
+                        />
+                        <Row
+                            colors={colors}
+                            label="Peso"
+                            value={formatWeight(latestMetric?.weightKg ?? null, profile?.units)}
+                        />
+                        <Row
+                            colors={colors}
+                            label="Grasa corporal"
+                            value={formatPercent(latestMetric?.bodyFatPct ?? null)}
+                        />
+                        <Row
+                            colors={colors}
+                            label="Cintura"
+                            value={formatCm(latestMetric?.waistCm ?? null)}
+                        />
+                    </View>
+
+                    {latestBodyMetricQuery.isLoading ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <ActivityIndicator size="small" />
+                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                                Cargando historial corporal...
+                            </Text>
+                        </View>
+                    ) : null}
+
+                    {latestBodyMetricQuery.isError ? (
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            No se pudo cargar el último registro corporal.
+                        </Text>
+                    ) : null}
+                </View>
+
+                <Pressable
+                    onPress={onOpenBodyMetrics}
+                    style={({ pressed }) => ({
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        backgroundColor: colors.primary,
+                        alignItems: "center",
+                        opacity: pressed ? 0.92 : 1,
+                    })}
+                >
+                    <Text style={{ fontWeight: "800", color: colors.primaryText }}>
+                        Ver métricas corporales
+                    </Text>
+                </Pressable>
+            </Card>
+
             <Card>
                 <CardHeader title="Aplicación" subtitle="Preferencias de comportamiento y visualización." />
 
@@ -353,7 +441,6 @@ export default function ProfileScreen() {
                 </Pressable>
             </Card>
 
-            {/* Logout */}
             <Pressable
                 onPress={onLogout}
                 style={({ pressed }) => ({

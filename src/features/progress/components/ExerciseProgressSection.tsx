@@ -60,7 +60,7 @@ export function ExerciseProgressSection({
                                 ]}
                             >
                                 <View style={{ flex: 1, gap: 2 }}>
-                                    <Text style={{ color: colors.text, fontWeight: "900" }}>
+                                    <Text style={{ color: colors.text, fontWeight: "800" }}>
                                         {item.exerciseLabel}
                                     </Text>
                                     <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
@@ -71,7 +71,7 @@ export function ExerciseProgressSection({
                                 </View>
 
                                 <View style={{ alignItems: "flex-end", gap: 2 }}>
-                                    <Text style={{ color: colors.primary, fontWeight: "900" }}>
+                                    <Text style={{ color: colors.primary, fontWeight: "800" }}>
                                         {bestMetric?.percentDelta !== null && bestMetric?.percentDelta !== undefined
                                             ? `${bestMetric.percentDelta > 0 ? "+" : ""}${bestMetric.percentDelta.toFixed(1)}%`
                                             : "—"}
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 17,
-        fontWeight: "900",
+        fontWeight: "800",
     },
     row: {
         borderWidth: 1,

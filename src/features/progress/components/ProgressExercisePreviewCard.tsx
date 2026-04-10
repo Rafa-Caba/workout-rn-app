@@ -39,7 +39,7 @@ export function ProgressExercisePreviewCard({
                             ]}
                         >
                             <View style={{ flex: 1, gap: 2 }}>
-                                <Text style={{ color: colors.text, fontWeight: "900" }}>
+                                <Text style={{ color: colors.text, fontWeight: "800" }}>
                                     {row.exerciseLabel}
                                 </Text>
                                 <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700" }}>
@@ -47,7 +47,7 @@ export function ProgressExercisePreviewCard({
                                 </Text>
                             </View>
 
-                            <Text style={{ color: colors.primary, fontWeight: "900" }}>
+                            <Text style={{ color: colors.primary, fontWeight: "800" }}>
                                 {row.improvementPct !== null
                                     ? `${row.improvementPct > 0 ? "+" : ""}${row.improvementPct.toFixed(1)}%`
                                     : "—"}
@@ -66,7 +66,7 @@ export function ProgressExercisePreviewCard({
                             },
                         ]}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>
                             Ver sección completa
                         </Text>
                     </Pressable>
@@ -88,7 +88,7 @@ export function ProgressExercisePreviewCard({
                             },
                         ]}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>
                             Abrir progreso
                         </Text>
                     </Pressable>

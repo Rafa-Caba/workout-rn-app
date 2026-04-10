@@ -29,14 +29,14 @@ export function ProgressExerciseRow({ row }: ProgressExerciseRowProps) {
     return (
         <View style={[styles.row, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ color: colors.text, fontWeight: "900" }}>{row.exerciseLabel}</Text>
+                <Text style={{ color: colors.text, fontWeight: "800" }}>{row.exerciseLabel}</Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
                     {formatExerciseBasisLabel(row.basis)} · {row.periodLabel}
                 </Text>
             </View>
 
             <View style={{ alignItems: "flex-end", gap: 2 }}>
-                <Text style={{ color: colors.primary, fontWeight: "900" }}>{improvementText}</Text>
+                <Text style={{ color: colors.primary, fontWeight: "800" }}>{improvementText}</Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "700", fontSize: 12 }}>
                     {formatUnitValue(row.previous, row.unit)} → {formatUnitValue(row.current, row.unit)}
                 </Text>

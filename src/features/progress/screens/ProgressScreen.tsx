@@ -1,8 +1,10 @@
 // src/features/progress/screens/ProgressScreen.tsx
+import { useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppBrandFooter } from "@/src/features/components/branding/AppBrandFooter";
+import { useBodyProgress } from "@/src/hooks/bodyMetrics/useBodyProgress";
 import { useWorkoutProgress } from "@/src/hooks/summary/useWorkoutProgress";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type {
@@ -10,6 +12,8 @@ import type {
     WorkoutProgressMode,
 } from "@/src/types/workoutProgress.types";
 
+import { BodyProgressHighlightsCard } from "../components/BodyProgressHighlightsCard";
+import { BodyProgressMetricsCard } from "../components/BodyProgressMetricsCard";
 import { ExerciseProgressSection } from "../components/ExerciseProgressSection";
 import { ProgressCustomRangeModal } from "../components/ProgressCustomRangeModal";
 import { ProgressExerciseTableCard } from "../components/ProgressExerciseTableCard";
@@ -21,6 +25,7 @@ import { SessionTypeProgressCard } from "../components/SessionTypeProgressCard";
 import { TopExerciseHighlightsCard } from "../components/TopExerciseHighlightsCard";
 
 export function ProgressScreen() {
+    const router = useRouter();
     const { colors } = useTheme();
 
     const [mode, setMode] = React.useState<WorkoutProgressMode>("last30");
@@ -43,11 +48,19 @@ export function ProgressScreen() {
         includeExerciseProgress: true,
     });
 
+    const bodyProgressQuery = useBodyProgress({
+        mode,
+        compareTo,
+        from: mode === "customRange" ? appliedFrom : undefined,
+        to: mode === "customRange" ? appliedTo : undefined,
+    });
+
     const data = progressQuery.data ?? null;
+    const bodyData = bodyProgressQuery.data ?? null;
 
     const onRefresh = React.useCallback(() => {
-        void progressQuery.refetch();
-    }, [progressQuery]);
+        void Promise.all([progressQuery.refetch(), bodyProgressQuery.refetch()]);
+    }, [bodyProgressQuery, progressQuery]);
 
     const customRangeLabel = React.useMemo(() => {
         if (mode !== "customRange" || !appliedFrom || !appliedTo) {
@@ -87,18 +100,18 @@ export function ProgressScreen() {
                 contentContainerStyle={styles.container}
                 refreshControl={
                     <RefreshControl
-                        refreshing={progressQuery.isRefetching}
+                        refreshing={progressQuery.isRefetching || bodyProgressQuery.isRefetching}
                         onRefresh={onRefresh}
                         tintColor={colors.primary}
                     />
                 }
             >
                 <View style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>
                         Progreso
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                        Compara entrenamiento, sueño, adherencia y mejoras por ejercicio.
+                        Compara entrenamiento, sueño, adherencia, mejoras por ejercicio y evolución corporal.
                     </Text>
                 </View>
 
@@ -120,7 +133,7 @@ export function ProgressScreen() {
                     </View>
                 ) : progressQuery.isError || !data ? (
                     <View style={[styles.centerCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>
                             No se pudo cargar progreso
                         </Text>
                         <Text style={{ color: colors.mutedText }}>
@@ -134,6 +147,38 @@ export function ProgressScreen() {
                             range={data.range}
                             compareRange={data.compareRange}
                         />
+
+                        <View style={{ gap: 10 }}>
+                            <BodyProgressMetricsCard
+                                title="Composición corporal"
+                                subtitle="Peso, grasa corporal y cintura comparados contra el periodo previo"
+                                metrics={bodyData?.metrics ?? []}
+                            />
+
+                            {bodyData?.highlights?.length ? (
+                                <BodyProgressHighlightsCard
+                                    title="Highlights corporales"
+                                    items={bodyData.highlights}
+                                />
+                            ) : null}
+
+                            <Pressable
+                                onPress={() => router.push("/(app)/me/body-metrics")}
+                                style={({ pressed }) => ({
+                                    paddingVertical: 12,
+                                    borderRadius: 12,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                    backgroundColor: pressed ? colors.background : colors.surface,
+                                    alignItems: "center",
+                                    opacity: pressed ? 0.92 : 1,
+                                })}
+                            >
+                                <Text style={{ fontWeight: "800", color: colors.text }}>
+                                    Ver historial corporal
+                                </Text>
+                            </Pressable>
+                        </View>
 
                         <ProgressMetricsSection
                             title="Entrenamiento"

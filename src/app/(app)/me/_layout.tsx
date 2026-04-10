@@ -22,6 +22,12 @@ export default function MeLayout() {
                     title: "Editar perfil",
                 }}
             />
+            <Stack.Screen
+                name="body-metrics"
+                options={{
+                    title: "Cuerpo - Métricas",
+                }}
+            />
         </Stack>
     );
 }

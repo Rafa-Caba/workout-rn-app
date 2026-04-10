@@ -1,3 +1,4 @@
+// src/query/queryKeys.ts
 import type { ISODate, WeekKey } from "../types/workoutDay.types";
 
 export const queryKeys = {
@@ -26,8 +27,18 @@ export const queryKeys = {
     stats: (from: ISODate, to: ISODate) => ["workout", "stats", from, to] as const,
   },
 
+  bodyMetrics: {
+    list: (params: { from?: string; to?: string } = {}) =>
+      ["bodyMetrics", "list", params] as const,
+    latest: ["bodyMetrics", "latest"] as const,
+  },
+
+  bodyProgress: {
+    overview: (params: Record<string, unknown>) =>
+      ["bodyProgress", "overview", params] as const,
+  },
+
   sessions: {
-    // sessions live inside day cache; still useful for mutation keys
     create: ["sessions", "create"] as const,
     patch: ["sessions", "patch"] as const,
     delete: ["sessions", "delete"] as const,
