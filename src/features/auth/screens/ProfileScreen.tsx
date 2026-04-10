@@ -1,4 +1,5 @@
 // src/features/auth/screens/ProfileScreen.tsx
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React from "react";
 import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
@@ -8,10 +9,12 @@ import { useMe } from "@/src/hooks/auth/useMe";
 import { useSettings } from "@/src/hooks/auth/useSettings";
 import { useLatestBodyMetric } from "@/src/hooks/bodyMetrics/useLatestBodyMetric";
 import { useAuthStore } from "@/src/store/auth.store";
+import { useUserStore } from "@/src/store/user.store";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { AuthUser, Units } from "@/src/types/auth.types";
 import type { WeekStartsOn } from "@/src/types/settings.types";
 import { formatWeirdUsDateTime } from "@/src/utils/dates/dateDisplay";
+import { toastError, toastSuccess } from "@/src/utils/toast";
 
 function initialsFromName(name: string): string {
     const parts = String(name ?? "")
@@ -98,13 +101,14 @@ function Row(props: { label: string; value: string; colors: ThemeColors }) {
 
 function Card(props: { children: React.ReactNode }) {
     const { colors } = useTheme();
+
     return (
         <View
             style={{
                 borderWidth: 1,
                 borderColor: colors.border,
                 backgroundColor: colors.surface,
-                borderRadius: 16,
+                borderRadius: 18,
                 padding: 14,
                 gap: 12,
             }}
@@ -116,6 +120,7 @@ function Card(props: { children: React.ReactNode }) {
 
 function CardHeader(props: { title: string; subtitle?: string }) {
     const { colors } = useTheme();
+
     return (
         <View style={{ gap: 2 }}>
             <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{props.title}</Text>
@@ -124,11 +129,62 @@ function CardHeader(props: { title: string; subtitle?: string }) {
     );
 }
 
+type PickedProfileImage = {
+    uri: string;
+    name: string;
+    type: string;
+};
+
+function guessProfileImageType(uri: string, mimeType: string | null | undefined): string {
+    if (typeof mimeType === "string" && mimeType.trim().length > 0) return mimeType.trim();
+
+    const lower = uri.toLowerCase();
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".heic")) return "image/heic";
+    if (lower.endsWith(".heif")) return "image/heif";
+    return "image/jpeg";
+}
+
+async function pickProfileImage(): Promise<PickedProfileImage | null> {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+        throw new Error("Permiso denegado para acceder a Fotos.");
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+        selectionLimit: 1,
+    });
+
+    if (result.canceled) return null;
+
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return null;
+
+    const name =
+        typeof asset.fileName === "string" && asset.fileName.trim().length > 0
+            ? asset.fileName.trim()
+            : `profile_${Date.now()}.jpg`;
+
+    return {
+        uri: asset.uri,
+        name,
+        type: guessProfileImageType(asset.uri, asset.mimeType),
+    };
+}
+
 export default function ProfileScreen() {
     const router = useRouter();
     const { colors } = useTheme();
 
     const logout = useAuthStore((s) => s.logout);
+    const uploadProfilePic = useUserStore((s) => s.uploadProfilePic);
+    const deleteProfilePic = useUserStore((s) => s.deleteProfilePic);
+    const userStoreLoading = useUserStore((s) => s.loading);
 
     const { me, loading, error, refetch } = useMe(true);
     const latestBodyMetricQuery = useLatestBodyMetric();
@@ -155,6 +211,33 @@ export default function ProfileScreen() {
         router.push("/(app)/me/body-metrics");
     };
 
+    const onChangeProfilePic = async () => {
+        try {
+            const file = await pickProfileImage();
+            if (!file) return;
+
+            await uploadProfilePic(file);
+            await refetch();
+            toastSuccess("Foto actualizada", "Tu foto de perfil se guardó correctamente.");
+        } catch (e: unknown) {
+            const message =
+                e instanceof Error && e.message.trim().length > 0 ? e.message : "No se pudo actualizar la foto de perfil.";
+            toastError("Error al subir foto", message);
+        }
+    };
+
+    const onDeleteProfilePic = async () => {
+        try {
+            await deleteProfilePic();
+            await refetch();
+            toastSuccess("Foto eliminada", "Tu foto de perfil se eliminó correctamente.");
+        } catch (e: unknown) {
+            const message =
+                e instanceof Error && e.message.trim().length > 0 ? e.message : "No se pudo eliminar la foto de perfil.";
+            toastError("Error al eliminar foto", message);
+        }
+    };
+
     const onAvatarPress = () => {
         const hasPic = Boolean(avatarUrl);
 
@@ -162,21 +245,21 @@ export default function ProfileScreen() {
             {
                 text: "Cambiar foto",
                 onPress: () => {
-                    Alert.alert("Próximamente", "Aquí conectaremos el selector de imagen y la subida.");
+                    void onChangeProfilePic();
                 },
             },
             ...(hasPic
                 ? [
                     {
                         text: "Eliminar foto",
-                        style: "destructive",
+                        style: "destructive" as const,
                         onPress: () => {
-                            Alert.alert("Próximamente", "Aquí conectaremos deleteProfilePic().");
+                            void onDeleteProfilePic();
                         },
-                    } as const,
+                    },
                 ]
                 : []),
-            { text: "Cancelar", style: "cancel" },
+            { text: "Cancelar", style: "cancel" as const },
         ]);
     };
 
@@ -258,8 +341,9 @@ export default function ProfileScreen() {
                             overflow: "hidden",
                             alignItems: "center",
                             justifyContent: "center",
-                            opacity: pressed ? 0.92 : 1,
+                            opacity: userStoreLoading ? 0.65 : pressed ? 0.92 : 1,
                         })}
+                        disabled={userStoreLoading}
                     >
                         {avatarUrl ? (
                             <Image source={{ uri: avatarUrl }} style={{ width: "100%", height: "100%" }} resizeMode="cover" fadeDuration={0} />
@@ -338,43 +422,29 @@ export default function ProfileScreen() {
                         <BodyMetricsIllustration />
                     </View>
 
-                    <View style={{ gap: 8 }}>
-                        <Row
-                            colors={colors}
-                            label="Último registro"
-                            value={latestMetric ? latestMetric.date : "—"}
-                        />
-                        <Row
-                            colors={colors}
-                            label="Peso"
-                            value={formatWeight(latestMetric?.weightKg ?? null, profile?.units)}
-                        />
-                        <Row
-                            colors={colors}
-                            label="Grasa corporal"
-                            value={formatPercent(latestMetric?.bodyFatPct ?? null)}
-                        />
-                        <Row
-                            colors={colors}
-                            label="Cintura"
-                            value={formatCm(latestMetric?.waistCm ?? null)}
-                        />
-                    </View>
-
                     {latestBodyMetricQuery.isLoading ? (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <ActivityIndicator size="small" />
-                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                                Cargando historial corporal...
-                            </Text>
+                        <View style={{ paddingVertical: 16, alignItems: "center", gap: 8 }}>
+                            <ActivityIndicator />
+                            <Text style={{ color: colors.mutedText }}>Cargando últimas métricas...</Text>
                         </View>
-                    ) : null}
-
-                    {latestBodyMetricQuery.isError ? (
-                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                            No se pudo cargar el último registro corporal.
+                    ) : latestBodyMetricQuery.isError ? (
+                        <Text style={{ color: colors.mutedText }}>
+                            No se pudieron cargar las métricas. {safeText(latestBodyMetricQuery.error?.message)}
                         </Text>
-                    ) : null}
+                    ) : latestMetric ? (
+                        <View style={{ gap: 10 }}>
+                            <Row colors={colors} label="Fecha" value={safeText(latestMetric.date)} />
+                            <Row colors={colors} label="Peso" value={formatWeight(latestMetric.weightKg ?? null, profile?.units)} />
+                            <Row colors={colors} label="Cintura" value={formatCm(latestMetric.waistCm ?? null)} />
+                            <Row colors={colors} label="% grasa" value={formatPercent(latestMetric.bodyFatPct ?? null)} />
+                            <Row colors={colors} label="Fuente" value={safeText(latestMetric.source)} />
+                            <Row colors={colors} label="Notas" value={safeText(latestMetric.notes)} />
+                        </View>
+                    ) : (
+                        <Text style={{ color: colors.mutedText }}>
+                            Aún no tienes métricas registradas. Puedes agregar tu primer registro desde la pantalla de historial corporal.
+                        </Text>
+                    )}
                 </View>
 
                 <Pressable
@@ -387,14 +457,12 @@ export default function ProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "800", color: colors.primaryText }}>
-                        Ver métricas corporales
-                    </Text>
+                    <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Abrir historial corporal</Text>
                 </Pressable>
             </Card>
 
             <Card>
-                <CardHeader title="Aplicación" subtitle="Preferencias de comportamiento y visualización." />
+                <CardHeader title="Preferencias" subtitle="Resumen de tu configuración actual." />
 
                 <View
                     style={{
@@ -406,27 +474,28 @@ export default function ProfileScreen() {
                         gap: 10,
                     }}
                 >
-                    <Row colors={colors} label="Semana inicia en" value={weekStartsOnLabel(settings.weekStartsOn)} />
-                    <Row colors={colors} label="RPE por defecto" value={rpeLabel(settings.defaults?.defaultRpe ?? null)} />
-                </View>
-
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        Última actualización: {lastLoadedAt ? formatDateTime(lastLoadedAt) : "—"}
-                    </Text>
-
                     {settingsLoading ? (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <ActivityIndicator size="small" />
-                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>Cargando...</Text>
+                        <View style={{ paddingVertical: 12, alignItems: "center", gap: 8 }}>
+                            <ActivityIndicator />
+                            <Text style={{ color: colors.mutedText }}>Cargando settings...</Text>
                         </View>
-                    ) : null}
+                    ) : settingsError ? (
+                        <Text style={{ color: colors.mutedText }}>{safeText(settingsError)}</Text>
+                    ) : (
+                        <>
+                            <Row colors={colors} label="Semana inicia en" value={weekStartsOnLabel(settings.weekStartsOn)} />
+                            <Row colors={colors} label="RPE por defecto" value={rpeLabel(settings.defaults?.defaultRpe)} />
+                            <Row colors={colors} label="Última carga" value={lastLoadedAt ? formatDateTime(lastLoadedAt) : "—"} />
+                        </>
+                    )}
                 </View>
+            </Card>
 
-                {settingsError ? <Text style={{ color: colors.mutedText, fontSize: 12 }}>{safeText(settingsError)}</Text> : null}
+            <Card>
+                <CardHeader title="Sesión" subtitle="Acciones de tu cuenta." />
 
                 <Pressable
-                    onPress={onEditProfile}
+                    onPress={() => void onLogout()}
                     style={({ pressed }) => ({
                         paddingVertical: 12,
                         borderRadius: 12,
@@ -437,23 +506,9 @@ export default function ProfileScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ fontWeight: "800", color: colors.text }}>Editar preferencias</Text>
+                    <Text style={{ fontWeight: "800", color: colors.text }}>Cerrar sesión</Text>
                 </Pressable>
             </Card>
-
-            <Pressable
-                onPress={onLogout}
-                style={({ pressed }) => ({
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    backgroundColor: colors.primary,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: pressed ? 0.92 : 1,
-                })}
-            >
-                <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Cerrar sesión</Text>
-            </Pressable>
         </ScrollView>
     );
 }

@@ -1,24 +1,10 @@
 // src/features/auth/screens/EditProfileScreen.tsx
-import {
-    addMonths,
-    eachDayOfInterval,
-    endOfMonth,
-    endOfWeek,
-    format,
-    isAfter,
-    isSameDay,
-    isSameMonth,
-    isValid,
-    parseISO,
-    startOfDay,
-    startOfMonth,
-    startOfWeek,
-    subMonths,
-} from "date-fns";
+import { isAfter, isValid, parseISO, startOfDay } from "date-fns";
 import { useRouter } from "expo-router";
 import React from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
+import { DatePickerField } from "@/src/features/components/DatePickerField";
 import { useMe } from "@/src/hooks/auth/useMe";
 import { useSettings } from "@/src/hooks/auth/useSettings";
 import { useUserStore } from "@/src/store/user.store";
@@ -118,27 +104,34 @@ function lbToKg(lb: number): number {
 }
 
 function format1(n: number): string {
-    return n.toFixed(1);
+    return Number.isFinite(n) ? String(Number(n.toFixed(1))) : "";
+}
+
+function unitsEqual(a: Units | null, b: Units | null): boolean {
+    if (a === b) return true;
+    if (!a || !b) return !a && !b;
+    return a.weight === b.weight && a.distance === b.distance;
 }
 
 function buildInitialForm(me: AuthUser | null): FormState {
-    const unitWeight = (me?.units?.weight ?? "") as WeightUnitUi;
-    const unitDistance = (me?.units?.distance ?? "") as DistanceUnitUi;
+    const unitWeight: WeightUnitUi = me?.units?.weight ?? "";
+    const unitDistance: DistanceUnitUi = me?.units?.distance ?? "";
 
     const weightKg = typeof me?.currentWeightKg === "number" && Number.isFinite(me.currentWeightKg) ? me.currentWeightKg : null;
 
-    const weightDisplay =
-        weightKg == null
-            ? ""
-            : unitWeight === "lb"
-                ? format1(kgToLb(weightKg))
-                : format1(weightKg);
+    let weightDisplay = "";
+    if (weightKg != null) {
+        weightDisplay = unitWeight === "lb" ? format1(kgToLb(weightKg)) : format1(weightKg);
+    }
 
     return {
         name: toStr(me?.name),
         sex: (me?.sex ?? "") as SexUi,
 
-        heightCm: me?.heightCm == null ? "" : String(me.heightCm),
+        heightCm:
+            typeof me?.heightCm === "number" && Number.isFinite(me.heightCm)
+                ? String(me.heightCm)
+                : "",
 
         weightDisplay,
 
@@ -155,17 +148,11 @@ function buildInitialForm(me: AuthUser | null): FormState {
 }
 
 function isDirty(a: FormState, b: FormState): boolean {
-    const keys = Object.keys(a) as (keyof FormState)[];
-    for (const k of keys) {
-        if (String(a[k] ?? "") !== String(b[k] ?? "")) return true;
-    }
-    return false;
+    return JSON.stringify(a) !== JSON.stringify(b);
 }
 
 function isPrefsDirty(a: PrefState, b: PrefState): boolean {
-    if (a.weekStartsOn !== b.weekStartsOn) return true;
-    if ((a.defaultRpe ?? null) !== (b.defaultRpe ?? null)) return true;
-    return false;
+    return JSON.stringify(a) !== JSON.stringify(b);
 }
 
 function Label({ text }: { text: string }) {
@@ -285,7 +272,17 @@ function ModalShell(props: {
     return (
         <Modal visible={props.visible} transparent animationType="fade" onRequestClose={props.onClose}>
             <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", padding: 16, justifyContent: "center" }}>
-                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.surface, padding: 14, gap: 12, maxHeight: "80%" }}>
+                <View
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 16,
+                        backgroundColor: colors.surface,
+                        padding: 14,
+                        gap: 12,
+                        maxHeight: "80%",
+                    }}
+                >
                     <View style={{ gap: 2 }}>
                         <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{props.title}</Text>
                         {props.subtitle ? <Text style={{ color: colors.mutedText }}>{props.subtitle}</Text> : null}
@@ -312,207 +309,6 @@ function ModalShell(props: {
                 </View>
             </View>
         </Modal>
-    );
-}
-
-/**
- * Simple calendar modal using date-fns only.
- * Stores YYYY-MM-DD in form.
- */
-function BirthDatePicker(props: {
-    value: string;
-    onChange: (iso: string) => void;
-    error?: string | null;
-}) {
-    const { colors } = useTheme();
-
-    const [open, setOpen] = React.useState(false);
-
-    const selectedDate = React.useMemo(() => parseBirthDateIso(props.value), [props.value]);
-
-    const [cursor, setCursor] = React.useState<Date>(() => {
-        return selectedDate ? startOfMonth(selectedDate) : startOfMonth(new Date());
-    });
-
-    React.useEffect(() => {
-        if (selectedDate) setCursor(startOfMonth(selectedDate));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDate?.getTime()]);
-
-    const monthStart = React.useMemo(() => startOfMonth(cursor), [cursor]);
-    const monthEnd = React.useMemo(() => endOfMonth(cursor), [cursor]);
-
-    const gridStart = React.useMemo(() => startOfWeek(monthStart, { weekStartsOn: 1 }), [monthStart]);
-    const gridEnd = React.useMemo(() => endOfWeek(monthEnd, { weekStartsOn: 1 }), [monthEnd]);
-
-    const days = React.useMemo(() => eachDayOfInterval({ start: gridStart, end: gridEnd }), [gridStart, gridEnd]);
-
-    const headerTitle = React.useMemo(() => format(cursor, "MMM yyyy"), [cursor]);
-
-    const displayValue = React.useMemo(() => {
-        if (!selectedDate) return "—";
-        return format(selectedDate, "MMM d, yyyy");
-    }, [selectedDate]);
-
-    function pickDay(d: Date) {
-        const iso = format(d, "yyyy-MM-dd");
-        props.onChange(iso);
-        setOpen(false);
-    }
-
-    function clear() {
-        props.onChange("");
-        setOpen(false);
-    }
-
-    return (
-        <>
-            <View style={{ gap: 6 }}>
-                <Label text="Fecha de nacimiento" />
-
-                <Pressable
-                    onPress={() => setOpen(true)}
-                    style={({ pressed }) => ({
-                        borderWidth: 1,
-                        borderColor: props.error ? "#EF4444" : colors.border,
-                        borderRadius: 12,
-                        paddingHorizontal: 12,
-                        paddingVertical: 12,
-                        backgroundColor: pressed ? colors.background : colors.surface,
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                    })}
-                >
-                    <Text style={{ color: colors.text, fontWeight: "800" }}>{displayValue}</Text>
-                    <Text style={{ color: colors.mutedText, fontWeight: "800" }}>📅</Text>
-                </Pressable>
-
-                {props.error ? (
-                    <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "800" }}>{props.error}</Text>
-                ) : (
-                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>Se guarda como YYYY-MM-DD. (Ej. 1990-01-31)</Text>
-                )}
-            </View>
-
-            <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-                <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.25)", justifyContent: "center", padding: 16 }}>
-                    <Pressable
-                        onPress={() => undefined}
-                        style={{
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            borderRadius: 16,
-                            backgroundColor: colors.surface,
-                            padding: 14,
-                            gap: 12,
-                        }}
-                    >
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                            <Pressable
-                                onPress={() => setCursor((d) => subMonths(d, 1))}
-                                style={({ pressed }) => ({
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 10,
-                                    borderRadius: 12,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    backgroundColor: pressed ? colors.background : colors.surface,
-                                })}
-                            >
-                                <Text style={{ color: colors.text, fontWeight: "800" }}>←</Text>
-                            </Pressable>
-
-                            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16 }}>{headerTitle}</Text>
-
-                            <Pressable
-                                onPress={() => setCursor((d) => addMonths(d, 1))}
-                                style={({ pressed }) => ({
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 10,
-                                    borderRadius: 12,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    backgroundColor: pressed ? colors.background : colors.surface,
-                                })}
-                            >
-                                <Text style={{ color: colors.text, fontWeight: "800" }}>→</Text>
-                            </Pressable>
-                        </View>
-
-                        <View style={{ flexDirection: "row" }}>
-                            {["L", "M", "X", "J", "V", "S", "D"].map((w) => (
-                                <View key={w} style={{ width: "14.2857%", alignItems: "center", paddingVertical: 6 }}>
-                                    <Text style={{ color: colors.mutedText, fontWeight: "800", fontSize: 12 }}>{w}</Text>
-                                </View>
-                            ))}
-                        </View>
-
-                        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                            {days.map((d) => {
-                                const inMonth = isSameMonth(d, cursor);
-                                const isSelected = selectedDate ? isSameDay(d, selectedDate) : false;
-                                const disabledFuture = isAfter(startOfDay(d), startOfDay(new Date()));
-
-                                return (
-                                    <Pressable
-                                        key={format(d, "yyyy-MM-dd")}
-                                        onPress={() => (disabledFuture ? undefined : pickDay(d))}
-                                        style={{ width: "14.2857%", padding: 4, opacity: disabledFuture ? 0.4 : 1 }}
-                                    >
-                                        <View
-                                            style={{
-                                                height: 40,
-                                                borderRadius: 12,
-                                                borderWidth: 1,
-                                                borderColor: isSelected ? colors.primary : colors.border,
-                                                backgroundColor: isSelected ? colors.primary : colors.surface,
-                                                opacity: inMonth ? 1 : 0.35,
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                            }}
-                                        >
-                                            <Text style={{ fontWeight: "800", color: isSelected ? colors.primaryText : colors.text }}>{format(d, "d")}</Text>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-                        </View>
-
-                        <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
-                            <Pressable
-                                onPress={clear}
-                                style={({ pressed }) => ({
-                                    flex: 1,
-                                    paddingVertical: 12,
-                                    borderRadius: 12,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    backgroundColor: pressed ? colors.background : colors.surface,
-                                    alignItems: "center",
-                                })}
-                            >
-                                <Text style={{ color: colors.text, fontWeight: "800" }}>Quitar</Text>
-                            </Pressable>
-
-                            <Pressable
-                                onPress={() => setOpen(false)}
-                                style={({ pressed }) => ({
-                                    flex: 1,
-                                    paddingVertical: 12,
-                                    borderRadius: 12,
-                                    backgroundColor: colors.primary,
-                                    alignItems: "center",
-                                    opacity: pressed ? 0.92 : 1,
-                                })}
-                            >
-                                <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Listo</Text>
-                            </Pressable>
-                        </View>
-                    </Pressable>
-                </Pressable>
-            </Modal>
-        </>
     );
 }
 
@@ -556,7 +352,6 @@ export default function EditProfileScreen() {
 
         const kg = typeof me?.currentWeightKg === "number" && Number.isFinite(me.currentWeightKg) ? me.currentWeightKg : null;
         weightKgRef.current = kg;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [me?.id]);
 
     React.useEffect(() => {
@@ -566,10 +361,8 @@ export default function EditProfileScreen() {
         };
         prefsInitialRef.current = next;
         setPrefs(next);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settings.weekStartsOn, settings.defaults?.defaultRpe]);
 
-    // Whenever user edits weightDisplay, update internal kg ref (best-effort)
     React.useEffect(() => {
         const n = toNumberOrNull(form.weightDisplay);
         if (n == null) {
@@ -582,7 +375,8 @@ export default function EditProfileScreen() {
     const init = initialRef.current ?? buildInitialForm(me);
     const dirtyProfile = isDirty(form, init);
 
-    const prefsInit = prefsInitialRef.current ?? { weekStartsOn: settings.weekStartsOn, defaultRpe: settings.defaults?.defaultRpe ?? null };
+    const prefsInit =
+        prefsInitialRef.current ?? { weekStartsOn: settings.weekStartsOn, defaultRpe: settings.defaults?.defaultRpe ?? null };
     const dirtyPrefs = isPrefsDirty(prefs, prefsInit);
 
     const birthDateError = React.useMemo(() => {
@@ -592,7 +386,12 @@ export default function EditProfileScreen() {
         return null;
     }, [form.birthDate]);
 
-    const canSave = (dirtyProfile || dirtyPrefs) && !loading && !settingsLoading && form.name.trim().length >= 2 && !birthDateError;
+    const canSave =
+        (dirtyProfile || dirtyPrefs) &&
+        !loading &&
+        !settingsLoading &&
+        form.name.trim().length >= 2 &&
+        !birthDateError;
 
     const onReset = () => {
         setForm(init);
@@ -622,7 +421,6 @@ export default function EditProfileScreen() {
 
         const errors: string[] = [];
 
-        // 1) Profile payload
         if (dirtyProfile) {
             try {
                 const hasAnyUnits = form.unitWeight !== "" || form.unitDistance !== "";
@@ -654,7 +452,6 @@ export default function EditProfileScreen() {
             }
         }
 
-        // 2) Settings payload
         if (dirtyPrefs) {
             try {
                 const payload: UserSettingsUpdateRequest = {
@@ -718,7 +515,6 @@ export default function EditProfileScreen() {
                 </Pressable>
             </View>
 
-            {/* PERFIL */}
             <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 14, gap: 14 }}>
                 <View style={{ gap: 6 }}>
                     <Label text="Nombre" />
@@ -777,7 +573,20 @@ export default function EditProfileScreen() {
                     ]}
                 />
 
-                <BirthDatePicker value={form.birthDate} onChange={(iso) => setForm((s) => ({ ...s, birthDate: iso }))} error={birthDateError} />
+                <View style={{ gap: 6 }}>
+                    <DatePickerField
+                        label="Fecha de nacimiento"
+                        value={form.birthDate}
+                        onChange={(iso) => setForm((s) => ({ ...s, birthDate: iso }))}
+                        displayFormat="MMM d, yyyy"
+                        flexDirPassed="column"
+                    />
+                    {birthDateError ? (
+                        <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "800" }}>{birthDateError}</Text>
+                    ) : (
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>Se guarda como YYYY-MM-DD. (Ej. 1990-01-31)</Text>
+                    )}
+                </View>
 
                 <SelectPill<ActivityGoalUi>
                     label="Objetivo"
@@ -812,13 +621,21 @@ export default function EditProfileScreen() {
 
                 <View style={{ gap: 6 }}>
                     <Label text="Modo Coach (solo lectura)" />
-                    <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: colors.background }}>
+                    <View
+                        style={{
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            borderRadius: 12,
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            backgroundColor: colors.background,
+                        }}
+                    >
                         <Text style={{ fontWeight: "800", color: colors.text }}>{cmLabel}</Text>
                     </View>
                 </View>
             </View>
 
-            {/* APLICACIÓN (Preferencias) */}
             <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 14, gap: 12 }}>
                 <View style={{ gap: 2 }}>
                     <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Aplicación</Text>
@@ -849,7 +666,6 @@ export default function EditProfileScreen() {
                 ) : null}
             </View>
 
-            {/* Actions */}
             <View style={{ flexDirection: "row", gap: 10 }}>
                 <Pressable
                     onPress={onReset}
@@ -884,11 +700,10 @@ export default function EditProfileScreen() {
                 </Pressable>
             </View>
 
-            {/* Week modal */}
             <ModalShell
                 visible={weekModalOpen}
                 title="Semana inicia en"
-                subtitle="Afecta semanas, calendarios y navegación por semana."
+                subtitle="Elige el día inicial para tus vistas semanales."
                 onClose={() => setWeekModalOpen(false)}
             >
                 <Pressable
@@ -901,13 +716,11 @@ export default function EditProfileScreen() {
                         paddingHorizontal: 12,
                         borderRadius: 12,
                         borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: pressed ? colors.background : colors.surface,
-                        opacity: pressed ? 0.92 : 1,
+                        borderColor: prefs.weekStartsOn === 1 ? colors.primary : colors.border,
+                        backgroundColor: prefs.weekStartsOn === 1 ? colors.primary : pressed ? colors.background : colors.surface,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "800" }}>Lunes</Text>
-                    <Text style={{ color: colors.mutedText }}>Por defecto.</Text>
+                    <Text style={{ fontWeight: "800", color: prefs.weekStartsOn === 1 ? colors.primaryText : colors.text }}>Lunes</Text>
                 </Pressable>
 
                 <Pressable
@@ -920,62 +733,45 @@ export default function EditProfileScreen() {
                         paddingHorizontal: 12,
                         borderRadius: 12,
                         borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: pressed ? colors.background : colors.surface,
-                        opacity: pressed ? 0.92 : 1,
+                        borderColor: prefs.weekStartsOn === 0 ? colors.primary : colors.border,
+                        backgroundColor: prefs.weekStartsOn === 0 ? colors.primary : pressed ? colors.background : colors.surface,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "800" }}>Domingo</Text>
-                    <Text style={{ color: colors.mutedText }}>Alternativa.</Text>
+                    <Text style={{ fontWeight: "800", color: prefs.weekStartsOn === 0 ? colors.primaryText : colors.text }}>Domingo</Text>
                 </Pressable>
             </ModalShell>
 
-            {/* RPE modal */}
             <ModalShell
                 visible={rpeModalOpen}
                 title="RPE por defecto"
-                subtitle="Se usará como valor inicial al registrar sesiones (si aplica)."
+                subtitle="Selecciona el esfuerzo percibido que quieres usar por defecto."
                 onClose={() => setRpeModalOpen(false)}
             >
-                <Pressable
-                    onPress={() => {
-                        setPrefs((s) => ({ ...s, defaultRpe: null }));
-                        setRpeModalOpen(false);
-                    }}
-                    style={({ pressed }) => ({
-                        paddingVertical: 12,
-                        paddingHorizontal: 12,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: pressed ? colors.background : colors.surface,
-                        opacity: pressed ? 0.92 : 1,
-                    })}
-                >
-                    <Text style={{ color: colors.text, fontWeight: "800" }}>—</Text>
-                    <Text style={{ color: colors.mutedText }}>Sin valor por defecto.</Text>
-                </Pressable>
+                {[null, 5, 6, 7, 8, 9, 10].map((value) => {
+                    const active = prefs.defaultRpe === value;
 
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <Pressable
-                        key={n}
-                        onPress={() => {
-                            setPrefs((s) => ({ ...s, defaultRpe: n }));
-                            setRpeModalOpen(false);
-                        }}
-                        style={({ pressed }) => ({
-                            paddingVertical: 12,
-                            paddingHorizontal: 12,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            backgroundColor: pressed ? colors.background : colors.surface,
-                            opacity: pressed ? 0.92 : 1,
-                        })}
-                    >
-                        <Text style={{ color: colors.text, fontWeight: "800" }}>{n}</Text>
-                    </Pressable>
-                ))}
+                    return (
+                        <Pressable
+                            key={String(value)}
+                            onPress={() => {
+                                setPrefs((s) => ({ ...s, defaultRpe: value }));
+                                setRpeModalOpen(false);
+                            }}
+                            style={({ pressed }) => ({
+                                paddingVertical: 12,
+                                paddingHorizontal: 12,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: active ? colors.primary : colors.border,
+                                backgroundColor: active ? colors.primary : pressed ? colors.background : colors.surface,
+                            })}
+                        >
+                            <Text style={{ fontWeight: "800", color: active ? colors.primaryText : colors.text }}>
+                                {value == null ? "—" : value}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
             </ModalShell>
         </ScrollView>
     );

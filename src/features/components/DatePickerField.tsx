@@ -17,6 +17,12 @@ type Props = {
      * Example: "MM/dd/yyyy" or "MMM dd, yyyy"
      */
     displayFormat?: string;
+
+    /**
+     * Optional: display row/column
+     * Example: "column"
+     */
+    flexDirPassed?: "row" | "column" | "row-reverse" | "column-reverse" | undefined;
 };
 
 function parseISODateOrToday(s: string): Date {
@@ -44,8 +50,11 @@ export function DatePickerField({
     onChange,
     disabled,
     displayFormat,
+    flexDirPassed,
 }: Props) {
     const { colors } = useTheme();
+
+    const flexDirection = flexDirPassed ?? 'row';
 
     const [open, setOpen] = React.useState(false);
     const [temp, setTemp] = React.useState<Date>(() => parseISODateOrToday(value));
@@ -64,7 +73,12 @@ export function DatePickerField({
     return (
         <View style={{ flex: 1, gap: 6 }}>
             <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 12, fontWeight: "800", color: colors.mutedText }}>
+                <Text style={{
+                    fontSize: 12,
+                    fontWeight: "800",
+                    color: colors.mutedText,
+                    // marginBottom: flexDirection === 'column' ? 8 : 0,
+                }}>
                     {label}
                 </Text>
 
@@ -75,7 +89,8 @@ export function DatePickerField({
                         borderWidth: 1,
                         borderColor: colors.border,
                         backgroundColor: colors.background,
-                        width: '70%',
+                        width: `${flexDirection === 'column' ? '60%' : '60%'}`,
+                        // width: '70%',
                         borderRadius: 12,
                         paddingHorizontal: 12,
                         paddingVertical: 10,
