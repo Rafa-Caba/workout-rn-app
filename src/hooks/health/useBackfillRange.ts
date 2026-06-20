@@ -1,4 +1,7 @@
 // src/hooks/health/useBackfillRange.ts
+// Hook para backfill histórico desde HealthKit / Health Connect.
+// Mantiene el contrato original: WorkoutDayBackfillResult | null.
+// Solo normaliza errores para que la UI no muestre mensajes crudos de Axios.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -9,7 +12,11 @@ import type {
     WorkoutDayBackfillItem,
     WorkoutDayBackfillResult,
 } from "@/src/types/workoutDay.types";
-import { hasMeaningfulImportedSleep, mapImportedSleepToSleepBlock } from "@/src/utils/health/healthSleep.mapper";
+import { normalizeApiError } from "@/src/utils/api/apiErrorMessage";
+import {
+    hasMeaningfulImportedSleep,
+    mapImportedSleepToSleepBlock,
+} from "@/src/utils/health/healthSleep.mapper";
 import {
     hasMeaningfulImportedWorkoutMetrics,
     mapImportedWorkoutToMinimalDaySession,
@@ -22,6 +29,12 @@ type BackfillRangeArgs = {
 
 function uniqueSortedDates(dates: string[]): string[] {
     return Array.from(new Set(dates)).sort((a, b) => a.localeCompare(b));
+}
+
+function createHumanBackfillError(error: unknown): Error {
+    const normalized = normalizeApiError(error);
+
+    return new Error(normalized.message);
 }
 
 export function useBackfillRange() {
@@ -80,7 +93,11 @@ export function useBackfillRange() {
                 days: items,
             };
 
-            return backfillWorkoutDaysRange(body);
+            try {
+                return await backfillWorkoutDaysRange(body);
+            } catch (error: unknown) {
+                throw createHumanBackfillError(error);
+            }
         },
         onSuccess: (result) => {
             if (!result) {
@@ -90,6 +107,7 @@ export function useBackfillRange() {
             for (const item of result.results) {
                 if (item.ok && item.day && "date" in item.day) {
                     const dateValue = item.day.date;
+
                     if (typeof dateValue === "string" && dateValue.trim().length > 0) {
                         qc.setQueryData(["workoutDay", dateValue], item.day);
                     }

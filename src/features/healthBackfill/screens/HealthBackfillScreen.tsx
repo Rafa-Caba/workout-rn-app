@@ -1,5 +1,8 @@
 // src/features/healthBackfill/screens/HealthBackfillScreen.tsx
 // Main themed Health Backfill screen with app-standard toast helpers.
+// Usa hooks de backfill con contratos estables:
+// - single: WorkoutDay | null
+// - range: WorkoutDayBackfillResult | null
 
 import { eachDayOfInterval, format, isValid, parseISO } from "date-fns";
 import * as React from "react";
@@ -15,6 +18,7 @@ import { useBackfillRange } from "@/src/hooks/health/useBackfillRange";
 import { useBackfillSingleDate } from "@/src/hooks/health/useBackfillSingleDate";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { UpsertMode } from "@/src/types/workoutDay.types";
+import { normalizeApiError } from "@/src/utils/api/apiErrorMessage";
 import { toastError, toastInfo, toastSuccess } from "@/src/utils/toast";
 
 function todayIso(): string {
@@ -43,6 +47,16 @@ function buildDatesInRange(from: string, to: string): string[] {
     }
 
     return eachDayOfInterval({ start, end }).map((date) => format(date, "yyyy-MM-dd"));
+}
+
+function getUserFacingErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+
+    const normalized = normalizeApiError(error);
+
+    return normalized.message || fallback;
 }
 
 export function HealthBackfillScreen() {
@@ -98,11 +112,14 @@ export function HealthBackfillScreen() {
                     `No hubo datos disponibles para ${singleDate}.`
                 );
             }
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : "No se pudo completar el backfill del día.";
-
-            toastError("Error en backfill", message);
+        } catch (error: unknown) {
+            toastError(
+                "Error en backfill",
+                getUserFacingErrorMessage(
+                    error,
+                    "No se pudo completar el backfill del día."
+                )
+            );
         }
     }, [singleBackfill, singleDate, singleMode]);
 
@@ -138,11 +155,14 @@ export function HealthBackfillScreen() {
                     "No hubo datos disponibles para el rango seleccionado."
                 );
             }
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : "No se pudo completar el backfill del rango.";
-
-            toastError("Error en backfill de rango", message);
+        } catch (error: unknown) {
+            toastError(
+                "Error en backfill de rango",
+                getUserFacingErrorMessage(
+                    error,
+                    "No se pudo completar el backfill del rango."
+                )
+            );
         }
     }, [previewDates, rangeBackfill, rangeMode]);
 
