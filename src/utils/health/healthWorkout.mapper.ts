@@ -230,6 +230,7 @@ export function mapImportedWorkoutToMinimalDaySession(
 
         hasRoute: false,
         routeSummary: null,
+        routePoints: null,
         cardioMetrics: null,
 
         effortRpe: toNonNegativeNumberOrNull(input.metrics.effortRpe),

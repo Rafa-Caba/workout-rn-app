@@ -459,6 +459,7 @@ export function buildCardioManualSessionPayload(
 
         hasRoute: false,
         routeSummary: null,
+        routePoints: null,
         cardioMetrics: {
             distanceKm,
             steps,

@@ -239,6 +239,7 @@ export function CardioSessionDetailsScreen({ date, sessionId }: Props) {
                     <CardioRouteMap
                         hasRoute={session.hasRoute}
                         routeSummary={session.routeSummary}
+                        routePoints={session.routePoints}
                     />
 
                     <CardioRoutePreview

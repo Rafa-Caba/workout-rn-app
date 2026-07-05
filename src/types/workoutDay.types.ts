@@ -193,6 +193,18 @@ export type WorkoutRouteSummary = {
     maxLongitude: number | null;
 };
 
+export type WorkoutRoutePoint = {
+    latitude: number;
+    longitude: number;
+
+    altitudeM: number | null;
+    accuracyM: number | null;
+    speedMps: number | null;
+    headingDeg: number | null;
+
+    recordedAt: ISODateTime | null;
+};
+
 export type WorkoutSessionMeta = {
     /**
      * Existing keys used today
@@ -269,6 +281,7 @@ export type WorkoutSession = {
      */
     hasRoute: boolean;
     routeSummary: WorkoutRouteSummary | null;
+    routePoints: WorkoutRoutePoint[] | null;
     cardioMetrics: WorkoutCardioMetrics | null;
 
     effortRpe: number | null;

@@ -4,7 +4,7 @@ import type {
     CardioRoutePoint,
     HealthImportedCardioRoute,
 } from "@/src/types/health/cardio/healthCardio.types";
-import type { WorkoutRouteSummary } from "@/src/types/workoutDay.types";
+import type { WorkoutRoutePoint, WorkoutRouteSummary } from "@/src/types/workoutDay.types";
 
 function hasFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
@@ -77,4 +77,27 @@ export function mapCardioRouteToSummary(
         minLongitude,
         maxLongitude,
     };
+}
+
+
+export function mapCardioRouteToWorkoutRoutePoints(
+    route: HealthImportedCardioRoute | null | undefined
+): WorkoutRoutePoint[] | null {
+    if (!route || !Array.isArray(route.points) || route.points.length === 0) {
+        return null;
+    }
+
+    const points = route.points
+        .filter((point) => hasFiniteNumber(point.latitude) && hasFiniteNumber(point.longitude))
+        .map((point) => ({
+            latitude: point.latitude,
+            longitude: point.longitude,
+            altitudeM: point.altitudeM ?? null,
+            accuracyM: point.accuracyM ?? null,
+            speedMps: point.speedMps ?? null,
+            headingDeg: point.headingDeg ?? null,
+            recordedAt: point.recordedAt ?? null,
+        }));
+
+    return points.length > 0 ? points : null;
 }

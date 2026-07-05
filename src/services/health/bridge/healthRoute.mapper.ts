@@ -65,10 +65,20 @@ function extractRoutePoint(rawPoint: unknown): HealthImportedWorkoutRoutePoint |
             asNumber(rawPoint.altitudeM) ??
             asNumber(rawPoint.elevation) ??
             null,
+        accuracyM:
+            asNumber(rawPoint.accuracy) ??
+            asNumber(rawPoint.accuracyM) ??
+            asNumber(rawPoint.horizontalAccuracy) ??
+            null,
         speedMps:
             asNumber(rawPoint.speed) ??
             asNumber(rawPoint.speedMps) ??
             asNumber(rawPoint.velocity) ??
+            null,
+        headingDeg:
+            asNumber(rawPoint.heading) ??
+            asNumber(rawPoint.headingDeg) ??
+            asNumber(rawPoint.bearing) ??
             null,
         recordedAt:
             asString(rawPoint.time) ??

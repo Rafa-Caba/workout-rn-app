@@ -134,6 +134,15 @@ export function mapCardioLiveSnapshotToCreateSessionBody(
 
         hasRoute: snapshot.hasRoute,
         routeSummary: snapshot.routeSummary,
+        routePoints: snapshot.routePoints.map((point) => ({
+            latitude: point.latitude,
+            longitude: point.longitude,
+            altitudeM: point.altitudeM ?? null,
+            accuracyM: point.accuracyM ?? null,
+            speedMps: point.speedMps ?? null,
+            headingDeg: point.headingDeg ?? null,
+            recordedAt: point.recordedAt ?? null,
+        })),
         cardioMetrics: {
             distanceKm: snapshot.distanceKm,
             steps: null,

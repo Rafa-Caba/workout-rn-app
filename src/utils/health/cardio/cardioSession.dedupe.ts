@@ -346,6 +346,7 @@ function mergeExistingCardioSessionWithIncoming(
         cadenceRpm: mergeNullableNumber(existing.cadenceRpm, incoming.cadenceRpm),
         hasRoute: existing.hasRoute || incoming.hasRoute,
         routeSummary: existing.routeSummary ?? incoming.routeSummary ?? null,
+        routePoints: existing.routePoints ?? incoming.routePoints ?? null,
         cardioMetrics: mergeCardioMetrics(existing.cardioMetrics, incoming.cardioMetrics),
         notes: existing.notes ?? incoming.notes ?? null,
         media: existing.media ?? incoming.media ?? null,

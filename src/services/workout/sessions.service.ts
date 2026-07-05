@@ -7,6 +7,7 @@ import type {
     WorkoutCardioMetrics,
     WorkoutDay,
     WorkoutExercise,
+    WorkoutRoutePoint,
     WorkoutRouteSummary,
     WorkoutSession,
 } from "@/src/types/workoutDay.types";
@@ -41,6 +42,7 @@ export type CreateSessionBody = {
 
     hasRoute?: boolean;
     routeSummary?: WorkoutRouteSummary | null;
+    routePoints?: WorkoutRoutePoint[] | null;
     cardioMetrics?: WorkoutCardioMetrics | null;
 
     effortRpe?: number | null;

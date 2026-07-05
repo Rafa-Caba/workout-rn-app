@@ -92,6 +92,7 @@ export function mapExpoLocationToLiveRoutePoint(
         altitudeM: isFiniteNumber(location.coords.altitude) ? location.coords.altitude : null,
         speedMps: isFiniteNumber(location.coords.speed) ? location.coords.speed : null,
         accuracyM: isFiniteNumber(location.coords.accuracy) ? location.coords.accuracy : null,
+        headingDeg: isFiniteNumber(location.coords.heading) ? location.coords.heading : null,
         recordedAt: new Date(location.timestamp).toISOString(),
     };
 }

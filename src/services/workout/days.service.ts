@@ -23,6 +23,7 @@ import type {
     WorkoutExerciseMeta,
     WorkoutExerciseSet,
     WorkoutMediaItem,
+    WorkoutRoutePoint,
     WorkoutRouteSummary,
     WorkoutSession,
     WorkoutSessionKind,
@@ -230,6 +231,43 @@ function parseWorkoutRouteSummary(value: unknown): WorkoutRouteSummary | null {
     };
 }
 
+function parseWorkoutRoutePoint(value: unknown): WorkoutRoutePoint | null {
+    if (!isRecord(value)) return null;
+
+    const latitude = parseNullableNumber(value.latitude);
+    const longitude = parseNullableNumber(value.longitude);
+
+    if (latitude === null || longitude === null) {
+        return null;
+    }
+
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return null;
+    }
+
+    return {
+        latitude,
+        longitude,
+        altitudeM: parseNullableNumber(value.altitudeM),
+        accuracyM: parseNullableNumber(value.accuracyM),
+        speedMps: parseNullableNumber(value.speedMps),
+        headingDeg: parseNullableNumber(value.headingDeg),
+        recordedAt: parseNullableString(value.recordedAt),
+    };
+}
+
+function parseWorkoutRoutePoints(value: unknown): WorkoutRoutePoint[] | null {
+    if (!Array.isArray(value)) {
+        return null;
+    }
+
+    const routePoints = value
+        .map((item) => parseWorkoutRoutePoint(item))
+        .filter((item): item is WorkoutRoutePoint => item !== null);
+
+    return routePoints.length > 0 ? routePoints : null;
+}
+
 function parseWorkoutCardioMetrics(value: unknown): WorkoutCardioMetrics | null {
     if (!isRecord(value)) return null;
 
@@ -278,6 +316,7 @@ function parseWorkoutSession(value: unknown): WorkoutSession | null {
             value.routeSummary === null
                 ? null
                 : parseWorkoutRouteSummary(value.routeSummary),
+        routePoints: parseWorkoutRoutePoints(value.routePoints),
         cardioMetrics:
             value.cardioMetrics === null
                 ? null
@@ -779,6 +818,7 @@ export function buildMinimalImportedSessionUpsert(
 
         hasRoute: false,
         routeSummary: null,
+        routePoints: null,
         cardioMetrics: null,
 
         effortRpe: session.metrics.effortRpe ?? null,

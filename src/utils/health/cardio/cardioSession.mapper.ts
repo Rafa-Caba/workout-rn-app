@@ -12,7 +12,10 @@ import type {
     WorkoutSessionMeta,
 } from "@/src/types/workoutDay.types";
 import { resolveImportedCardioEnvironment } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
-import { mapCardioRouteToSummary } from "@/src/utils/health/cardio/cardioRoute.mapper";
+import {
+    mapCardioRouteToSummary,
+    mapCardioRouteToWorkoutRoutePoints,
+} from "@/src/utils/health/cardio/cardioRoute.mapper";
 import {
     buildCardioSessionTitleFromImported,
     isCardioActivityType,
@@ -142,6 +145,7 @@ export function mapImportedCardioSessionToWorkoutSession(
 ): WorkoutSession {
     const resolvedActivityType = resolveActivityType(session);
     const resolvedRouteSummary = mapCardioRouteToSummary(session.route);
+    const resolvedRoutePoints = mapCardioRouteToWorkoutRoutePoints(session.route);
     const resolvedDurationSeconds = resolveDurationSeconds({
         explicitDurationSeconds: session.metrics.durationSeconds,
         startAt: session.startAt,
@@ -186,6 +190,7 @@ export function mapImportedCardioSessionToWorkoutSession(
 
         hasRoute: (session.route?.hasRoute ?? false) || resolvedRouteSummary !== null,
         routeSummary: resolvedRouteSummary,
+        routePoints: resolvedRoutePoints,
         cardioMetrics: mapImportedCardioMetricsToWorkoutCardioMetrics({
             ...session.metrics,
             durationSeconds: resolvedDurationSeconds,

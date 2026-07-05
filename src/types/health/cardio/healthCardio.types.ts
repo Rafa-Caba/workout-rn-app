@@ -27,7 +27,9 @@ export type CardioRoutePoint = {
     longitude: number;
 
     altitudeM: number | null;
+    accuracyM: number | null;
     speedMps: number | null;
+    headingDeg: number | null;
 
     recordedAt: ISODateTime | null;
 };

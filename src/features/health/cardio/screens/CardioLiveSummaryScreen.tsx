@@ -5,6 +5,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import CardioRouteMap from "@/src/features/health/cardio/components/CardioRouteMap";
+import { useCardioSessionDetails } from "@/src/hooks/health/cardio/useCardioSessionDetails";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { CardioHealthWriteProvider } from "@/src/types/health/cardio/cardioHealthWrite.types";
 import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
@@ -165,6 +167,15 @@ export function CardioLiveSummaryScreen() {
     const healthProvider = parseHealthProvider(params.healthProvider);
 
     const title = activityType === "running" ? "Outdoor Run guardado" : "Outdoor Walk guardado";
+    const canLoadSessionDetails = Boolean(date && sessionId);
+    const details = useCardioSessionDetails({
+        date,
+        sessionId: sessionId ?? "",
+        includeRoutes: true,
+        autoLoad: canLoadSessionDetails,
+        activityTypes: [activityType],
+    });
+    const savedSession = details.session;
 
     function openDetail() {
         if (!date || !sessionId) {
@@ -231,6 +242,21 @@ export function CardioLiveSummaryScreen() {
                     <MetricRow label="Sync error" value={healthWriteError} />
                 ) : null}
             </View>
+
+            {savedSession?.cardioEnvironment === "outdoor" ? (
+                <CardioRouteMap
+                    hasRoute={savedSession.hasRoute}
+                    routeSummary={savedSession.routeSummary}
+                    routePoints={savedSession.routePoints}
+                    height={240}
+                />
+            ) : null}
+
+            {details.error ? (
+                <Text style={{ color: colors.danger ?? colors.text }}>
+                    No se pudo cargar el mapa guardado todavía: {details.error}
+                </Text>
+            ) : null}
 
             <View style={{ gap: 10 }}>
                 <ActionButton label="Ver detalle" onPress={openDetail} primary />

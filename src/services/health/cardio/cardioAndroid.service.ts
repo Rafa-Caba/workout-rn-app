@@ -152,7 +152,9 @@ function mapWorkoutRouteToCardioRoute(
         latitude: point.latitude,
         longitude: point.longitude,
         altitudeM: point.altitudeM,
+        accuracyM: point.accuracyM,
         speedMps: point.speedMps,
+        headingDeg: point.headingDeg,
         recordedAt: point.recordedAt,
     }));
 
