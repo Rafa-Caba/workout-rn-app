@@ -141,6 +141,8 @@ const config: AppConfig = {
                  */
                 "android.permission.health.READ_EXERCISE",
                 "android.permission.health.READ_EXERCISE_ROUTES",
+                "android.permission.health.WRITE_EXERCISE",
+                "android.permission.health.WRITE_EXERCISE_ROUTE",
 
                 /**
                  * Health Connect — common workout metrics
@@ -153,6 +155,9 @@ const config: AppConfig = {
                 "android.permission.health.READ_ELEVATION_GAINED",
                 "android.permission.health.READ_STEPS",
                 "android.permission.health.READ_POWER",
+                "android.permission.health.WRITE_DISTANCE",
+                "android.permission.health.WRITE_SPEED",
+                "android.permission.health.WRITE_ACTIVE_CALORIES_BURNED",
 
                 /**
                  * Health Connect — broader history access

@@ -6,6 +6,7 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type { CardioHealthWriteProvider } from "@/src/types/health/cardio/cardioHealthWrite.types";
 import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
 import type { ISODate } from "@/src/types/workoutDay.types";
 import { formatFlexibleDateLabel } from "@/src/utils/dates/dateDisplay";
@@ -29,6 +30,45 @@ function parseOptionalString(value: string | string[] | undefined): string | nul
 
 function parseActivityType(value: string | string[] | undefined): CardioActivityType {
     return value === "running" ? "running" : "walking";
+}
+
+function parseHealthWriteStatus(value: string | string[] | undefined): "pending" | "synced" | "failed" {
+    if (value === "synced" || value === "failed" || value === "pending") {
+        return value;
+    }
+
+    return "pending";
+}
+
+function parseHealthProvider(value: string | string[] | undefined): CardioHealthWriteProvider | null {
+    if (value === "healthkit" || value === "health-connect") {
+        return value;
+    }
+
+    return null;
+}
+
+function formatHealthProvider(provider: CardioHealthWriteProvider | null): string {
+    if (provider === "healthkit") return "HealthKit";
+    if (provider === "health-connect") return "Health Connect";
+    return "Health";
+}
+
+function formatHealthWriteStatus(input: {
+    status: "pending" | "synced" | "failed";
+    provider: CardioHealthWriteProvider | null;
+}): string {
+    const providerLabel = formatHealthProvider(input.provider);
+
+    if (input.status === "synced") {
+        return `Sincronizado con ${providerLabel}`;
+    }
+
+    if (input.status === "failed") {
+        return `Falló sync con ${providerLabel}`;
+    }
+
+    return `Pendiente con ${providerLabel}`;
 }
 
 function formatDuration(durationSeconds: number | null): string {
@@ -105,6 +145,10 @@ export function CardioLiveSummaryScreen() {
         distanceKm?: string | string[];
         durationSeconds?: string | string[];
         paceSecPerKm?: string | string[];
+        healthWriteStatus?: string | string[];
+        healthExternalId?: string | string[];
+        healthWriteError?: string | string[];
+        healthProvider?: string | string[];
     }>();
     const router = useRouter();
     const { colors } = useTheme();
@@ -115,6 +159,10 @@ export function CardioLiveSummaryScreen() {
     const distanceKm = parseOptionalNumber(params.distanceKm);
     const durationSeconds = parseOptionalNumber(params.durationSeconds);
     const paceSecPerKm = parseOptionalNumber(params.paceSecPerKm);
+    const healthWriteStatus = parseHealthWriteStatus(params.healthWriteStatus);
+    const healthExternalId = parseOptionalString(params.healthExternalId);
+    const healthWriteError = parseOptionalString(params.healthWriteError);
+    const healthProvider = parseHealthProvider(params.healthProvider);
 
     const title = activityType === "running" ? "Outdoor Run guardado" : "Outdoor Walk guardado";
 
@@ -169,7 +217,19 @@ export function CardioLiveSummaryScreen() {
                 <MetricRow label="Distancia" value={formatCardioDistance(distanceKm)} />
                 <MetricRow label="Tiempo" value={formatDuration(durationSeconds)} />
                 <MetricRow label="Ritmo" value={formatCardioPace(paceSecPerKm)} />
-                <MetricRow label="Sync OS" value="Pendiente para Fase 6" />
+                <MetricRow
+                    label="Sync OS"
+                    value={formatHealthWriteStatus({
+                        status: healthWriteStatus,
+                        provider: healthProvider,
+                    })}
+                />
+                {healthExternalId ? (
+                    <MetricRow label="External ID" value={healthExternalId} />
+                ) : null}
+                {healthWriteError ? (
+                    <MetricRow label="Sync error" value={healthWriteError} />
+                ) : null}
             </View>
 
             <View style={{ gap: 10 }}>

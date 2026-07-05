@@ -203,7 +203,7 @@ export function CardioRouteMap({
                     Mapa
                 </Text>
                 <Text style={{ color: colors.mutedText }}>
-                    Vista real fase 1 con inicio / fin y encuadre de la ruta.
+                    Mapa real con inicio / fin y encuadre de la ruta registrada.
                 </Text>
             </View>
 

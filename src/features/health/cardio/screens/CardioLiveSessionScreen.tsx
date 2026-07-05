@@ -4,9 +4,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useCardioLiveSession } from "@/src/hooks/health/cardio/useCardioLiveSession";
+import { writeCardioWorkoutToOSAndPatchBackend } from "@/src/services/health/cardio/cardioHealthWrite.service";
 import { mapCardioLiveSnapshotToCreateSessionBody } from "@/src/services/health/cardio/cardioLiveSession.mapper";
 import {
     createSession,
@@ -14,6 +15,10 @@ import {
     type ReturnSession,
 } from "@/src/services/workout/sessions.service";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type {
+    CardioHealthWriteProvider,
+    CardioHealthWriteResult,
+} from "@/src/types/health/cardio/cardioHealthWrite.types";
 import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
 import type { WorkoutSession } from "@/src/types/workoutDay.types";
 import {
@@ -68,6 +73,21 @@ function extractCreatedSession(value: unknown): WorkoutSession | null {
     }
 
     return value.session ?? null;
+}
+
+function getCurrentHealthProvider(): CardioHealthWriteProvider {
+    return Platform.OS === "android" ? "health-connect" : "healthkit";
+}
+
+function buildLocalHealthWriteFailureResult(error: unknown): CardioHealthWriteResult {
+    return {
+        provider: getCurrentHealthProvider(),
+        status: "failed",
+        externalId: null,
+        writtenAt: null,
+        error: error instanceof Error ? error.message : "No se pudo sincronizar con Health.",
+        details: [],
+    };
 }
 
 function MetricCard(props: { label: string; value: string }) {
@@ -173,6 +193,14 @@ export function CardioLiveSessionScreen() {
             const session = extractCreatedSession(created);
             const sessionId = session?.id ?? null;
 
+            const healthWriteResult = session
+                ? await writeCardioWorkoutToOSAndPatchBackend({
+                    date: snapshot.date,
+                    session,
+                    snapshot,
+                }).catch(buildLocalHealthWriteFailureResult)
+                : null;
+
             await queryClient.invalidateQueries({ queryKey: ["workoutDay", snapshot.date] });
 
             router.replace({
@@ -184,6 +212,10 @@ export function CardioLiveSessionScreen() {
                     distanceKm: String(snapshot.distanceKm),
                     durationSeconds: String(snapshot.durationSeconds),
                     paceSecPerKm: snapshot.paceSecPerKm === null ? "" : String(snapshot.paceSecPerKm),
+                    healthWriteStatus: healthWriteResult?.status ?? "pending",
+                    healthExternalId: healthWriteResult?.externalId ?? "",
+                    healthWriteError: healthWriteResult?.error ?? "",
+                    healthProvider: healthWriteResult?.provider ?? "",
                 },
             });
         } catch (error) {
@@ -238,7 +270,7 @@ export function CardioLiveSessionScreen() {
                     {title}
                 </Text>
                 <Text style={{ color: colors.mutedText, lineHeight: 20 }}>
-                    Registra una caminata o carrera outdoor usando GPS del teléfono. HR, calorías y métricas de wearable se agregarán después cuando escribamos/mezclemos con HealthKit o Health Connect.
+                    Registra una caminata o carrera outdoor usando GPS del teléfono. Al finalizar se guarda en el backend y se intenta escribir también en HealthKit o Health Connect.
                 </Text>
             </View>
 
@@ -361,7 +393,7 @@ export function CardioLiveSessionScreen() {
             >
                 <Text style={{ color: colors.text, fontWeight: "900" }}>Notas de esta fase</Text>
                 <Text style={{ color: colors.mutedText, lineHeight: 20 }}>
-                    Esta versión guarda en el backend como source app-live y sessionKind live-cardio. La escritura a HealthKit / Health Connect queda preparada para la siguiente fase con healthWriteStatus pending.
+                    Esta versión guarda en el backend como source app-live y sessionKind live-cardio. Después intenta escribir la sesión en HealthKit / Health Connect y actualiza healthWriteStatus en el backend con synced o failed.
                 </Text>
             </View>
         </ScrollView>
