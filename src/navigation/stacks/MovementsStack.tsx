@@ -1,4 +1,4 @@
-import { MovementDetailScreen } from "@/src/features/movements/screens/MovementDetailScreen";
+import MovementDetailScreen from "@/src/features/movements/screens/MovementDetailScreen";
 import { MovementsListScreen } from "@/src/features/movements/screens/MovementsListScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";

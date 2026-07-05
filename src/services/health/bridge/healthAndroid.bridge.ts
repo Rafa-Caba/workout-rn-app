@@ -6,6 +6,7 @@ import {
     requestPermission,
 } from "react-native-health-connect";
 
+import { extractImportedWorkoutRoute } from "@/src/services/health/bridge/healthRoute.mapper";
 import type { NativeHealthBridge } from "@/src/services/health/healthBridge.types";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import type {
@@ -297,6 +298,48 @@ function mapAndroidSleepRecords(date: string, records: unknown[]): HealthImporte
     };
 }
 
+function buildAndroidWorkoutType(record: Record<string, unknown>): string {
+    return (
+        asNonEmptyString(record.exerciseType) ??
+        asNonEmptyString(record.exerciseTypeName) ??
+        asNonEmptyString(record.title) ??
+        asNonEmptyString(record.name) ??
+        "Workout"
+    );
+}
+
+function readAndroidMetadataId(metadata: Record<string, unknown> | null): string | null {
+    if (!metadata) {
+        return null;
+    }
+
+    return (
+        asNonEmptyString(metadata.id) ??
+        asNonEmptyString(metadata.clientRecordId) ??
+        asNonEmptyString(metadata.uid) ??
+        null
+    );
+}
+
+function readAndroidSourceDevice(metadata: Record<string, unknown> | null): string | null {
+    if (!metadata) {
+        return null;
+    }
+
+    const directDataOrigin = asNonEmptyString(metadata.dataOrigin);
+    if (directDataOrigin) {
+        return directDataOrigin;
+    }
+
+    const dataOrigin = isRecord(metadata.dataOrigin) ? metadata.dataOrigin : null;
+    return (
+        (dataOrigin ? asNonEmptyString(dataOrigin.packageName) : null) ??
+        (dataOrigin ? asNonEmptyString(dataOrigin.applicationId) : null) ??
+        asNonEmptyString(metadata.device) ??
+        null
+    );
+}
+
 function mapAndroidWorkoutRecord(record: unknown): HealthImportedWorkoutSessionMinimal | null {
     if (!isRecord(record)) return null;
 
@@ -311,16 +354,14 @@ function mapAndroidWorkoutRecord(record: unknown): HealthImportedWorkoutSessionM
         null;
 
     const metadata = isRecord(record.metadata) ? record.metadata : null;
+    const providerWorkoutType = buildAndroidWorkoutType(record);
+    const route = extractImportedWorkoutRoute(record);
 
     return {
-        externalId:
-            metadata && asNonEmptyString(metadata.id)
-                ? asNonEmptyString(metadata.id)
-                : null,
-        type:
-            asNonEmptyString(record.exerciseType) ??
-            asNonEmptyString(record.title) ??
-            "Workout",
+        externalId: readAndroidMetadataId(metadata),
+        type: providerWorkoutType,
+        providerWorkoutType,
+        cardioEnvironment: route ? "outdoor" : null,
         startAt,
         endAt,
         metrics: {
@@ -346,12 +387,10 @@ function mapAndroidWorkoutRecord(record: unknown): HealthImportedWorkoutSessionM
             cadenceRpm: null,
             effortRpe: null,
         },
+        route,
         notes: asNonEmptyString(record.notes),
         source: "health-connect",
-        sourceDevice:
-            metadata && asNonEmptyString(metadata.dataOrigin)
-                ? asNonEmptyString(metadata.dataOrigin)
-                : null,
+        sourceDevice: readAndroidSourceDevice(metadata),
         importedAt: toIsoNow(),
         lastSyncedAt: toIsoNow(),
         sessionKind: "device-import",

@@ -175,8 +175,8 @@ export function HealthBackfillScreen() {
             <View style={styles.header}>
                 <Text style={[styles.title, { color: colors.text }]}>Health Backfill</Text>
                 <Text style={[styles.subtitle, { color: colors.mutedText }]}>
-                    Importa histórico de sueño y sesiones mínimas automáticas desde HealthKit /
-                    Health Connect sin mezclarlo con los flows diarios de GymCheck, Sleep o Día.
+                    Importa histórico de sueño y sesiones Cardio walking/running desde HealthKit /
+                    Health Connect, usando indoor/outdoor, cardioMetrics y dedupe antes de guardar.
                 </Text>
             </View>
 

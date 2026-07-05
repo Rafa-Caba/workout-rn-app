@@ -4,15 +4,18 @@ import { healthIOSBridge } from "@/src/services/health/bridge/healthIOS.bridge";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import type {
     HealthImportedWorkoutMetrics,
-    HealthImportedWorkoutSessionMinimal, HealthPermissionsStatus
+    HealthImportedWorkoutRoute,
+    HealthImportedWorkoutSessionMinimal,
+    HealthPermissionsStatus,
 } from "@/src/types/health/health.types";
 import type {
+    CardioActivityType,
     HealthImportedCardioQuery,
     HealthImportedCardioSession,
     HealthImportedCardioSessionsResult,
-    CardioActivityType,
 } from "@/src/types/health/healthCardio.types";
 import type { ISODate, ISODateTime, WorkoutCardioEnvironment } from "@/src/types/workoutDay.types";
+import { resolveCardioEnvironmentFromMinimalWorkout } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
 
 export type CardioIOSReadSessionsInput = HealthImportedCardioQuery & {
     includeRoutes?: boolean;
@@ -125,25 +128,7 @@ function matchesRequestedActivityTypes(
 function detectCardioEnvironmentFromWorkout(
     workout: HealthImportedWorkoutSessionMinimal
 ): WorkoutCardioEnvironment {
-    const normalizedType = normalizeText(workout.type);
-
-    if (
-        normalizedType.includes("indoor") ||
-        normalizedType.includes("treadmill") ||
-        normalizedType.includes("inside")
-    ) {
-        return "indoor";
-    }
-
-    if (
-        normalizedType.includes("outdoor") ||
-        normalizedType.includes("hiking") ||
-        normalizedType.includes("hike")
-    ) {
-        return "outdoor";
-    }
-
-    return null;
+    return resolveCardioEnvironmentFromMinimalWorkout(workout);
 }
 
 function matchesRequestedCardioEnvironments(
@@ -164,8 +149,57 @@ function matchesRequestedCardioEnvironments(
 function buildProviderWorkoutType(
     workout: HealthImportedWorkoutSessionMinimal
 ): string | null {
-    return workout.type ?? null;
+    return workout.providerWorkoutType ?? workout.type ?? null;
 }
+
+function mapWorkoutRouteToCardioRoute(
+    route: HealthImportedWorkoutRoute | null | undefined
+): HealthImportedCardioSession["route"] {
+    if (!route || !route.hasRoute || route.points.length === 0) {
+        return null;
+    }
+
+    const points = route.points.map((point) => ({
+        latitude: point.latitude,
+        longitude: point.longitude,
+        altitudeM: point.altitudeM,
+        speedMps: point.speedMps,
+        recordedAt: point.recordedAt,
+    }));
+
+    let minLatitude: number | null = null;
+    let maxLatitude: number | null = null;
+    let minLongitude: number | null = null;
+    let maxLongitude: number | null = null;
+
+    for (const point of points) {
+        minLatitude = minLatitude === null ? point.latitude : Math.min(minLatitude, point.latitude);
+        maxLatitude = maxLatitude === null ? point.latitude : Math.max(maxLatitude, point.latitude);
+        minLongitude = minLongitude === null ? point.longitude : Math.min(minLongitude, point.longitude);
+        maxLongitude = maxLongitude === null ? point.longitude : Math.max(maxLongitude, point.longitude);
+    }
+
+    const startPoint = points[0] ?? null;
+    const endPoint = points[points.length - 1] ?? null;
+
+    return {
+        hasRoute: true,
+        points,
+        routeSummary: {
+            pointCount: points.length,
+            startLatitude: startPoint?.latitude ?? null,
+            startLongitude: startPoint?.longitude ?? null,
+            endLatitude: endPoint?.latitude ?? null,
+            endLongitude: endPoint?.longitude ?? null,
+            minLatitude,
+            maxLatitude,
+            minLongitude,
+            maxLongitude,
+        },
+        raw: route.raw,
+    };
+}
+
 
 function resolveSessionRange(
     workout: HealthImportedWorkoutSessionMinimal
@@ -223,12 +257,14 @@ async function enrichCardioWorkout(
         : null;
 
     const mergedMetrics = mergeMetrics(workout.metrics, rangeMetrics);
+    const route = includeRoutes ? mapWorkoutRouteToCardioRoute(workout.route ?? null) : null;
+    const cardioEnvironment = route ? "outdoor" : detectCardioEnvironmentFromWorkout(workout);
 
     return {
         externalId: workout.externalId ?? null,
         date,
         activityType,
-        cardioEnvironment: detectCardioEnvironmentFromWorkout(workout),
+        cardioEnvironment,
         providerWorkoutType: buildProviderWorkoutType(workout),
         startAt: workout.startAt ?? null,
         endAt: workout.endAt ?? null,
@@ -247,11 +283,7 @@ async function enrichCardioWorkout(
             cadenceRpm: mergedMetrics.cadenceRpm ?? null,
             strideLengthM: null,
         },
-        /**
-         * Current iOS bridge does not expose workout route samples yet.
-         * Keep contract ready while safely returning null.
-         */
-        route: includeRoutes ? null : null,
+        route,
         source: workout.source,
         sourceDevice: workout.sourceDevice ?? null,
         importedAt: workout.importedAt ?? toIsoNow(),

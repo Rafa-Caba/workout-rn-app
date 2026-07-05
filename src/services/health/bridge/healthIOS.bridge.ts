@@ -7,6 +7,7 @@ import AppleHealthKit, {
     type HealthValue,
 } from "react-native-health";
 
+import { extractImportedWorkoutRoute } from "@/src/services/health/bridge/healthRoute.mapper";
 import type { NativeHealthBridge } from "@/src/services/health/healthBridge.types";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import type {
@@ -473,12 +474,17 @@ function mapWorkoutSample(sample: HealthValue): HealthImportedWorkoutSessionMini
             return mins === null ? null : mins * 60;
         })();
 
+    const providerWorkoutType = extractWorkoutType(sample);
+    const route = extractImportedWorkoutRoute(sample);
+
     return {
         externalId:
             asNonEmptyString(sample.id) ??
             asNonEmptyString(sample.uuid) ??
             null,
-        type: extractWorkoutType(sample),
+        type: providerWorkoutType,
+        providerWorkoutType,
+        cardioEnvironment: route ? "outdoor" : null,
         startAt,
         endAt,
         metrics: {
@@ -504,6 +510,7 @@ function mapWorkoutSample(sample: HealthValue): HealthImportedWorkoutSessionMini
             cadenceRpm: null,
             effortRpe: null,
         },
+        route,
         notes: null,
         source: "healthkit",
         sourceDevice:

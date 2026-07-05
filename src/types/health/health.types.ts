@@ -3,6 +3,7 @@
 import type {
     ISODate,
     ISODateTime,
+    WorkoutCardioEnvironment,
     WorkoutDataSource,
     WorkoutSessionKind,
     WorkoutSourceDevice,
@@ -80,6 +81,31 @@ export type HealthImportedWorkoutMetrics = {
     effortRpe: number | null;
 };
 
+
+/**
+ * A single normalized route point imported from native health providers.
+ * Some providers omit altitude, speed, or timestamp data, so those fields
+ * remain nullable while latitude/longitude are required for map usability.
+ */
+export type HealthImportedWorkoutRoutePoint = {
+    latitude: number;
+    longitude: number;
+    altitudeM: number | null;
+    speedMps: number | null;
+    recordedAt: ISODateTime | null;
+};
+
+/**
+ * Neutral route representation for imported walking/running workouts.
+ * This lets Cardio decide outdoor vs indoor by actual route availability
+ * without tying HealthKit and Health Connect to UI-specific types.
+ */
+export type HealthImportedWorkoutRoute = {
+    hasRoute: boolean;
+    points: HealthImportedWorkoutRoutePoint[];
+    raw: unknown | null;
+};
+
 /**
  * Minimal imported session representation from HealthKit / Health Connect.
  * This is intentionally neutral and detached from FE gym-check exercise details.
@@ -97,10 +123,27 @@ export type HealthImportedWorkoutSessionMinimal = {
 
     type: string;
 
+    /**
+     * Optional provider-specific type label/code before app normalization.
+     * Examples: RUNNING, RUNNING_TREADMILL, HKWorkoutActivityTypeRunning.
+     */
+    providerWorkoutType?: string | null;
+
+    /**
+     * Optional environment hint when the provider exposes it.
+     * Null means unknown; Cardio can still infer outdoor from route availability.
+     */
+    cardioEnvironment?: WorkoutCardioEnvironment;
+
     startAt: ISODateTime | null;
     endAt: ISODateTime | null;
 
     metrics: HealthImportedWorkoutMetrics;
+
+    /**
+     * Optional route points when the provider exposes workout routes.
+     */
+    route?: HealthImportedWorkoutRoute | null;
 
     notes?: string | null;
 

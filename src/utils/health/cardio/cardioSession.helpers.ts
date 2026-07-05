@@ -1,8 +1,9 @@
 // src/utils/health/cardio/cardioSession.helpers.ts
 // Cardio session display, formatting, and type guard helpers.
 
-import type { HealthImportedCardioSession, CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType, HealthImportedCardioSession } from "@/src/types/health/healthCardio.types";
 import type { WorkoutCardioEnvironment, WorkoutSession } from "@/src/types/workoutDay.types";
+import { detectCardioEnvironmentFromProviderText } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
 
 function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
@@ -35,29 +36,7 @@ export function getCardioEnvironmentLabel(
 export function detectCardioEnvironmentFromProviderWorkoutType(
     providerWorkoutType: string | null | undefined
 ): WorkoutCardioEnvironment {
-    const normalized = typeof providerWorkoutType === "string"
-        ? providerWorkoutType.trim().toLowerCase()
-        : "";
-
-    if (!normalized) return null;
-
-    if (
-        normalized.includes("indoor") ||
-        normalized.includes("treadmill") ||
-        normalized.includes("inside")
-    ) {
-        return "indoor";
-    }
-
-    if (
-        normalized.includes("outdoor") ||
-        normalized.includes("hiking") ||
-        normalized.includes("hike")
-    ) {
-        return "outdoor";
-    }
-
-    return null;
+    return detectCardioEnvironmentFromProviderText(providerWorkoutType);
 }
 
 export function resolveWorkoutSessionCardioEnvironment(

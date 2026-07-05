@@ -1,7 +1,8 @@
-import { PreferencesScreen } from "@/src/features/auth/screens/PreferencesScreen";
-import { ProfileScreen } from "@/src/features/auth/screens/ProfileScreen";
+
+import PreferencesScreen from "@/src/features/auth/screens/PreferencesScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
+import ProfileScreen from '../../features/auth/screens/ProfileScreen';
 
 export type SettingsStackParamList = {
     Profile: undefined;

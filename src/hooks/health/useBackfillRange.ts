@@ -1,11 +1,11 @@
 // src/hooks/health/useBackfillRange.ts
 // Hook para backfill histórico desde HealthKit / Health Connect.
-// Mantiene el contrato original: WorkoutDayBackfillResult | null.
-// Solo normaliza errores para que la UI no muestre mensajes crudos de Axios.
+// Usa Cardio para walking/running y conserva dedupe antes de mandar payloads
+// al backend, evitando duplicar imports contra manual-cardio o app-live.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { readHealthDayBundleByDate } from "@/src/services/health/health.service";
+import { buildCardioBackfillPayloadForDate } from "@/src/services/health/cardio/cardioBackfill.service";
 import { backfillWorkoutDaysRange } from "@/src/services/workout/days.service";
 import type {
     WorkoutDayBackfillBody,
@@ -13,14 +13,6 @@ import type {
     WorkoutDayBackfillResult,
 } from "@/src/types/workoutDay.types";
 import { normalizeApiError } from "@/src/utils/api/apiErrorMessage";
-import {
-    hasMeaningfulImportedSleep,
-    mapImportedSleepToSleepBlock,
-} from "@/src/utils/health/healthSleep.mapper";
-import {
-    hasMeaningfulImportedWorkoutMetrics,
-    mapImportedWorkoutToMinimalDaySession,
-} from "@/src/utils/health/healthWorkout.mapper";
 
 type BackfillRangeArgs = {
     dates: string[];
@@ -51,36 +43,15 @@ export function useBackfillRange() {
             const items: WorkoutDayBackfillItem[] = [];
 
             for (const date of normalizedDates) {
-                const bundle = await readHealthDayBundleByDate({ date });
+                const result = await buildCardioBackfillPayloadForDate({ date, mode });
 
-                const mappedSleep =
-                    bundle.sleep && hasMeaningfulImportedSleep(bundle.sleep)
-                        ? mapImportedSleepToSleepBlock(bundle.sleep)
-                        : null;
-
-                const mappedSessions = bundle.workouts
-                    .filter((session) => hasMeaningfulImportedWorkoutMetrics(session.metrics))
-                    .map((session) => mapImportedWorkoutToMinimalDaySession(session));
-
-                if (!mappedSleep && mappedSessions.length === 0) {
+                if (!result.payload) {
                     continue;
                 }
 
                 items.push({
                     date,
-                    payload: {
-                        ...(mappedSleep ? { sleep: mappedSleep } : {}),
-                        ...(mappedSessions.length > 0
-                            ? {
-                                training: {
-                                    source: mappedSessions[0]?.meta?.source ?? null,
-                                    dayEffortRpe: null,
-                                    raw: null,
-                                    sessions: mappedSessions,
-                                },
-                            }
-                            : {}),
-                    },
+                    payload: result.payload,
                 });
             }
 
