@@ -207,6 +207,8 @@ export function mapImportedWorkoutToMinimalDaySession(
 ): WorkoutSessionUpsert {
     return {
         type: asNullableString(input.type) ?? "Workout",
+        activityType: null,
+        cardioEnvironment: null,
 
         startAt: asNullableString(input.startAt),
         endAt: asNullableString(input.endAt),
@@ -225,6 +227,10 @@ export function mapImportedWorkoutToMinimalDaySession(
 
         paceSecPerKm: toNonNegativeIntOrNull(input.metrics.paceSecPerKm),
         cadenceRpm: toNonNegativeNumberOrNull(input.metrics.cadenceRpm),
+
+        hasRoute: false,
+        routeSummary: null,
+        cardioMetrics: null,
 
         effortRpe: toNonNegativeNumberOrNull(input.metrics.effortRpe),
 

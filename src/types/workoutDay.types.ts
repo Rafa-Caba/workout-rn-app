@@ -20,12 +20,26 @@ export type WeekKey = string; // "YYYY-W##"
 
 export type WorkoutDataSource = "manual" | "healthkit" | "health-connect";
 
-export type WorkoutSessionKind = "device-import" | "gym-check" | "manual-outdoor";
+/**
+ * Session-level source supports app-created live workouts in addition to
+ * historical/manual HealthKit and Health Connect imports. Sleep/day-level
+ * sources keep using WorkoutDataSource so app-live stays scoped to sessions.
+ */
+export type WorkoutSessionDataSource = WorkoutDataSource | "app-live";
+
+export type WorkoutSessionKind =
+    | "device-import"
+    | "gym-check"
+    | "manual-cardio"
+    | "live-cardio";
+
+export type WorkoutHealthWriteStatus = "pending" | "synced" | "failed";
+export type WorkoutCardioEnvironment = "outdoor" | "indoor" | null;
 
 /**
  * Neutral activity family used by training sessions.
  * Keep current compatibility with existing gym/manual/device-import sessions,
- * while adding explicit outdoor support.
+ * while adding explicit Cardio support.
  */
 export type WorkoutActivityType = "walking" | "running" | null;
 
@@ -140,11 +154,11 @@ export type WorkoutExercise = {
  */
 
 /**
- * Outdoor-specific normalized metrics.
- * These are kept grouped so outdoor screens can read them directly
+ * Cardio-specific normalized metrics.
+ * These are kept grouped so cardio screens can read them directly
  * without overloading the generic session root fields.
  */
-export type WorkoutOutdoorMetrics = {
+export type WorkoutCardioMetrics = {
     distanceKm: number | null;
     steps: number | null;
     elevationGainM: number | null;
@@ -190,7 +204,7 @@ export type WorkoutSessionMeta = {
     /**
      * New typed import/source fields
      */
-    source?: WorkoutDataSource | null;
+    source?: WorkoutSessionDataSource | null;
     sourceDevice?: WorkoutSourceDevice | null;
     importedAt?: ISODateTime | null;
     lastSyncedAt?: ISODateTime | null;
@@ -202,6 +216,14 @@ export type WorkoutSessionMeta = {
     externalId?: string | null;
     originalType?: string | null;
     provider?: string | null;
+
+    /**
+     * OS health write metadata used after an app-created live workout is
+     * persisted in the BE and then written to Apple Health / Health Connect.
+     */
+    healthWriteStatus?: WorkoutHealthWriteStatus | null;
+    healthExternalId?: string | null;
+    healthWrittenAt?: ISODateTime | null;
 } & Record<string, unknown>;
 
 export type WorkoutSession = {
@@ -211,10 +233,16 @@ export type WorkoutSession = {
 
     /**
      * Neutral activity family.
-     * - walking / running for outdoor module
+     * - walking / running for the Cardio module
      * - null for existing gym/manual sessions that do not need this field
      */
     activityType: WorkoutActivityType;
+
+    /**
+     * Distinguishes GPS-based outdoor cardio from treadmill/indoor cardio.
+     * Non-cardio sessions can keep this null.
+     */
+    cardioEnvironment: WorkoutCardioEnvironment;
 
     startAt: ISODateTime | null;
     endAt: ISODateTime | null;
@@ -235,12 +263,13 @@ export type WorkoutSession = {
     cadenceRpm: number | null;
 
     /**
-     * Outdoor route support.
-     * No real map yet, but enough for session cards/detail state.
+     * Cardio route support.
+     * Route values apply to outdoor sessions only; indoor sessions should use
+     * hasRoute=false and routeSummary=null.
      */
     hasRoute: boolean;
     routeSummary: WorkoutRouteSummary | null;
-    outdoorMetrics: WorkoutOutdoorMetrics | null;
+    cardioMetrics: WorkoutCardioMetrics | null;
 
     effortRpe: number | null;
 

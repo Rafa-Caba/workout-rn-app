@@ -17,11 +17,17 @@ export default function CalendarLayout() {
 
             <Stack.Screen name="weekView/[weekKey]" options={{ title: "Resumen Semanal" }} />
 
-            <Stack.Screen name="outdoor/[date]" options={{ title: "Walk + Running" }} />
+            <Stack.Screen name="cardio/[date]" options={{ title: "Cardio" }} />
+            <Stack.Screen name="cardio/manual" options={{ title: "Captura Cardio" }} />
             <Stack.Screen
-                name="outdoor/session/[date]/[sessionId]"
-                options={{ title: "Detalle Outdoor" }}
+                name="cardio/edit/[date]/[sessionId]"
+                options={{ title: "Editar Cardio" }}
             />
+            <Stack.Screen
+                name="cardio/session/[date]/[sessionId]"
+                options={{ title: "Detalle Cardio" }}
+            />
+
 
             <Stack.Screen name="routines" options={{ headerShown: false }} />
             <Stack.Screen name="gym-check" options={{ headerShown: false }} />

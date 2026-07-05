@@ -3,9 +3,10 @@
 import { api } from "@/src/services/http.client";
 import type {
     WorkoutActivityType,
+    WorkoutCardioEnvironment,
+    WorkoutCardioMetrics,
     WorkoutDay,
     WorkoutExercise,
-    WorkoutOutdoorMetrics,
     WorkoutRouteSummary,
     WorkoutSession,
 } from "@/src/types/workoutDay.types";
@@ -18,6 +19,7 @@ export type CreateSessionBody = {
     type: string;
 
     activityType?: WorkoutActivityType;
+    cardioEnvironment?: WorkoutCardioEnvironment;
 
     startAt?: string | null;
     endAt?: string | null;
@@ -39,7 +41,7 @@ export type CreateSessionBody = {
 
     hasRoute?: boolean;
     routeSummary?: WorkoutRouteSummary | null;
-    outdoorMetrics?: WorkoutOutdoorMetrics | null;
+    cardioMetrics?: WorkoutCardioMetrics | null;
 
     effortRpe?: number | null;
 

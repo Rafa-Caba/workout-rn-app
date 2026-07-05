@@ -214,13 +214,13 @@ export default function CalendarMonthRoute() {
         });
     }
 
-    function openOutdoor() {
+    function openCardio() {
         toastSuccess(
-            "Abriendo Walking + Running",
-            `Cargando outdoor del día ${todayIso}.`
+            "Abriendo Cardio",
+            `Cargando walking/running indoor y outdoor del día ${todayIso}.`
         );
         router.push({
-            pathname: "/(app)/calendar/outdoor/[date]",
+            pathname: "/(app)/calendar/cardio/[date]",
             params: { date: todayIso },
         });
     }
@@ -262,7 +262,7 @@ export default function CalendarMonthRoute() {
                     title="Accesos"
                     subtitle={
                         isActionsExpanded
-                            ? "Accesos rápidos a resumen, outdoor, rutinas, gym y health."
+                            ? "Accesos rápidos a resumen, cardio, rutinas, gym y health."
                             : "Toca para expandir los accesos rápidos."
                     }
                     right={
@@ -303,9 +303,9 @@ export default function CalendarMonthRoute() {
 
                         <ActionButton
                             colors={colors}
-                            title="Walking + Running"
-                            subtitle="Dashboard outdoor del día + secciones de Walking y Running."
-                            onPress={openOutdoor}
+                            title="Cardio"
+                            subtitle="Walking + Running indoor/outdoor del día."
+                            onPress={openCardio}
                         />
 
                         <ActionButton
@@ -346,7 +346,7 @@ export default function CalendarMonthRoute() {
                             Ver accesos rápidos
                         </Text>
                         <Text style={{ color: colors.mutedText, marginTop: 2 }}>
-                            Día, Semana, Walking + Running, Rutinas, Gym Check y Health Backfill.
+                            Día, Semana, Cardio, Rutinas, Gym Check y Health Backfill.
                         </Text>
                     </Pressable>
                 )}

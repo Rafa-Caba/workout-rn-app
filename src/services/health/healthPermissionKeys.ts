@@ -14,8 +14,8 @@
  * - distance
  * - active-energy
  *
- * Instead, outdoor flows should request the grouped helper array
- * OUTDOOR_HEALTH_READ_PERMISSIONS.
+ * Instead, cardio flows should request the grouped helper array
+ * CARDIO_HEALTH_READ_PERMISSIONS.
  */
 export type HealthPermissionKey =
     | "sleep"
@@ -38,7 +38,7 @@ export const DEFAULT_HEALTH_READ_PERMISSIONS: HealthPermissionKey[] = [
 ];
 
 /**
- * Minimal permission group for outdoor walking/running flows.
+ * Minimal permission group for cardio walking/running flows.
  *
  * Why these:
  * - workouts: required to read the session itself
@@ -51,7 +51,7 @@ export const DEFAULT_HEALTH_READ_PERMISSIONS: HealthPermissionKey[] = [
  * bridges do not expose route reads yet, and route permissions differ
  * by provider/native implementation.
  */
-export const OUTDOOR_HEALTH_READ_PERMISSIONS: HealthPermissionKey[] = [
+export const CARDIO_HEALTH_READ_PERMISSIONS: HealthPermissionKey[] = [
     "workouts",
     "heart-rate",
     "steps",

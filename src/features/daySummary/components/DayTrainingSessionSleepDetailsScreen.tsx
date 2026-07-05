@@ -7,18 +7,18 @@
  * - date summary header
  * - sleep section
  * - gym/training sessions section
- * - outdoor sessions section
+ * - cardio sessions section
  *
  * This screen auto-bootstraps missing health data:
  * - if sleep is missing -> tries sleep bootstrap
  * - if gym/training sessions are missing -> tries minimal workout bootstrap
- * - if outdoor sessions are missing -> tries outdoor bootstrap
+ * - if cardio sessions are missing -> tries cardio bootstrap
  * - it never overwrites existing data
  *
  * Permission-aware behavior:
  * - if health permissions are still pending, the screen requests them
  *   before attempting the base auto-bootstrap
- * - outdoor permissions are handled by the outdoor hook/module
+ * - cardio permissions are handled by the cardio hook/module
  */
 
 import { useRouter } from "expo-router";
@@ -28,17 +28,17 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "rea
 import type { MediaViewerItem } from "@/src/features/components/media/MediaViewerModal";
 import { MediaViewerModal } from "@/src/features/components/media/MediaViewerModal";
 import { DayTrainingBlockSection } from "@/src/features/daySummary/components/DayTrainingBlockSection";
-import OutdoorEmptyState from "@/src/features/health/outdoor/components/OutdoorEmptyState";
-import OutdoorSessionCard from "@/src/features/health/outdoor/components/OutdoorSessionCard";
+import CardioEmptyState from "@/src/features/health/cardio/components/CardioEmptyState";
+import CardioSessionCard from "@/src/features/health/cardio/components/CardioSessionCard";
 
-import { useOutdoorBootstrap } from "@/src/hooks/health/outdoor/useOutdoorBootstrap";
+import { useCardioBootstrap } from "@/src/hooks/health/cardio/useCardioBootstrap";
 import { useDayAutoBootstrap } from "@/src/hooks/health/useDayAutoBootstrap";
 import { useHealthPermissions } from "@/src/hooks/health/useHealthPermissions";
 import { useWorkoutDay } from "@/src/hooks/workout/useWorkoutDay";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { HealthPermissionsStatus } from "@/src/types/health/health.types";
 import type { WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
-import { isOutdoorActivityType } from "@/src/utils/health/outdoor/outdoorSession.helpers";
+import { isCardioActivityType } from "@/src/utils/health/cardio/cardioSession.helpers";
 
 import { DayPill } from "../components/DayMetricGrid";
 import {
@@ -71,7 +71,7 @@ function hasMeaningfulSleep(day: WorkoutDay | null): boolean {
 function hasMeaningfulGymSessions(day: WorkoutDay | null): boolean {
     const sessions = Array.isArray(day?.training?.sessions) ? day.training.sessions : [];
 
-    return sessions.some((session) => !isOutdoorActivityType(session.activityType));
+    return sessions.some((session) => !isCardioActivityType(session.activityType));
 }
 
 function hasRelevantHealthReadPermissions(status: HealthPermissionsStatus | null): boolean {
@@ -114,15 +114,15 @@ function isMissingHealthPermissionError(error: unknown): boolean {
 
 function splitSessions(
     day: WorkoutDay | null
-): { gymSessions: WorkoutSession[]; outdoorSessionsFromDay: WorkoutSession[] } {
+): { gymSessions: WorkoutSession[]; cardioSessionsFromDay: WorkoutSession[] } {
     const sessions = normalizeSessions(day);
 
-    const gymSessions = sessions.filter((session) => !isOutdoorActivityType(session.activityType));
-    const outdoorSessionsFromDay = sessions.filter((session) =>
-        isOutdoorActivityType(session.activityType)
+    const gymSessions = sessions.filter((session) => !isCardioActivityType(session.activityType));
+    const cardioSessionsFromDay = sessions.filter((session) =>
+        isCardioActivityType(session.activityType)
     );
 
-    return { gymSessions, outdoorSessionsFromDay };
+    return { gymSessions, cardioSessionsFromDay };
 }
 
 function DaySubsection(props: {
@@ -181,7 +181,7 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
     const day: WorkoutDay | null = workoutDayQuery.data ?? null;
 
     const autoBootstrap = useDayAutoBootstrap();
-    const outdoorBootstrap = useOutdoorBootstrap({
+    const cardioBootstrap = useCardioBootstrap({
         date,
         includeRoutes: false,
         autoBootstrap: true,
@@ -226,18 +226,18 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
     const bootstrapBusy =
         autoBootstrap.isPending || isCheckingAvailability || isRequestingPermissions;
 
-    const { gymSessions, outdoorSessionsFromDay } = React.useMemo(
+    const { gymSessions, cardioSessionsFromDay } = React.useMemo(
         () => splitSessions(day),
         [day]
     );
 
-    const outdoorSessions = React.useMemo<WorkoutSession[]>(() => {
-        if (outdoorBootstrap.sessions.length > 0) {
-            return outdoorBootstrap.sessions;
+    const cardioSessions = React.useMemo<WorkoutSession[]>(() => {
+        if (cardioBootstrap.sessions.length > 0) {
+            return cardioBootstrap.sessions;
         }
 
-        return outdoorSessionsFromDay;
-    }, [outdoorBootstrap.sessions, outdoorSessionsFromDay]);
+        return cardioSessionsFromDay;
+    }, [cardioBootstrap.sessions, cardioSessionsFromDay]);
 
     const mediaCount = countMedia(gymSessions);
 
@@ -394,7 +394,7 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
 
                 <View style={styles.pills}>
                     <DayPill label={`🏋️ Gym/Training: ${gymSessions.length}`} colors={uiColors} />
-                    <DayPill label={`🚶 Outdoor: ${outdoorSessions.length}`} colors={uiColors} />
+                    <DayPill label={`🏃 Cardio: ${cardioSessions.length}`} colors={uiColors} />
                     <DayPill label={`🖼️ Media: ${mediaCount}`} colors={uiColors} />
                 </View>
             </View>
@@ -474,13 +474,13 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
             />
 
             <DaySubsection
-                title="🚶 Outdoor"
-                subtitle="Walking + Running importados para este día"
+                title="🏃 Cardio"
+                subtitle="Walking + Running indoor/outdoor importados o manuales para este día"
                 colors={uiColors}
                 right={
                     <Pressable
                         onPress={() => {
-                            void outdoorBootstrap.resync();
+                            void cardioBootstrap.resync();
                         }}
                         style={{
                             paddingHorizontal: 12,
@@ -497,33 +497,33 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
                     </Pressable>
                 }
             >
-                {outdoorBootstrap.loading ? (
-                    <Text style={{ color: uiColors.mutedText }}>Cargando outdoor…</Text>
+                {cardioBootstrap.loading ? (
+                    <Text style={{ color: uiColors.mutedText }}>Cargando cardio…</Text>
                 ) : null}
 
-                {outdoorBootstrap.error ? (
+                {cardioBootstrap.error ? (
                     <Text style={{ color: uiColors.mutedText }}>
-                        {outdoorBootstrap.error}
+                        {cardioBootstrap.error}
                     </Text>
                 ) : null}
 
-                {outdoorSessions.length === 0 ? (
-                    <OutdoorEmptyState
-                        title="Sin sesiones outdoor"
-                        description="No encontramos caminatas o carreras importadas para este día."
+                {cardioSessions.length === 0 ? (
+                    <CardioEmptyState
+                        title="Sin sesiones cardio"
+                        description="No encontramos caminatas o carreras indoor/outdoor para este día."
                         onRetry={() => {
-                            void outdoorBootstrap.resync();
+                            void cardioBootstrap.resync();
                         }}
                     />
                 ) : (
                     <View style={{ gap: 10 }}>
-                        {outdoorSessions.map((session) => (
-                            <OutdoorSessionCard
+                        {cardioSessions.map((session) => (
+                            <CardioSessionCard
                                 key={session.id}
                                 session={session}
                                 onPress={(selectedSession) => {
                                     router.push({
-                                        pathname: "/(app)/calendar/outdoor/session/[date]/[sessionId]",
+                                        pathname: "/(app)/calendar/cardio/session/[date]/[sessionId]",
                                         params: {
                                             date,
                                             sessionId: selectedSession.id,

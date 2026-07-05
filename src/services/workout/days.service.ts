@@ -12,6 +12,8 @@ import type {
     TrainingBlock,
     UpsertMode,
     WorkoutActivityType,
+    WorkoutCardioEnvironment,
+    WorkoutCardioMetrics,
     WorkoutDataSource,
     WorkoutDay,
     WorkoutDayBackfillBody,
@@ -21,7 +23,6 @@ import type {
     WorkoutExerciseMeta,
     WorkoutExerciseSet,
     WorkoutMediaItem,
-    WorkoutOutdoorMetrics,
     WorkoutRouteSummary,
     WorkoutSession,
     WorkoutSessionKind,
@@ -54,16 +55,25 @@ function parseWorkoutDataSource(value: unknown): WorkoutDataSource | null {
         : null;
 }
 
+function parseWorkoutSessionDataSource(value: unknown): WorkoutSessionMeta["source"] {
+    return value === "app-live" ? "app-live" : parseWorkoutDataSource(value);
+}
+
 function parseWorkoutSessionKind(value: unknown): WorkoutSessionKind | null {
     return value === "device-import" ||
         value === "gym-check" ||
-        value === "manual-outdoor"
+        value === "manual-cardio" ||
+        value === "live-cardio"
         ? value
         : null;
 }
 
 function parseWorkoutActivityType(value: unknown): WorkoutActivityType {
     return value === "walking" || value === "running" ? value : null;
+}
+
+function parseWorkoutCardioEnvironment(value: unknown): WorkoutCardioEnvironment {
+    return value === "outdoor" || value === "indoor" ? value : null;
 }
 
 function parseNullableString(value: unknown): string | null {
@@ -179,7 +189,7 @@ function parseWorkoutSessionMeta(value: unknown): WorkoutSessionMeta | null {
         sessionKey: parseNullableString(value.sessionKey),
         trainingSource: parseNullableString(value.trainingSource),
         dayEffortRpe: parseNullableNumber(value.dayEffortRpe),
-        source: parseWorkoutDataSource(value.source),
+        source: parseWorkoutSessionDataSource(value.source),
         sourceDevice: parseNullableString(value.sourceDevice) as WorkoutSourceDevice | null,
         importedAt: parseNullableString(value.importedAt),
         lastSyncedAt: parseNullableString(value.lastSyncedAt),
@@ -187,6 +197,14 @@ function parseWorkoutSessionMeta(value: unknown): WorkoutSessionMeta | null {
         externalId: parseNullableString(value.externalId),
         originalType: parseNullableString(value.originalType),
         provider: parseNullableString(value.provider),
+        healthWriteStatus:
+            value.healthWriteStatus === "pending" ||
+                value.healthWriteStatus === "synced" ||
+                value.healthWriteStatus === "failed"
+                ? value.healthWriteStatus
+                : null,
+        healthExternalId: parseNullableString(value.healthExternalId),
+        healthWrittenAt: parseNullableString(value.healthWrittenAt),
     };
 }
 
@@ -212,7 +230,7 @@ function parseWorkoutRouteSummary(value: unknown): WorkoutRouteSummary | null {
     };
 }
 
-function parseWorkoutOutdoorMetrics(value: unknown): WorkoutOutdoorMetrics | null {
+function parseWorkoutCardioMetrics(value: unknown): WorkoutCardioMetrics | null {
     if (!isRecord(value)) return null;
 
     return {
@@ -242,6 +260,7 @@ function parseWorkoutSession(value: unknown): WorkoutSession | null {
         id,
         type,
         activityType: parseWorkoutActivityType(value.activityType),
+        cardioEnvironment: parseWorkoutCardioEnvironment(value.cardioEnvironment),
         startAt: parseNullableString(value.startAt),
         endAt: parseNullableString(value.endAt),
         durationSeconds: parseNullableNumber(value.durationSeconds),
@@ -259,10 +278,10 @@ function parseWorkoutSession(value: unknown): WorkoutSession | null {
             value.routeSummary === null
                 ? null
                 : parseWorkoutRouteSummary(value.routeSummary),
-        outdoorMetrics:
-            value.outdoorMetrics === null
+        cardioMetrics:
+            value.cardioMetrics === null
                 ? null
-                : parseWorkoutOutdoorMetrics(value.outdoorMetrics),
+                : parseWorkoutCardioMetrics(value.cardioMetrics),
         effortRpe: parseNullableNumber(value.effortRpe),
         notes: parseNullableString(value.notes),
         media:
@@ -739,6 +758,7 @@ export function buildMinimalImportedSessionUpsert(
     return {
         type: session.type,
         activityType: null,
+        cardioEnvironment: null,
         startAt: session.startAt ?? null,
         endAt: session.endAt ?? null,
 
@@ -759,7 +779,7 @@ export function buildMinimalImportedSessionUpsert(
 
         hasRoute: false,
         routeSummary: null,
-        outdoorMetrics: null,
+        cardioMetrics: null,
 
         effortRpe: session.metrics.effortRpe ?? null,
 
