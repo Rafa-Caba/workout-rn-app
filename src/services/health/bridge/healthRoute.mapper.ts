@@ -5,7 +5,7 @@
 import type {
     HealthImportedWorkoutRoute,
     HealthImportedWorkoutRoutePoint,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);

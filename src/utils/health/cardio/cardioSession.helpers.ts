@@ -1,7 +1,7 @@
 // src/utils/health/cardio/cardioSession.helpers.ts
 // Cardio session display, formatting, and type guard helpers.
 
-import type { CardioActivityType, HealthImportedCardioSession } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType, HealthImportedCardioSession } from "@/src/types/health/cardio/healthCardio.types";
 import type { WorkoutCardioEnvironment, WorkoutSession } from "@/src/types/workoutDay.types";
 import { detectCardioEnvironmentFromProviderText } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
 

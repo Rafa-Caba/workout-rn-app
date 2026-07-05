@@ -1,7 +1,7 @@
 // src/utils/health/cardio/cardioSession.grouping.ts
 // Helpers to filter, sort, and group Cardio sessions by date, activity, and environment.
 
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment, WorkoutSession } from "@/src/types/workoutDay.types";
 import {
     isCardioActivityType,

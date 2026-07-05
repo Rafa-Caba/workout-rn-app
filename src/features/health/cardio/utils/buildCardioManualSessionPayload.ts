@@ -1,7 +1,7 @@
 // /src/features/health/cardio/utils/buildCardioManualSessionPayload.ts
 
 import type { CreateSessionBody } from "@/src/services/workout/sessions.service";
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment, WorkoutSession } from "@/src/types/workoutDay.types";
 
 export type CardioManualSessionFormValues = {

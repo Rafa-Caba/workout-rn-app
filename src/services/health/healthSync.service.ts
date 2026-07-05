@@ -3,7 +3,7 @@
 import type {
     HealthImportedSleep,
     HealthImportedWorkoutSessionMinimal,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 import type { WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
 
 import {

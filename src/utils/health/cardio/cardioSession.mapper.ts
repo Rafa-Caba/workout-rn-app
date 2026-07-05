@@ -4,7 +4,7 @@ import type {
     CardioActivityType,
     HealthImportedCardioMetrics,
     HealthImportedCardioSession,
-} from "@/src/types/health/healthCardio.types";
+} from "@/src/types/health/cardio/healthCardio.types";
 import type {
     ISODateTime,
     WorkoutCardioMetrics,

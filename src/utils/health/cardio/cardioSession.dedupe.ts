@@ -3,7 +3,7 @@
 // Handles device-import sessions, manual-cardio fallbacks, and future app-live
 // sessions that later reappear through HealthKit / Health Connect backfill.
 
-import type { HealthImportedCardioSession } from "@/src/types/health/healthCardio.types";
+import type { HealthImportedCardioSession } from "@/src/types/health/cardio/healthCardio.types";
 import type {
     WorkoutCardioEnvironment,
     WorkoutCardioMetrics,

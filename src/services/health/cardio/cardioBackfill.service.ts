@@ -3,11 +3,10 @@
 // generic minimal workout sessions. This keeps walking/running mapped to
 // activityType + cardioEnvironment + cardioMetrics + routeSummary.
 
-import { readCardioSessions } from "@/src/services/health/cardio/cardioHealth.service";
-import { getCardioHealthProvider } from "@/src/services/health/cardio/cardioHealth.service";
+import { getCardioHealthProvider, readCardioSessions } from "@/src/services/health/cardio/cardioHealth.service";
 import { readHealthSleepByDate } from "@/src/services/health/health.service";
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
-import type { HealthImportedCardioSession } from "@/src/types/health/healthCardio.types";
+import type { HealthImportedCardioSession } from "@/src/types/health/cardio/healthCardio.types";
 import type {
     ISODate,
     UpsertMode,
@@ -15,12 +14,12 @@ import type {
     WorkoutDayUpsertBody,
     WorkoutSession,
 } from "@/src/types/workoutDay.types";
+import { mergeCardioSessionsIntoExistingSessions } from "@/src/utils/health/cardio/cardioSession.dedupe";
+import { mapImportedCardioSessionToWorkoutSession } from "@/src/utils/health/cardio/cardioSession.mapper";
 import {
     hasMeaningfulImportedSleep,
     mapImportedSleepToSleepBlock,
 } from "@/src/utils/health/healthSleep.mapper";
-import { mergeCardioSessionsIntoExistingSessions } from "@/src/utils/health/cardio/cardioSession.dedupe";
-import { mapImportedCardioSessionToWorkoutSession } from "@/src/utils/health/cardio/cardioSession.mapper";
 
 export type CardioBackfillPayloadResult = {
     date: ISODate;

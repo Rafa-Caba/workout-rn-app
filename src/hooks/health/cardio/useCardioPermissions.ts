@@ -4,14 +4,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as React from "react";
 
 import {
-    CARDIO_HEALTH_READ_PERMISSIONS,
-    type HealthPermissionKey,
-} from "@/src/services/health/healthPermissionKeys";
-import {
     getCardioPermissionsStatus,
     requestCardioPermissions,
 } from "@/src/services/health/cardio/cardioHealth.service";
-import type { HealthPermissionsStatus } from "@/src/types/health/health.types";
+import {
+    CARDIO_HEALTH_READ_PERMISSIONS,
+    type HealthPermissionKey,
+} from "@/src/services/health/healthPermissionKeys";
+import type { HealthPermissionsStatus } from "@/src/types/health/cardio/health.types";
 
 type UseCardioPermissionsOptions = {
     permissions?: HealthPermissionKey[];

@@ -4,7 +4,7 @@ import React from "react";
 import { Text, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import { getCardioActivityLabel } from "@/src/utils/health/cardio/cardioSession.helpers";
 
 type Props = {

@@ -5,7 +5,7 @@
 import type {
     HealthImportedWorkoutRoute,
     HealthImportedWorkoutSessionMinimal,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 import type { WorkoutCardioEnvironment, WorkoutRouteSummary } from "@/src/types/workoutDay.types";
 
 export type CardioEnvironmentDetectionInput = {

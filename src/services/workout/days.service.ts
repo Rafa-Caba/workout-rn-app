@@ -4,7 +4,7 @@ import { api } from "@/src/services/http.client";
 import type {
     HealthImportedSleep,
     HealthImportedWorkoutSessionMinimal,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 import type { DaySummary } from "@/src/types/workout.types";
 import type {
     CalendarDayFull,

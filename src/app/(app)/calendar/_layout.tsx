@@ -18,6 +18,8 @@ export default function CalendarLayout() {
             <Stack.Screen name="weekView/[weekKey]" options={{ title: "Resumen Semanal" }} />
 
             <Stack.Screen name="cardio/[date]" options={{ title: "Cardio" }} />
+            <Stack.Screen name="cardio/live" options={{ title: "Live Cardio" }} />
+            <Stack.Screen name="cardio/live-summary" options={{ title: "Resumen Live" }} />
             <Stack.Screen name="cardio/manual" options={{ title: "Captura Cardio" }} />
             <Stack.Screen
                 name="cardio/edit/[date]/[sessionId]"

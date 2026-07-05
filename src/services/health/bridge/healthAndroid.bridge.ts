@@ -14,7 +14,7 @@ import type {
     HealthImportedWorkoutMetrics,
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 
 /**
  * Supported Health Connect record types used by this app.

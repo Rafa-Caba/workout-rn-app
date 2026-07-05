@@ -2,7 +2,6 @@
 
 import { Platform } from "react-native";
 
-import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import {
     getCardioAndroidPermissionsStatus,
     isCardioAndroidAvailable,
@@ -15,11 +14,12 @@ import {
     readCardioIOSSessions,
     requestCardioIOSPermissions,
 } from "@/src/services/health/cardio/cardioIOS.service";
-import type { HealthPermissionsStatus, HealthProvider } from "@/src/types/health/health.types";
+import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
+import type { HealthPermissionsStatus, HealthProvider } from "@/src/types/health/cardio/health.types";
 import type {
     HealthImportedCardioQuery,
     HealthImportedCardioSessionsResult,
-} from "@/src/types/health/healthCardio.types";
+} from "@/src/types/health/cardio/healthCardio.types";
 
 /**
  * Facade input types for the cardio module.

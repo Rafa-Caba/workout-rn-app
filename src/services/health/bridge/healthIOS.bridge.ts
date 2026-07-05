@@ -15,7 +15,7 @@ import type {
     HealthImportedWorkoutMetrics,
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 
 /**
  * Helpers

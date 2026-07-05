@@ -24,7 +24,7 @@ import {
     patchSession,
 } from "@/src/services/workout/sessions.service";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutSession } from "@/src/types/workoutDay.types";
 import { getLocalTodayIsoDate } from "@/src/utils/dates/dateDisplay";
 

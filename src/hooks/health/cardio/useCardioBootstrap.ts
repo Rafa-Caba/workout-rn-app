@@ -9,7 +9,7 @@ import {
     type CardioSyncResult,
 } from "@/src/services/health/cardio/cardioSync.service";
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment, WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
 import {
     getCardioSessionsForDate,

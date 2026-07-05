@@ -9,10 +9,10 @@ import {
     upsertWorkoutDay,
 } from "@/src/services/workout/days.service";
 import type {
+    CardioActivityType,
     HealthImportedCardioQuery,
     HealthImportedCardioSession,
-    CardioActivityType,
-} from "@/src/types/health/healthCardio.types";
+} from "@/src/types/health/cardio/healthCardio.types";
 import type {
     ISODate,
     WorkoutCardioEnvironment,

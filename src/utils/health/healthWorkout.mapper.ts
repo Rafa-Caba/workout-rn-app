@@ -3,7 +3,7 @@
 import type {
     HealthImportedWorkoutMetrics,
     HealthImportedWorkoutSessionMinimal,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 import type {
     ISODate,
     WorkoutDataSource,

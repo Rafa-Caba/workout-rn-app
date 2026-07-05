@@ -1,9 +1,9 @@
 // src/utils/health/cardio/cardioRoute.mapper.ts
 
 import type {
-    HealthImportedCardioRoute,
     CardioRoutePoint,
-} from "@/src/types/health/healthCardio.types";
+    HealthImportedCardioRoute,
+} from "@/src/types/health/cardio/healthCardio.types";
 import type { WorkoutRouteSummary } from "@/src/types/workoutDay.types";
 
 function hasFiniteNumber(value: unknown): value is number {

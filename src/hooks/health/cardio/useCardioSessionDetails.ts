@@ -4,7 +4,7 @@ import * as React from "react";
 
 import { syncCardioSessionDetails } from "@/src/services/health/cardio/cardioSync.service";
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
 import { getCardioSessionsForDate } from "@/src/utils/health/cardio/cardioSession.grouping";
 

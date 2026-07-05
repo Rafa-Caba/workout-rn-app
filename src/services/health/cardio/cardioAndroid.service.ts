@@ -7,13 +7,13 @@ import type {
     HealthImportedWorkoutRoute,
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
-} from "@/src/types/health/health.types";
+} from "@/src/types/health/cardio/health.types";
 import type {
     CardioActivityType,
     HealthImportedCardioQuery,
     HealthImportedCardioSession,
     HealthImportedCardioSessionsResult,
-} from "@/src/types/health/healthCardio.types";
+} from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, ISODateTime, WorkoutCardioEnvironment } from "@/src/types/workoutDay.types";
 import { resolveCardioEnvironmentFromMinimalWorkout } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
 

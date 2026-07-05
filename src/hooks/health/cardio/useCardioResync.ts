@@ -8,7 +8,7 @@ import {
     type CardioSessionDetailsResult,
     type CardioSyncResult,
 } from "@/src/services/health/cardio/cardioSync.service";
-import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment } from "@/src/types/workoutDay.types";
 
 type SyncDateInput = {

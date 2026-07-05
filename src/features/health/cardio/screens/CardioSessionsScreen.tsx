@@ -11,6 +11,7 @@ import CardioSessionCard from "@/src/features/health/cardio/components/CardioSes
 import { useCardioBootstrap } from "@/src/hooks/health/cardio/useCardioBootstrap";
 import { useCardioPermissions } from "@/src/hooks/health/cardio/useCardioPermissions";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
 import type { ISODate, WorkoutSession } from "@/src/types/workoutDay.types";
 import {
     formatFlexibleDateLabel,
@@ -263,6 +264,13 @@ export function CardioSessionsScreen() {
         router.setParams({ date: getLocalTodayIsoDate() });
     }
 
+    function openLiveCardio(activityType: CardioActivityType) {
+        router.push({
+            pathname: "/(app)/calendar/cardio/live",
+            params: { activityType },
+        });
+    }
+
     function openManualSessionForm() {
         router.push({
             pathname: "/(app)/calendar/cardio/manual",
@@ -291,22 +299,22 @@ export function CardioSessionsScreen() {
         title: string;
         subtitle: string;
     }> = [
-        {
-            key: "outdoor",
-            title: "Outdoor",
-            subtitle: "Caminatas y carreras con ruta/GPS cuando Health lo permita.",
-        },
-        {
-            key: "indoor",
-            title: "Indoor",
-            subtitle: "Caminadora o sesiones sin ruta GPS; distancia puede ser manual o de wearable.",
-        },
-        {
-            key: "unknown",
-            title: "Cardio sin clasificar",
-            subtitle: "Health no indicó si fue indoor u outdoor, así que lo dejamos sin asumir.",
-        },
-    ];
+            {
+                key: "outdoor",
+                title: "Outdoor",
+                subtitle: "Caminatas y carreras con ruta/GPS cuando Health lo permita.",
+            },
+            {
+                key: "indoor",
+                title: "Indoor",
+                subtitle: "Caminadora o sesiones sin ruta GPS; distancia puede ser manual o de wearable.",
+            },
+            {
+                key: "unknown",
+                title: "Cardio sin clasificar",
+                subtitle: "Health no indicó si fue indoor u outdoor, así que lo dejamos sin asumir.",
+            },
+        ];
 
     return (
         <ScrollView
@@ -355,6 +363,39 @@ export function CardioSessionsScreen() {
                             primary
                         />
                     </View>
+                </View>
+            </View>
+
+            <View
+                style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 16,
+                    padding: 16,
+                    backgroundColor: colors.surface,
+                    gap: 12,
+                }}
+            >
+                <View style={{ gap: 4 }}>
+                    <Text style={{ fontSize: 20, fontWeight: "900", color: colors.text }}>
+                        Iniciar outdoor live
+                    </Text>
+                    <Text style={{ color: colors.mutedText, lineHeight: 20 }}>
+                        Usa GPS del teléfono para registrar una caminata o carrera outdoor en vivo.
+                    </Text>
+                </View>
+
+                <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 4 }}>
+                    <ActionButton
+                        label="Start Outdoor Walk"
+                        onPress={() => openLiveCardio("walking")}
+                        primary
+                    />
+                    <ActionButton
+                        label="Start Outdoor Run"
+                        onPress={() => openLiveCardio("running")}
+                        primary
+                    />
                 </View>
             </View>
 
