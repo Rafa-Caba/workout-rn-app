@@ -1,7 +1,7 @@
 // /src/features/health/cardio/screens/CardioSessionsScreen.tsx
 // Cardio day screen for indoor/outdoor walking and running sessions.
 
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -247,6 +247,26 @@ export function CardioSessionsScreen() {
         includeRoutes: false,
         autoBootstrap: true,
     });
+
+    const hasHandledInitialFocusRef = React.useRef(false);
+    const resyncRef = React.useRef(cardio.resync);
+
+    React.useEffect(() => {
+        resyncRef.current = cardio.resync;
+    }, [cardio.resync]);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (!hasHandledInitialFocusRef.current) {
+                hasHandledInitialFocusRef.current = true;
+                return undefined;
+            }
+
+            void resyncRef.current();
+
+            return undefined;
+        }, [])
+    );
 
     const groupedSessions = React.useMemo(() => {
         return groupCardioSessionsByEnvironmentAndActivity(cardio.sessions);

@@ -80,13 +80,13 @@ export function CardioRoutePreview({ hasRoute, routeSummary }: Props) {
                         </Text>
                     </Text>
 
-                    <Text style={{ color: colors.mutedText, marginTop: 4 }}>
+                    {/* <Text style={{ color: colors.mutedText, marginTop: 4 }}>
                         Mapa real: recomendado en fase siguiente con{" "}
                         <Text style={{ fontWeight: "800", color: colors.text }}>
                             react-native-maps
                         </Text>{" "}
                         para mantenerlo simple y nativo en iOS/Android.
-                    </Text>
+                    </Text> */}
                 </>
             ) : null}
         </View>

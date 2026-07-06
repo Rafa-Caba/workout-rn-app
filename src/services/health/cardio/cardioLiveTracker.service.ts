@@ -31,6 +31,14 @@ function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
+function normalizeNullableNonNegativeNumber(value: unknown): number | null {
+    return isFiniteNumber(value) && value >= 0 ? value : null;
+}
+
+function normalizeHeadingDegrees(value: unknown): number | null {
+    return isFiniteNumber(value) && value >= 0 && value <= 360 ? value : null;
+}
+
 function degreesToRadians(value: number): number {
     return (value * Math.PI) / 180;
 }
@@ -90,9 +98,9 @@ export function mapExpoLocationToLiveRoutePoint(
         latitude,
         longitude,
         altitudeM: isFiniteNumber(location.coords.altitude) ? location.coords.altitude : null,
-        speedMps: isFiniteNumber(location.coords.speed) ? location.coords.speed : null,
-        accuracyM: isFiniteNumber(location.coords.accuracy) ? location.coords.accuracy : null,
-        headingDeg: isFiniteNumber(location.coords.heading) ? location.coords.heading : null,
+        speedMps: normalizeNullableNonNegativeNumber(location.coords.speed),
+        accuracyM: normalizeNullableNonNegativeNumber(location.coords.accuracy),
+        headingDeg: normalizeHeadingDegrees(location.coords.heading),
         recordedAt: new Date(location.timestamp).toISOString(),
     };
 }

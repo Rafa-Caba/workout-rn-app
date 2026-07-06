@@ -10,6 +10,14 @@ function hasFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
+function normalizeNullableNonNegativeNumber(value: unknown): number | null {
+    return hasFiniteNumber(value) && value >= 0 ? value : null;
+}
+
+function normalizeHeadingDegrees(value: unknown): number | null {
+    return hasFiniteNumber(value) && value >= 0 && value <= 360 ? value : null;
+}
+
 function getPointLatitude(point: CardioRoutePoint | null | undefined): number | null {
     return point && hasFiniteNumber(point.latitude) ? point.latitude : null;
 }
@@ -93,9 +101,9 @@ export function mapCardioRouteToWorkoutRoutePoints(
             latitude: point.latitude,
             longitude: point.longitude,
             altitudeM: point.altitudeM ?? null,
-            accuracyM: point.accuracyM ?? null,
-            speedMps: point.speedMps ?? null,
-            headingDeg: point.headingDeg ?? null,
+            accuracyM: normalizeNullableNonNegativeNumber(point.accuracyM),
+            speedMps: normalizeNullableNonNegativeNumber(point.speedMps),
+            headingDeg: normalizeHeadingDegrees(point.headingDeg),
             recordedAt: point.recordedAt ?? null,
         }));
 

@@ -189,6 +189,8 @@ export function CardioLiveSessionScreen() {
             await ensureWorkoutDayExists(snapshot.date);
 
             const payload = mapCardioLiveSnapshotToCreateSessionBody(snapshot);
+            console.log({ ...payload });
+
             const created = await createSession(snapshot.date, payload, { returnMode: "session" });
             const session = extractCreatedSession(created);
             const sessionId = session?.id ?? null;

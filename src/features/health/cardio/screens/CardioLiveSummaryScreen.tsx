@@ -105,7 +105,12 @@ function MetricRow(props: { label: string; value: string }) {
             }}
         >
             <Text style={{ color: colors.mutedText, fontWeight: "700" }}>{props.label}</Text>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>{props.value}</Text>
+            <Text style={{
+                color: colors.text,
+                fontWeight: "800",
+                flexShrink: 1,
+                textAlign: "right",
+            }}>{props.value}</Text>
         </View>
     );
 }
@@ -129,7 +134,7 @@ function ActionButton(props: { label: string; onPress: () => void; primary?: boo
             <Text
                 style={{
                     color: props.primary ? colors.primaryText : colors.text,
-                    fontWeight: "900",
+                    fontWeight: "800",
                     textAlign: "center",
                 }}
             >
@@ -207,7 +212,7 @@ export function CardioLiveSummaryScreen() {
             contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ color: colors.text, fontSize: 24, fontWeight: "900" }}>
+                <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>
                     {title}
                 </Text>
                 <Text style={{ color: colors.mutedText }}>

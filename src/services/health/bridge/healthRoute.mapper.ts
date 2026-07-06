@@ -33,6 +33,16 @@ function asString(value: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeNullableNonNegativeNumber(value: unknown): number | null {
+    const parsed = asNumber(value);
+    return parsed !== null && parsed >= 0 ? parsed : null;
+}
+
+function normalizeHeadingDegrees(value: unknown): number | null {
+    const parsed = asNumber(value);
+    return parsed !== null && parsed >= 0 && parsed <= 360 ? parsed : null;
+}
+
 function extractRoutePoint(rawPoint: unknown): HealthImportedWorkoutRoutePoint | null {
     if (!isRecord(rawPoint)) {
         return null;
@@ -66,19 +76,19 @@ function extractRoutePoint(rawPoint: unknown): HealthImportedWorkoutRoutePoint |
             asNumber(rawPoint.elevation) ??
             null,
         accuracyM:
-            asNumber(rawPoint.accuracy) ??
-            asNumber(rawPoint.accuracyM) ??
-            asNumber(rawPoint.horizontalAccuracy) ??
+            normalizeNullableNonNegativeNumber(rawPoint.accuracy) ??
+            normalizeNullableNonNegativeNumber(rawPoint.accuracyM) ??
+            normalizeNullableNonNegativeNumber(rawPoint.horizontalAccuracy) ??
             null,
         speedMps:
-            asNumber(rawPoint.speed) ??
-            asNumber(rawPoint.speedMps) ??
-            asNumber(rawPoint.velocity) ??
+            normalizeNullableNonNegativeNumber(rawPoint.speed) ??
+            normalizeNullableNonNegativeNumber(rawPoint.speedMps) ??
+            normalizeNullableNonNegativeNumber(rawPoint.velocity) ??
             null,
         headingDeg:
-            asNumber(rawPoint.heading) ??
-            asNumber(rawPoint.headingDeg) ??
-            asNumber(rawPoint.bearing) ??
+            normalizeHeadingDegrees(rawPoint.heading) ??
+            normalizeHeadingDegrees(rawPoint.headingDeg) ??
+            normalizeHeadingDegrees(rawPoint.bearing) ??
             null,
         recordedAt:
             asString(rawPoint.time) ??

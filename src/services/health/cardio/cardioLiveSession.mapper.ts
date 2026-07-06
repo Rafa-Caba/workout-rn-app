@@ -13,6 +13,14 @@ function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
+function normalizeNullableNonNegativeNumber(value: unknown): number | null {
+    return isFiniteNumber(value) && value >= 0 ? value : null;
+}
+
+function normalizeHeadingDegrees(value: unknown): number | null {
+    return isFiniteNumber(value) && value >= 0 && value <= 360 ? value : null;
+}
+
 function pad2(value: number): string {
     return value < 10 ? `0${value}` : String(value);
 }
@@ -138,9 +146,9 @@ export function mapCardioLiveSnapshotToCreateSessionBody(
             latitude: point.latitude,
             longitude: point.longitude,
             altitudeM: point.altitudeM ?? null,
-            accuracyM: point.accuracyM ?? null,
-            speedMps: point.speedMps ?? null,
-            headingDeg: point.headingDeg ?? null,
+            accuracyM: normalizeNullableNonNegativeNumber(point.accuracyM),
+            speedMps: normalizeNullableNonNegativeNumber(point.speedMps),
+            headingDeg: normalizeHeadingDegrees(point.headingDeg),
             recordedAt: point.recordedAt ?? null,
         })),
         cardioMetrics: {
