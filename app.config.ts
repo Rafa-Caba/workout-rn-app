@@ -1,7 +1,7 @@
 // /app.config.ts
 // Expo app configuration for Workout RN.
-// Keeps environment variables typed, configures HealthKit / Health Connect,
-// location permissions, EAS updates, and Android Google Maps support.
+// Configures EAS updates, HealthKit / Health Connect, Android Google Maps,
+// location permissions, and a consistent transparent-logo splash screen.
 
 import "dotenv/config";
 
@@ -37,16 +37,23 @@ type AppConfig = {
         runtimeVersion: {
             policy: string;
         };
+
+        /**
+         * Legacy splash fallback.
+         * The expo-splash-screen config plugin below is the preferred source.
+         */
         splash: {
             image: string;
             resizeMode: "contain" | "cover" | "native";
             backgroundColor: string;
         };
+
         ios: {
             supportsTablet: boolean;
             bundleIdentifier?: string;
             infoPlist?: Record<string, JsonValue>;
         };
+
         android: {
             adaptiveIcon: {
                 foregroundImage: string;
@@ -57,15 +64,19 @@ type AppConfig = {
             permissions?: string[];
             config?: AndroidConfig;
         };
+
         web: {
             bundler: "metro" | "webpack";
             output: "static" | "single";
             favicon: string;
         };
+
         plugins: PluginEntry[];
+
         experiments?: {
             typedRoutes?: boolean;
         };
+
         extra: {
             router?: Record<string, never>;
             eas: { projectId: string };
@@ -101,6 +112,15 @@ function createAndroidConfig(googleMapsApiKey: string | undefined): AndroidConfi
     };
 }
 
+/**
+ * Splash values.
+ * splash-icon.png is now a transparent logo-only PNG, so the native splash
+ * background can fill the entire screen without visible image bands.
+ */
+const splashImage = "./assets/images/splash-icon.png";
+const splashBackgroundColor = "#000000";
+const splashImageWidth = 300;
+
 const apiBaseUrl =
     readEnv("EXPO_PUBLIC_API_URL") ??
     readEnv("PROD_URL") ??
@@ -121,6 +141,16 @@ const plugins: PluginEntry[] = [
     "expo-router",
     "expo-secure-store",
     "@react-native-community/datetimepicker",
+    createPluginTuple("expo-splash-screen", {
+        image: splashImage,
+        backgroundColor: splashBackgroundColor,
+        resizeMode: "contain",
+        imageWidth: splashImageWidth,
+        dark: {
+            image: splashImage,
+            backgroundColor: splashBackgroundColor,
+        },
+    }),
     createPluginTuple("react-native-health", {
         healthSharePermission,
         healthUpdatePermission,
@@ -153,9 +183,9 @@ const config: AppConfig = {
             policy: "appVersion",
         },
         splash: {
-            image: "./assets/images/splash-icon.png",
+            image: splashImage,
             resizeMode: "contain",
-            backgroundColor: "#0B1220",
+            backgroundColor: splashBackgroundColor,
         },
         ios: {
             supportsTablet: true,
@@ -169,7 +199,7 @@ const config: AppConfig = {
         android: {
             adaptiveIcon: {
                 foregroundImage: "./assets/images/adaptive-icon.png",
-                backgroundColor: "#ffffff",
+                backgroundColor: "#0B1220",
             },
             predictiveBackGestureEnabled: false,
             package: "com.rafaelcaba.workoutrn",
