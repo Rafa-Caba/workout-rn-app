@@ -1,8 +1,8 @@
 // src/services/health/cardio/cardioHealthWrite.helpers.ts
 // Shared helpers for Health Connect / HealthKit write flows.
 
-import type { CardioLiveSessionSnapshot } from "@/src/types/health/cardio/cardioLiveSession.types";
 import type { CardioHealthWriteBackendPatch } from "@/src/types/health/cardio/cardioHealthWrite.types";
+import type { CardioLiveSessionSnapshot } from "@/src/types/health/cardio/cardioLiveSession.types";
 import type {
     ISODateTime,
     WorkoutActivityType,
@@ -16,7 +16,13 @@ export function toIsoNow(): ISODateTime {
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
-    return error instanceof Error ? error.message : fallback;
+    const message = error instanceof Error ? error.message : fallback;
+
+    if (message.includes("Length is not valid")) {
+        return "Health Connect no aceptó la ruta de esta sesión porque necesita más puntos válidos. La sesión quedó guardada en Workout App.";
+    }
+
+    return message;
 }
 
 export function isFinitePositiveNumber(value: unknown): value is number {

@@ -11,6 +11,7 @@ import {
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
 import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment, WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
+import { normalizeCardioHealthErrorMessage } from "@/src/utils/health/cardio/cardioHealthError.helpers";
 import {
     getCardioSessionsForDate,
     sortCardioSessionsByStartAt,
@@ -85,7 +86,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
         }
     }
 
-    return error instanceof Error ? error.message : fallback;
+    return normalizeCardioHealthErrorMessage(error, fallback);
 }
 
 function extractCardioSessions(

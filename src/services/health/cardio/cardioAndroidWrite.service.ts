@@ -24,12 +24,12 @@ import {
     isFinitePositiveNumber,
     toIsoNow,
 } from "@/src/services/health/cardio/cardioHealthWrite.helpers";
-import type { CardioLiveRoutePoint } from "@/src/types/health/cardio/cardioLiveSession.types";
 import type {
     CardioHealthWriteDetail,
     CardioHealthWriteInput,
     CardioHealthWriteResult,
 } from "@/src/types/health/cardio/cardioHealthWrite.types";
+import type { CardioLiveRoutePoint } from "@/src/types/health/cardio/cardioLiveSession.types";
 
 type WritePermission = Permission | WriteExerciseRoutePermission;
 
@@ -137,14 +137,31 @@ function buildBaseMetadata(clientRecordId: string) {
     };
 }
 
-function buildExerciseSessionRecord(input: CardioHealthWriteInput): HealthConnectRecord {
+function getHealthConnectRouteLocations(input: CardioHealthWriteInput): HealthConnectLocation[] {
+    if (input.session.cardioEnvironment !== "outdoor") {
+        return [];
+    }
+
+    return toHealthConnectLocations(input.snapshot?.routePoints ?? []);
+}
+
+function shouldWriteHealthConnectRoute(locations: HealthConnectLocation[]): boolean {
+    /**
+     * Health Connect rejects an exercise route with a single location point.
+     * Keep the route persisted in our BE/map, but only write route data to
+     * Health Connect when there is enough geometry to represent a real path.
+     */
+    return locations.length >= 2;
+}
+
+function buildExerciseSessionRecord(
+    input: CardioHealthWriteInput,
+    routeLocations: HealthConnectLocation[]
+): HealthConnectRecord {
     const externalId = getSessionExternalId(input.session);
     const startTime = getSessionStartAt(input.session);
     const endTime = getSessionEndAt(input.session);
-    const routePoints = input.snapshot?.routePoints ?? [];
-    const locations = input.session.cardioEnvironment === "outdoor"
-        ? toHealthConnectLocations(routePoints)
-        : [];
+    const shouldIncludeRoute = shouldWriteHealthConnectRoute(routeLocations);
 
     if (!startTime || !endTime) {
         throw new Error("La sesión no trae startAt/endAt para escribir en Health Connect.");
@@ -158,10 +175,10 @@ function buildExerciseSessionRecord(input: CardioHealthWriteInput): HealthConnec
         title: input.session.type,
         notes: input.session.notes ?? undefined,
         metadata: buildBaseMetadata(`${externalId}|exercise-session`),
-        ...(locations.length > 0
+        ...(shouldIncludeRoute
             ? {
                 exerciseRoute: {
-                    route: locations,
+                    route: routeLocations,
                 },
             }
             : {}),
@@ -257,7 +274,8 @@ export async function writeCardioWorkoutToHealthConnect(
     input: CardioHealthWriteInput
 ): Promise<CardioHealthWriteResult> {
     const routePointCount = input.snapshot?.routePoints.length ?? 0;
-    const includeRoute = input.session.cardioEnvironment === "outdoor" && routePointCount > 0;
+    const routeLocations = getHealthConnectRouteLocations(input);
+    const includeRoute = shouldWriteHealthConnectRoute(routeLocations);
 
     try {
         const granted = await requestAndroidWritePermissions(includeRoute);
@@ -277,12 +295,22 @@ export async function writeCardioWorkoutToHealthConnect(
         }
 
         const details: CardioHealthWriteDetail[] = [];
-        const exerciseIds = await insertSingleRecord(buildExerciseSessionRecord(input));
+        const exerciseIds = await insertSingleRecord(
+            buildExerciseSessionRecord(input, routeLocations)
+        );
         const externalId = exerciseIds[0] ?? null;
 
         details.push({ key: "exerciseSessionWritten", value: true });
         details.push({ key: "exerciseRouteWritten", value: includeRoute });
         details.push({ key: "routePointCount", value: routePointCount });
+        details.push({ key: "healthConnectRoutePointCount", value: routeLocations.length });
+
+        if (routePointCount > 0 && !includeRoute) {
+            details.push({
+                key: "exerciseRouteSkippedReason",
+                value: "Health Connect route writes require at least 2 valid route points.",
+            });
+        }
 
         const optionalRecords = [
             buildDistanceRecord(input),

@@ -6,6 +6,7 @@ import { syncCardioSessionDetails } from "@/src/services/health/cardio/cardioSyn
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
 import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
+import { normalizeCardioHealthErrorMessage } from "@/src/utils/health/cardio/cardioHealthError.helpers";
 import { getCardioSessionsForDate } from "@/src/utils/health/cardio/cardioSession.grouping";
 
 type UseCardioSessionDetailsOptions = {
@@ -26,7 +27,7 @@ type UseCardioSessionDetailsResult = {
 };
 
 function toErrorMessage(error: unknown, fallback: string): string {
-    return error instanceof Error ? error.message : fallback;
+    return normalizeCardioHealthErrorMessage(error, fallback);
 }
 
 function findCardioSessionById(day: WorkoutDay | null, date: ISODate, sessionId: string): WorkoutSession | null {

@@ -3,7 +3,7 @@
 
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import { DatePickerField } from "@/src/features/components/DatePickerField";
 import CardioEmptyState from "@/src/features/health/cardio/components/CardioEmptyState";
@@ -17,6 +17,11 @@ import {
     formatFlexibleDateLabel,
     getLocalTodayIsoDate,
 } from "@/src/utils/dates/dateDisplay";
+import {
+    CARDIO_HEALTH_PERMISSION_MESSAGE,
+    isCardioHealthPermissionError,
+    isCardioHealthPermissionMessage,
+} from "@/src/utils/health/cardio/cardioHealthError.helpers";
 import {
     groupCardioSessionsByEnvironmentAndActivity,
     type CardioEnvironmentGroupKey,
@@ -249,11 +254,11 @@ export function CardioSessionsScreen() {
     });
 
     const hasHandledInitialFocusRef = React.useRef(false);
-    const resyncRef = React.useRef(cardio.resync);
+    const refreshRef = React.useRef(cardio.refresh);
 
     React.useEffect(() => {
-        resyncRef.current = cardio.resync;
-    }, [cardio.resync]);
+        refreshRef.current = cardio.refresh;
+    }, [cardio.refresh]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -262,7 +267,13 @@ export function CardioSessionsScreen() {
                 return undefined;
             }
 
-            void resyncRef.current();
+            /**
+             * Coming back from live summary/details only needs a BE refresh.
+             * Avoid running Health Connect backfill automatically here because
+             * Android can throw a runtime SecurityException when Health Connect
+             * permissions were reset by a clean native rebuild.
+             */
+            void refreshRef.current().catch(() => undefined);
 
             return undefined;
         }, [])
@@ -310,9 +321,25 @@ export function CardioSessionsScreen() {
         });
     }
 
-    function resync() {
-        void cardio.resync();
+    async function resync(): Promise<void> {
+        try {
+            if (!permissions.isGranted) {
+                await permissions.requestPermissions();
+            }
+
+            await cardio.resync();
+        } catch (err: unknown) {
+            if (isCardioHealthPermissionError(err)) {
+                Alert.alert(
+                    "Permisos de Cardio",
+                    CARDIO_HEALTH_PERMISSION_MESSAGE
+                );
+            }
+        }
     }
+
+    const shouldShowPermissionCard =
+        !permissions.isGranted || isCardioHealthPermissionMessage(cardio.error);
 
     const environmentSections: Array<{
         key: CardioEnvironmentGroupKey;
@@ -419,7 +446,7 @@ export function CardioSessionsScreen() {
                 </View>
             </View>
 
-            {!permissions.isGranted ? (
+            {shouldShowPermissionCard ? (
                 <View
                     style={{
                         borderWidth: 1,
@@ -439,7 +466,7 @@ export function CardioSessionsScreen() {
 
                     <Pressable
                         onPress={() => {
-                            void permissions.requestPermissions();
+                            void permissions.requestPermissions().catch(() => undefined);
                         }}
                         style={({ pressed }) => ({
                             alignSelf: "flex-start",
@@ -493,7 +520,7 @@ export function CardioSessionsScreen() {
                         </Text>
                     </View>
 
-                    <ActionButton label="Resync" onPress={resync} />
+                    <ActionButton label="Resync" onPress={() => { void resync(); }} />
                 </View>
 
                 {cardio.loading ? (
