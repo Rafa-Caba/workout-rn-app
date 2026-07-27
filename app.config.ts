@@ -1,7 +1,8 @@
 // /app.config.ts
 // Expo app configuration for Workout RN.
 // Configures EAS updates, HealthKit / Health Connect, Android Google Maps,
-// location permissions, and a consistent transparent-logo splash screen.
+// location permissions, encryption declaration, and a consistent
+// transparent-logo splash screen.
 
 import "dotenv/config";
 
@@ -19,6 +20,16 @@ type AndroidConfig = {
     googleMaps?: {
         apiKey: string;
     };
+};
+
+type IosConfig = {
+    /**
+     * Indicates that the app only uses encryption exempt from
+     * Apple export-compliance documentation requirements.
+     *
+     * This results in ITSAppUsesNonExemptEncryption = false.
+     */
+    usesNonExemptEncryption: boolean;
 };
 
 type AppConfig = {
@@ -50,7 +61,8 @@ type AppConfig = {
 
         ios: {
             supportsTablet: boolean;
-            bundleIdentifier?: string;
+            bundleIdentifier: string;
+            config: IosConfig;
             infoPlist?: Record<string, JsonValue>;
         };
 
@@ -79,12 +91,20 @@ type AppConfig = {
 
         extra: {
             router?: Record<string, never>;
-            eas: { projectId: string };
+            eas: {
+                projectId: string;
+            };
             googleMapsAndroidApiKeyConfigured: boolean;
         } & ExpoConfigExtra;
     };
 };
 
+/**
+ * Reads and normalizes an environment variable.
+ *
+ * Returns undefined when the variable does not exist, is not a string,
+ * or contains only whitespace.
+ */
 function readEnv(name: string): string | undefined {
     const value = process.env[name];
 
@@ -93,14 +113,26 @@ function readEnv(name: string): string | undefined {
     }
 
     const trimmed = value.trim();
+
     return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function createPluginTuple(name: string, options: { [key: string]: JsonValue }): PluginTuple {
+/**
+ * Creates a strongly typed Expo config-plugin tuple.
+ */
+function createPluginTuple(
+    name: string,
+    options: { [key: string]: JsonValue },
+): PluginTuple {
     return [name, options];
 }
 
-function createAndroidConfig(googleMapsApiKey: string | undefined): AndroidConfig | undefined {
+/**
+ * Creates the Android Google Maps configuration only when an API key exists.
+ */
+function createAndroidConfig(
+    googleMapsApiKey: string | undefined,
+): AndroidConfig | undefined {
     if (!googleMapsApiKey) {
         return undefined;
     }
@@ -114,7 +146,7 @@ function createAndroidConfig(googleMapsApiKey: string | undefined): AndroidConfi
 
 /**
  * Splash values.
- * splash-icon.png is now a transparent logo-only PNG, so the native splash
+ * splash-icon.png is a transparent logo-only PNG, so the native splash
  * background can fill the entire screen without visible image bands.
  */
 const splashImage = "./assets/images/splash-icon.png";
@@ -190,10 +222,14 @@ const config: AppConfig = {
         ios: {
             supportsTablet: true,
             bundleIdentifier: "com.rafaelcaba.workoutrn",
+            config: {
+                usesNonExemptEncryption: false,
+            },
             infoPlist: {
                 NSHealthShareUsageDescription: healthSharePermission,
                 NSHealthUpdateUsageDescription: healthUpdatePermission,
-                NSLocationWhenInUseUsageDescription: locationWhenInUsePermission,
+                NSLocationWhenInUseUsageDescription:
+                    locationWhenInUsePermission,
             },
         },
         android: {
@@ -261,7 +297,9 @@ const config: AppConfig = {
                 projectId: "90004283-7528-46d7-a1a0-55da280d91bc",
             },
             apiBaseUrl,
-            googleMapsAndroidApiKeyConfigured: Boolean(googleMapsAndroidApiKey),
+            googleMapsAndroidApiKeyConfigured: Boolean(
+                googleMapsAndroidApiKey,
+            ),
         },
     },
 };
