@@ -1,0 +1,66 @@
+diff --git a/node_modules/react-native-health/index.js b/node_modules/react-native-health/index.js
+index 06e5105..5e52ccd 100644
+--- a/node_modules/react-native-health/index.js
++++ b/node_modules/react-native-health/index.js
+@@ -1,14 +1,51 @@
++// node_modules/react-native-health/index.js
++// Expone AppleHealthKit de forma diferida para que funcione con
++// React Native New Architecture / Bridgeless Mode.
++
++import { NativeModules } from 'react-native'
+ import { Activities, Observers, Permissions, Units } from './src/constants'
+ 
+-const { AppleHealthKit } = require('react-native').NativeModules
++const Constants = {
++  Activities,
++  Observers,
++  Permissions,
++  Units,
++}
++
++/**
++ * Obtiene el módulo nativo en el momento en que se solicita una propiedad.
++ *
++ * En New Architecture, AppleHealthKit puede no estar disponible todavía
++ * cuando este archivo se importa por primera vez.
++ */
++const getAppleHealthKit = () => NativeModules.AppleHealthKit
++
++export const HealthKit = new Proxy(
++  { Constants },
++  {
++    get(target, property) {
++      if (property === 'Constants') {
++        return Constants
++      }
++
++      const appleHealthKit = getAppleHealthKit()
++      const value = appleHealthKit?.[property]
++
++      return typeof value === 'function'
++        ? value.bind(appleHealthKit)
++        : value ?? target[property]
++    },
++
++    has(target, property) {
++      if (property === 'Constants') {
++        return true
++      }
++
++      const appleHealthKit = getAppleHealthKit()
+ 
+-export const HealthKit = Object.assign({}, AppleHealthKit, {
+-  Constants: {
+-    Activities,
+-    Observers,
+-    Permissions,
+-    Units,
+-  },
+-})
++      return property in target || Boolean(appleHealthKit && property in appleHealthKit)
++    },
++  }
++)
+ 
+ module.exports = HealthKit
+\ No newline at end of file
