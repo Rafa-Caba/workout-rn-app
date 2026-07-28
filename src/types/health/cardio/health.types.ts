@@ -1,4 +1,4 @@
-// src/types/health.types.ts
+// /src/types/health/cardio/health.types.ts
 
 import type {
     ISODate,
@@ -67,6 +67,9 @@ export type HealthImportedWorkoutMetrics = {
 
     activeKcal: number | null;
     totalKcal: number | null;
+
+    /** True when totalKcal was reconstructed from active + basal energy. */
+    totalKcalEstimated?: boolean;
 
     avgHr: number | null;
     maxHr: number | null;

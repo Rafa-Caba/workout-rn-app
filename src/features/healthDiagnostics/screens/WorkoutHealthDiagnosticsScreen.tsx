@@ -177,7 +177,7 @@ export default function WorkoutHealthDiagnosticsScreen() {
             <View style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 16, padding: 12, gap: 10 }}>
                 <DatePickerField value={date} onChange={setDate} disabled={busy} />
                 <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                    Se consulta el día local completo. El importador elige el primer workout con al menos una métrica útil.
+                    Se consulta el día local completo y Gym Check solo considera Traditional Strength Training.
                 </Text>
                 <Pressable
                     onPress={() => void runDiagnostic()}
@@ -224,10 +224,10 @@ export default function WorkoutHealthDiagnosticsScreen() {
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>Dispositivo: {sample.sourceDevice ?? "—"}</Text>
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>Métricas útiles: {sample.hasMeaningfulMetrics ? "Sí" : "No"}</Text>
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        Duración {sample.metrics.durationSeconds ?? "—"}s · Activas {sample.metrics.activeKcal ?? "—"} kcal · Totales {sample.metrics.totalKcal ?? "—"} kcal
+                        Duración {sample.metrics.durationSeconds ?? "—"}s · Activas {sample.metrics.activeKcal ?? "—"} kcal · Totales {sample.metrics.totalKcal ?? "—"} kcal{sample.metrics.totalKcalEstimated ? " (estimadas)" : ""}
                     </Text>
                     <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        HR {sample.metrics.avgHr ?? "—"}/{sample.metrics.maxHr ?? "—"} · Distancia {sample.metrics.distanceKm ?? "—"} km · Pasos {sample.metrics.steps ?? "—"}
+                        HR promedio/máximo: {sample.metrics.avgHr ?? "—"}/{sample.metrics.maxHr ?? "—"}
                     </Text>
                 </View>
             ))}

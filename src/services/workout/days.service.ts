@@ -189,6 +189,10 @@ function parseWorkoutSessionMeta(value: unknown): WorkoutSessionMeta | null {
         sessionKey: parseNullableString(value.sessionKey),
         trainingSource: parseNullableString(value.trainingSource),
         dayEffortRpe: parseNullableNumber(value.dayEffortRpe),
+        totalKcalEstimated:
+            typeof value.totalKcalEstimated === "boolean"
+                ? value.totalKcalEstimated
+                : null,
         source: parseWorkoutSessionDataSource(value.source),
         sourceDevice: parseNullableString(value.sourceDevice),
         importedAt: parseNullableString(value.importedAt),
@@ -781,7 +785,12 @@ export async function saveImportedSleepForDay(
 export function buildImportedSessionMeta(
     input: Pick<
         HealthImportedWorkoutSessionMinimal,
-        "source" | "sourceDevice" | "importedAt" | "lastSyncedAt" | "sessionKind"
+        | "source"
+        | "sourceDevice"
+        | "importedAt"
+        | "lastSyncedAt"
+        | "sessionKind"
+        | "metrics"
     > & {
         externalId?: string | null;
         originalType?: string | null;
@@ -797,6 +806,7 @@ export function buildImportedSessionMeta(
         externalId: input.externalId ?? null,
         originalType: input.originalType ?? null,
         provider: input.provider ?? null,
+        totalKcalEstimated: input.metrics.totalKcalEstimated === true,
     };
 }
 
@@ -812,8 +822,14 @@ export function buildMinimalImportedSessionUpsert(
 
         durationSeconds: session.metrics.durationSeconds ?? null,
 
-        activeKcal: session.metrics.activeKcal ?? null,
-        totalKcal: session.metrics.totalKcal ?? null,
+        activeKcal:
+            session.metrics.activeKcal === null
+                ? null
+                : Math.round(session.metrics.activeKcal),
+        totalKcal:
+            session.metrics.totalKcal === null
+                ? null
+                : Math.round(session.metrics.totalKcal),
 
         avgHr: session.metrics.avgHr ?? null,
         maxHr: session.metrics.maxHr ?? null,
@@ -842,6 +858,7 @@ export function buildMinimalImportedSessionUpsert(
             importedAt: session.importedAt,
             lastSyncedAt: session.lastSyncedAt,
             sessionKind: session.sessionKind satisfies WorkoutSessionKind,
+            metrics: session.metrics,
             externalId: session.externalId ?? null,
             originalType: session.type,
         }),

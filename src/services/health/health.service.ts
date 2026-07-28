@@ -98,6 +98,16 @@ function mergeGymCheckMetrics(
     workout: HealthImportedWorkoutSessionMinimal,
     rangeMetrics: HealthImportedWorkoutMetrics | null
 ): HealthImportedWorkoutSessionMinimal {
+    const hasWorkoutTotal =
+        typeof workout.metrics.totalKcal === "number" &&
+        Number.isFinite(workout.metrics.totalKcal);
+    const totalKcal = hasWorkoutTotal
+        ? workout.metrics.totalKcal
+        : rangeMetrics?.totalKcal ?? null;
+    const totalKcalEstimated = hasWorkoutTotal
+        ? workout.metrics.totalKcalEstimated === true
+        : rangeMetrics?.totalKcalEstimated === true;
+
     return {
         ...workout,
         metrics: {
@@ -107,8 +117,8 @@ function mergeGymCheckMetrics(
                 null,
             activeKcal:
                 workout.metrics.activeKcal ?? rangeMetrics?.activeKcal ?? null,
-            totalKcal:
-                rangeMetrics?.totalKcal ?? workout.metrics.totalKcal ?? null,
+            totalKcal,
+            totalKcalEstimated,
             avgHr: rangeMetrics?.avgHr ?? workout.metrics.avgHr ?? null,
             maxHr: rangeMetrics?.maxHr ?? workout.metrics.maxHr ?? null,
 

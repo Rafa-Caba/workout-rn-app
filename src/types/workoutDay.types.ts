@@ -213,6 +213,9 @@ export type WorkoutSessionMeta = {
     trainingSource?: string | null;
     dayEffortRpe?: number | null;
 
+    /** True when total calories were estimated from HealthKit range data. */
+    totalKcalEstimated?: boolean | null;
+
     /**
      * New typed import/source fields
      */

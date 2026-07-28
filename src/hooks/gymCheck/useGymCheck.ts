@@ -1,58 +1,30 @@
+// /src/hooks/gymCheck/useGymCheck.ts
+// Persists, hydrates, and edits one strongly typed Gym Check week.
+
 import * as React from "react";
 
 import { getZustandStorage } from "@/src/store/storage";
-import type { WeightUnit, WorkoutDay, WorkoutExercise, WorkoutExerciseSet, WorkoutSession } from "@/src/types/workoutDay.types";
+import type {
+    GymDayMetricsState,
+    GymDayState,
+    GymExerciseState,
+    GymWeekState,
+} from "@/src/types/gymCheck.types";
+import type {
+    WeightUnit,
+    WorkoutDay,
+    WorkoutExercise,
+    WorkoutExerciseSet,
+    WorkoutSession,
+} from "@/src/types/workoutDay.types";
 import type { DayKey, ExerciseItem } from "@/src/utils/routines/plan";
 
-export type GymExerciseState = {
-    done: boolean;
-
-    // Optional per-exercise additions (stored as strings for input UX)
-    notes?: string;
-    durationMin?: string;
-
-    // attachments uploaded during gym check (publicIds)
-    mediaPublicIds: string[];
-
-    // Real executed sets captured during Gym Check.
-    // These are later sent as exercise.sets when creating the real session.
-    performedSets: WorkoutExerciseSet[];
-};
-
-export type GymDayMetricsState = {
-    // Keep as strings for input UX. Convert to number/null only when sending to API.
-    startAt: string; // ISO datetime or ""
-    endAt: string; // ISO datetime or ""
-    activeKcal: string;
-    totalKcal: string;
-    avgHr: string;
-    maxHr: string;
-    distanceKm: string;
-    steps: string;
-    elevationGainM: string;
-    paceSecPerKm: string;
-    cadenceRpm: string;
-    effortRpe: string;
-
-    // TrainingBlock-like day fields (stored under metrics in BE schema)
-    trainingSource: string;
-    dayEffortRpe: string;
-};
-
-export type GymDayState = {
-    durationMin: string; // keep as string for input UX
-    notes: string;
-    metrics: GymDayMetricsState;
-
-    exercises: Record<string, GymExerciseState>; // key = exerciseId
-};
-
-export type GymWeekState = {
-    version: 4; // bumped because we added performedSets
-    weekKey: string;
-    days: Record<DayKey, GymDayState>;
-    updatedAt: string;
-};
+export type {
+    GymDayMetricsState,
+    GymDayState,
+    GymExerciseState,
+    GymWeekState
+} from "@/src/types/gymCheck.types";
 
 const STORAGE_PREFIX = "workout-gymcheck";
 const EMPTY_EXERCISE: GymExerciseState = { done: false, mediaPublicIds: [], performedSets: [] };
@@ -67,13 +39,9 @@ function makeEmptyMetrics(): GymDayMetricsState {
         endAt: "",
         activeKcal: "",
         totalKcal: "",
+        totalKcalEstimated: false,
         avgHr: "",
         maxHr: "",
-        distanceKm: "",
-        steps: "",
-        elevationGainM: "",
-        paceSecPerKm: "",
-        cadenceRpm: "",
         effortRpe: "",
         trainingSource: "",
         dayEffortRpe: "",
@@ -91,7 +59,7 @@ function makeEmptyDay(): GymDayState {
 
 function makeEmptyWeek(weekKey: string): GymWeekState {
     return {
-        version: 4,
+        version: 5,
         weekKey,
         days: {
             Mon: makeEmptyDay(),
@@ -193,7 +161,7 @@ function safeParse(raw: string | null): GymWeekState | null {
         if (!obj || typeof obj !== "object") return null;
 
         const version = (obj as { version?: unknown }).version;
-        if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return null;
+        if (![1, 2, 3, 4, 5].includes(Number(version))) return null;
 
         const wk = (obj as { weekKey?: unknown }).weekKey;
         if (typeof wk !== "string") return null;
@@ -202,7 +170,7 @@ function safeParse(raw: string | null): GymWeekState | null {
         if (!days || typeof days !== "object") return null;
 
         const upgraded: GymWeekState = {
-            version: 4,
+            version: 5,
             weekKey: wk,
             days: days as Record<DayKey, GymDayState>,
             updatedAt:
@@ -221,10 +189,13 @@ function safeParse(raw: string | null): GymWeekState | null {
                 continue;
             }
 
-            const metrics =
-                isRecord(d.metrics)
-                    ? { ...makeEmptyMetrics(), ...d.metrics }
-                    : makeEmptyMetrics();
+            const metrics = isRecord(d.metrics)
+                ? {
+                    ...makeEmptyMetrics(),
+                    ...d.metrics,
+                    totalKcalEstimated: d.metrics.totalKcalEstimated === true,
+                }
+                : makeEmptyMetrics();
 
             const rawExercises = isRecord(d.exercises) ? d.exercises : {};
             const normalizedExercises: Record<string, GymExerciseState> = {};
@@ -305,6 +276,53 @@ function strToUiString(v: unknown): string | null {
     if (typeof v !== "string") return null;
     const s = v.trim();
     return s ? s : null;
+}
+
+function roundedNumberToUiString(value: unknown): string | null {
+    if (typeof value !== "number" || !Number.isFinite(value)) return null;
+    return String(Math.round(value));
+}
+
+function dateTimeToTimeInput(value: unknown): string | null {
+    const normalized = strToUiString(value);
+    if (!normalized) return null;
+
+    if (/^\d{1,2}:\d{2}$/.test(normalized)) {
+        return normalized;
+    }
+
+    const parsed = new Date(normalized);
+    if (!Number.isFinite(parsed.getTime())) return null;
+
+    const hours = String(parsed.getHours()).padStart(2, "0");
+    const minutes = String(parsed.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+}
+
+function durationSecondsToMinutesInput(value: unknown): string | null {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+        return null;
+    }
+
+    return String(Math.max(1, Math.round(value / 60)));
+}
+
+function areGymMetricsEqual(
+    left: GymDayMetricsState,
+    right: GymDayMetricsState
+): boolean {
+    return (
+        left.startAt === right.startAt &&
+        left.endAt === right.endAt &&
+        left.activeKcal === right.activeKcal &&
+        left.totalKcal === right.totalKcal &&
+        left.totalKcalEstimated === right.totalKcalEstimated &&
+        left.avgHr === right.avgHr &&
+        left.maxHr === right.maxHr &&
+        left.effortRpe === right.effortRpe &&
+        left.trainingSource === right.trainingSource &&
+        left.dayEffortRpe === right.dayEffortRpe
+    );
 }
 
 /**
@@ -402,16 +420,10 @@ type RemoteGymMetrics = Partial<{
 
     activeKcal: number | null;
     totalKcal: number | null;
+    totalKcalEstimated: boolean | null;
 
     avgHr: number | null;
     maxHr: number | null;
-
-    distanceKm: number | null;
-    steps: number | null;
-    elevationGainM: number | null;
-
-    paceSecPerKm: number | null;
-    cadenceRpm: number | null;
 
     effortRpe: number | null;
 
@@ -466,51 +478,42 @@ function mergeRemoteMetricsIntoLocal(
         trainingSource?: string | null;
         dayEffortRpe?: number | null;
     } | null | undefined
-) {
-    const base = { ...makeEmptyMetrics(), ...(local ?? makeEmptyMetrics()) };
-    const m = remoteMetrics ?? null;
+): GymDayMetricsState {
+    const base = { ...makeEmptyMetrics(), ...local };
+    const metrics = remoteMetrics ?? null;
 
-    const startAt = m ? strToUiString(m.startAt) : null;
-    const endAt = m ? strToUiString(m.endAt) : null;
+    const startAt = metrics ? strToUiString(metrics.startAt) : null;
+    const endAt = metrics ? strToUiString(metrics.endAt) : null;
+    const activeKcal = metrics
+        ? roundedNumberToUiString(metrics.activeKcal)
+        : null;
+    const totalKcal = metrics
+        ? roundedNumberToUiString(metrics.totalKcal)
+        : null;
+    const avgHr = metrics ? numToUiString(metrics.avgHr) : null;
+    const maxHr = metrics ? numToUiString(metrics.maxHr) : null;
+    const effortRpe = metrics ? numToUiString(metrics.effortRpe) : null;
 
-    const activeKcal = m ? numToUiString(m.activeKcal) : null;
-    const totalKcal = m ? numToUiString(m.totalKcal) : null;
-
-    const avgHr = m ? numToUiString(m.avgHr) : null;
-    const maxHr = m ? numToUiString(m.maxHr) : null;
-
-    const distanceKm = m ? numToUiString(m.distanceKm) : null;
-    const steps = m ? numToUiString(m.steps) : null;
-    const elevationGainM = m ? numToUiString(m.elevationGainM) : null;
-
-    const paceSecPerKm = m ? numToUiString(m.paceSecPerKm) : null;
-    const cadenceRpm = m ? numToUiString(m.cadenceRpm) : null;
-
-    const effortRpe = m ? numToUiString(m.effortRpe) : null;
-
-    const trainingSource = (m ? strToUiString(m.trainingSource) : null) ?? strToUiString(remoteDay?.trainingSource);
-    const dayEffortRpe = (m ? numToUiString(m.dayEffortRpe) : null) ?? numToUiString(remoteDay?.dayEffortRpe);
+    const trainingSource =
+        (metrics ? strToUiString(metrics.trainingSource) : null) ??
+        strToUiString(remoteDay?.trainingSource);
+    const dayEffortRpe =
+        (metrics ? numToUiString(metrics.dayEffortRpe) : null) ??
+        numToUiString(remoteDay?.dayEffortRpe);
 
     return {
         ...base,
         ...(startAt !== null ? { startAt } : {}),
         ...(endAt !== null ? { endAt } : {}),
-
         ...(activeKcal !== null ? { activeKcal } : {}),
         ...(totalKcal !== null ? { totalKcal } : {}),
-
+        ...(metrics?.totalKcalEstimated !== undefined &&
+            metrics.totalKcalEstimated !== null
+            ? { totalKcalEstimated: metrics.totalKcalEstimated }
+            : {}),
         ...(avgHr !== null ? { avgHr } : {}),
         ...(maxHr !== null ? { maxHr } : {}),
-
-        ...(distanceKm !== null ? { distanceKm } : {}),
-        ...(steps !== null ? { steps } : {}),
-        ...(elevationGainM !== null ? { elevationGainM } : {}),
-
-        ...(paceSecPerKm !== null ? { paceSecPerKm } : {}),
-        ...(cadenceRpm !== null ? { cadenceRpm } : {}),
-
         ...(effortRpe !== null ? { effortRpe } : {}),
-
         ...(trainingSource !== null ? { trainingSource } : {}),
         ...(dayEffortRpe !== null ? { dayEffortRpe } : {}),
     };
@@ -689,7 +692,7 @@ export function useGymCheck(weekKey: string) {
     const update = React.useCallback((fn: (prev: GymWeekState) => GymWeekState) => {
         setState((prev) => {
             const next0 = fn(prev);
-            const next: GymWeekState = { ...next0, version: 4, updatedAt: new Date().toISOString() };
+            const next: GymWeekState = { ...next0, version: 5, updatedAt: new Date().toISOString() };
             void persistWeek(next);
             return next;
         });
@@ -1033,14 +1036,51 @@ export function useGymCheck(weekKey: string) {
             plannedExercises: ExerciseItem[];
         }) => {
             const session = getLatestGymCheckSession(args.workoutDay);
-            if (!session || !Array.isArray(session.exercises) || session.exercises.length === 0) {
-                return;
-            }
+            if (!session) return;
 
             update((prev) => {
                 const day = prev.days[args.dayKey] ?? makeEmptyDay();
-                const nextExercises = { ...(day.exercises ?? {}) };
-                let changed = false;
+                const nextMetrics: GymDayMetricsState = { ...day.metrics };
+
+                const startAt = dateTimeToTimeInput(session.startAt);
+                const endAt = dateTimeToTimeInput(session.endAt);
+                const activeKcal = roundedNumberToUiString(session.activeKcal);
+                const totalKcal = roundedNumberToUiString(session.totalKcal);
+                const avgHr = roundedNumberToUiString(session.avgHr);
+                const maxHr = roundedNumberToUiString(session.maxHr);
+                const effortRpe = numToUiString(session.effortRpe);
+                const trainingSource =
+                    strToUiString(session.meta?.sourceDevice) ??
+                    strToUiString(session.meta?.trainingSource);
+                const dayEffortRpe =
+                    numToUiString(session.meta?.dayEffortRpe) ??
+                    numToUiString(args.workoutDay?.training?.dayEffortRpe);
+
+                if (startAt !== null) nextMetrics.startAt = startAt;
+                if (endAt !== null) nextMetrics.endAt = endAt;
+                if (activeKcal !== null) nextMetrics.activeKcal = activeKcal;
+                if (totalKcal !== null) {
+                    nextMetrics.totalKcal = totalKcal;
+                    nextMetrics.totalKcalEstimated =
+                        session.meta?.totalKcalEstimated === true;
+                }
+                if (avgHr !== null) nextMetrics.avgHr = avgHr;
+                if (maxHr !== null) nextMetrics.maxHr = maxHr;
+                if (effortRpe !== null) nextMetrics.effortRpe = effortRpe;
+                if (trainingSource !== null) {
+                    nextMetrics.trainingSource = trainingSource;
+                }
+                if (dayEffortRpe !== null) {
+                    nextMetrics.dayEffortRpe = dayEffortRpe;
+                }
+
+                const remoteDurationMin = durationSecondsToMinutesInput(
+                    session.durationSeconds
+                );
+                const nextDurationMin = remoteDurationMin ?? day.durationMin;
+
+                const nextExercises = { ...day.exercises };
+                let exercisesChanged = false;
 
                 for (const sessionExercise of session.exercises ?? []) {
                     const plannedExerciseId = resolvePlannedExerciseIdForSessionExercise(
@@ -1050,22 +1090,18 @@ export function useGymCheck(weekKey: string) {
                     if (!plannedExerciseId) continue;
 
                     /**
-                     * Important:
-                     * If the exercise already exists in local draft state, local state wins.
-                     * This prevents stale saved-session hydration from overwriting:
-                     * - done -> pending changes
-                     * - performed set edits
-                     * - locally added/removed sets
-                     *
-                     * Backend/session hydration should only prefill exercises that do not yet
-                     * exist in the local Gym Check draft.
+                     * Local exercise drafts keep priority so pending done/set edits are
+                     * not overwritten by stale backend hydration.
                      */
-                    const hasLocalDraft = Object.prototype.hasOwnProperty.call(nextExercises, plannedExerciseId);
-                    if (hasLocalDraft) {
-                        continue;
-                    }
+                    const hasLocalDraft = Object.prototype.hasOwnProperty.call(
+                        nextExercises,
+                        plannedExerciseId
+                    );
+                    if (hasLocalDraft) continue;
 
-                    const performedSets = safeWorkoutExerciseSetArray(sessionExercise.sets);
+                    const performedSets = safeWorkoutExerciseSetArray(
+                        sessionExercise.sets
+                    );
                     if (performedSets.length === 0) continue;
 
                     nextExercises[plannedExerciseId] = {
@@ -1073,11 +1109,18 @@ export function useGymCheck(weekKey: string) {
                         done: true,
                         performedSets,
                     };
-
-                    changed = true;
+                    exercisesChanged = true;
                 }
 
-                if (!changed) return prev;
+                const metricsChanged = !areGymMetricsEqual(
+                    day.metrics,
+                    nextMetrics
+                );
+                const durationChanged = nextDurationMin !== day.durationMin;
+
+                if (!metricsChanged && !durationChanged && !exercisesChanged) {
+                    return prev;
+                }
 
                 return {
                     ...prev,
@@ -1085,6 +1128,8 @@ export function useGymCheck(weekKey: string) {
                         ...prev.days,
                         [args.dayKey]: {
                             ...day,
+                            durationMin: nextDurationMin,
+                            metrics: nextMetrics,
                             exercises: nextExercises,
                         },
                     },

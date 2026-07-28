@@ -279,14 +279,18 @@ function mergeImportedMetricsIntoPayload(
         totalKcal: patch.totalKcal ?? payload.totalKcal ?? null,
         avgHr: patch.avgHr ?? payload.avgHr ?? null,
         maxHr: patch.maxHr ?? payload.maxHr ?? null,
-        distanceKm: patch.distanceKm ?? payload.distanceKm ?? null,
-        steps: patch.steps ?? payload.steps ?? null,
-        elevationGainM: patch.elevationGainM ?? payload.elevationGainM ?? null,
-        paceSecPerKm: patch.paceSecPerKm ?? payload.paceSecPerKm ?? null,
-        cadenceRpm: patch.cadenceRpm ?? payload.cadenceRpm ?? null,
+        distanceKm: null,
+        steps: null,
+        elevationGainM: null,
+        paceSecPerKm: null,
+        cadenceRpm: null,
         meta: {
             ...(payload.meta ?? {}),
             ...(patch.meta ?? {}),
+            totalKcalEstimated:
+                typeof patch.totalKcal === "number"
+                    ? patch.meta?.totalKcalEstimated === true
+                    : payload.meta?.totalKcalEstimated ?? null,
         },
     };
 }

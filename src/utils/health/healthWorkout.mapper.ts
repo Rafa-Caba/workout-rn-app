@@ -1,4 +1,5 @@
-// src/utils/health/healthWorkout.mapper.ts
+// /src/utils/health/healthWorkout.mapper.ts
+// Normalizes imported health workouts into Gym Check and Workout Day contracts.
 
 import type {
     HealthImportedWorkoutMetrics,
@@ -13,75 +14,52 @@ import type {
 import { resolveWorkoutDateFromDateTime } from "@/src/utils/health/healthDate.utils";
 
 /**
- * This patch shape is focused on updating an existing GymCheck session
- * with imported device metrics, without overriding exercise content.
+ * Metrics patch used to enrich an existing Gym Check session without touching
+ * its exercises, notes, or manually entered effort.
  */
 export type GymCheckMetricsPatch = {
     startAt?: string | null;
     endAt?: string | null;
-
     durationSeconds?: number | null;
-
     activeKcal?: number | null;
     totalKcal?: number | null;
-
     avgHr?: number | null;
     maxHr?: number | null;
-
-    distanceKm?: number | null;
-    steps?: number | null;
-    elevationGainM?: number | null;
-
-    paceSecPerKm?: number | null;
-    cadenceRpm?: number | null;
     effortRpe?: number | null;
-
     meta?: WorkoutSessionMeta | null;
 };
 
 function asNullableString(value: unknown): string | null {
-    if (typeof value !== "string") {
-        return null;
-    }
-
+    if (typeof value !== "string") return null;
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
 }
 
 function asNullableNumber(value: unknown): number | null {
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return value;
-    }
+    if (typeof value === "number" && Number.isFinite(value)) return value;
 
-    if (typeof value === "string") {
-        const trimmed = value.trim();
-        if (!trimmed) {
-            return null;
-        }
+    if (typeof value !== "string") return null;
 
-        const parsed = Number(trimmed);
-        return Number.isFinite(parsed) ? parsed : null;
-    }
+    const trimmed = value.trim();
+    if (!trimmed) return null;
 
-    return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
 function toNonNegativeIntOrNull(value: unknown): number | null {
     const parsed = asNullableNumber(value);
-    if (parsed === null) {
-        return null;
-    }
+    return parsed === null ? null : Math.max(0, Math.trunc(parsed));
+}
 
-    return Math.max(0, Math.trunc(parsed));
+function toNonNegativeRoundedIntOrNull(value: unknown): number | null {
+    const parsed = asNullableNumber(value);
+    return parsed === null ? null : Math.max(0, Math.round(parsed));
 }
 
 function toNonNegativeNumberOrNull(value: unknown): number | null {
     const parsed = asNullableNumber(value);
-    if (parsed === null) {
-        return null;
-    }
-
-    return parsed >= 0 ? parsed : null;
+    return parsed !== null && parsed >= 0 ? parsed : null;
 }
 
 function toIsoNow(): string {
@@ -89,20 +67,20 @@ function toIsoNow(): string {
 }
 
 function toWorkoutDataSource(value: unknown): WorkoutDataSource | null {
-    return value === "manual" || value === "healthkit" || value === "health-connect"
+    return value === "manual" ||
+        value === "healthkit" ||
+        value === "health-connect"
         ? value
         : null;
 }
 
 /**
- * Detects whether workout metrics contain at least one meaningful imported value.
+ * Detects whether the provider returned at least one useful workout metric.
  */
 export function hasMeaningfulImportedWorkoutMetrics(
     input: HealthImportedWorkoutMetrics | null | undefined
 ): boolean {
-    if (!input) {
-        return false;
-    }
+    if (!input) return false;
 
     return [
         input.durationSeconds,
@@ -125,14 +103,13 @@ export function hasMeaningfulImportedWorkoutMetrics(
 }
 
 /**
- * Resolves the canonical workout date from imported session data.
- * Preference:
- * 1. explicit session.date
- * 2. startAt datetime
- * 3. endAt datetime
+ * Resolves the canonical workout date from an explicit date or timestamps.
  */
 export function resolveImportedWorkoutDate(
-    input: Pick<HealthImportedWorkoutSessionMinimal, "date" | "startAt" | "endAt">
+    input: Pick<
+        HealthImportedWorkoutSessionMinimal,
+        "date" | "startAt" | "endAt"
+    >
 ): ISODate | null {
     if (typeof input.date === "string" && input.date.trim().length > 0) {
         return input.date;
@@ -145,7 +122,7 @@ export function resolveImportedWorkoutDate(
 }
 
 /**
- * Builds the common meta block for imported workout sessions.
+ * Builds the common metadata stored for imported workout sessions.
  */
 export function mapImportedWorkoutToSessionMeta(
     input: Pick<
@@ -157,6 +134,7 @@ export function mapImportedWorkoutToSessionMeta(
         | "sessionKind"
         | "externalId"
         | "type"
+        | "metrics"
     >
 ): WorkoutSessionMeta {
     return {
@@ -168,12 +146,13 @@ export function mapImportedWorkoutToSessionMeta(
         externalId: asNullableString(input.externalId),
         originalType: asNullableString(input.type),
         provider: toWorkoutDataSource(input.source),
+        totalKcalEstimated: input.metrics.totalKcalEstimated === true,
     };
 }
 
 /**
- * Converts imported workout into a metrics-only patch for an existing GymCheck session.
- * Useful when the gym session already exists and we only want to enrich it with device data.
+ * Converts one imported strength workout into a Gym Check-only metrics patch.
+ * Calories are rounded at the app/API boundary and cardio fields are omitted.
  */
 export function mapImportedWorkoutToGymCheckMetricsPatch(
     input: HealthImportedWorkoutSessionMinimal
@@ -181,30 +160,23 @@ export function mapImportedWorkoutToGymCheckMetricsPatch(
     return {
         startAt: asNullableString(input.startAt),
         endAt: asNullableString(input.endAt),
-
-        durationSeconds: toNonNegativeIntOrNull(input.metrics.durationSeconds),
-
-        activeKcal: toNonNegativeNumberOrNull(input.metrics.activeKcal),
-        totalKcal: toNonNegativeNumberOrNull(input.metrics.totalKcal),
-
+        durationSeconds: toNonNegativeIntOrNull(
+            input.metrics.durationSeconds
+        ),
+        activeKcal: toNonNegativeRoundedIntOrNull(input.metrics.activeKcal),
+        totalKcal: toNonNegativeRoundedIntOrNull(input.metrics.totalKcal),
         avgHr: toNonNegativeIntOrNull(input.metrics.avgHr),
         maxHr: toNonNegativeIntOrNull(input.metrics.maxHr),
-
-        distanceKm: toNonNegativeNumberOrNull(input.metrics.distanceKm),
-        steps: toNonNegativeIntOrNull(input.metrics.steps),
-        elevationGainM: toNonNegativeNumberOrNull(input.metrics.elevationGainM),
-
-        paceSecPerKm: toNonNegativeIntOrNull(input.metrics.paceSecPerKm),
-        cadenceRpm: toNonNegativeNumberOrNull(input.metrics.cadenceRpm),
         effortRpe: toNonNegativeNumberOrNull(input.metrics.effortRpe),
-
-        meta: mapImportedWorkoutToSessionMeta(input),
+        meta: {
+            ...mapImportedWorkoutToSessionMeta(input),
+            sessionKind: "gym-check",
+        },
     };
 }
 
 /**
- * Converts imported workout into a minimal automatic session
- * that can be appended into workoutDay.training.sessions.
+ * Converts an imported workout into a minimal automatic Workout Day session.
  */
 export function mapImportedWorkoutToMinimalDaySession(
     input: HealthImportedWorkoutSessionMinimal
@@ -213,36 +185,32 @@ export function mapImportedWorkoutToMinimalDaySession(
         type: asNullableString(input.type) ?? "Workout",
         activityType: null,
         cardioEnvironment: null,
-
         startAt: asNullableString(input.startAt),
         endAt: asNullableString(input.endAt),
-
-        durationSeconds: toNonNegativeIntOrNull(input.metrics.durationSeconds),
-
-        activeKcal: toNonNegativeNumberOrNull(input.metrics.activeKcal),
-        totalKcal: toNonNegativeNumberOrNull(input.metrics.totalKcal),
-
+        durationSeconds: toNonNegativeIntOrNull(
+            input.metrics.durationSeconds
+        ),
+        activeKcal: toNonNegativeRoundedIntOrNull(input.metrics.activeKcal),
+        totalKcal: toNonNegativeRoundedIntOrNull(input.metrics.totalKcal),
         avgHr: toNonNegativeIntOrNull(input.metrics.avgHr),
         maxHr: toNonNegativeIntOrNull(input.metrics.maxHr),
-
         distanceKm: toNonNegativeNumberOrNull(input.metrics.distanceKm),
         steps: toNonNegativeIntOrNull(input.metrics.steps),
-        elevationGainM: toNonNegativeNumberOrNull(input.metrics.elevationGainM),
-
-        paceSecPerKm: toNonNegativeIntOrNull(input.metrics.paceSecPerKm),
+        elevationGainM: toNonNegativeNumberOrNull(
+            input.metrics.elevationGainM
+        ),
+        paceSecPerKm: toNonNegativeIntOrNull(
+            input.metrics.paceSecPerKm
+        ),
         cadenceRpm: toNonNegativeNumberOrNull(input.metrics.cadenceRpm),
-
         hasRoute: false,
         routeSummary: null,
         routePoints: null,
         cardioMetrics: null,
-
         effortRpe: toNonNegativeNumberOrNull(input.metrics.effortRpe),
-
         notes: asNullableString(input.notes),
         media: null,
         exercises: null,
-
         meta: {
             ...mapImportedWorkoutToSessionMeta(input),
             sessionKind: "device-import",

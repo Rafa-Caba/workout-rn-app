@@ -27,6 +27,7 @@ export function toHealthWorkoutDiagnosticSample(
             durationSeconds: workout.metrics.durationSeconds,
             activeKcal: workout.metrics.activeKcal,
             totalKcal: workout.metrics.totalKcal,
+            totalKcalEstimated: workout.metrics.totalKcalEstimated === true,
             avgHr: workout.metrics.avgHr,
             maxHr: workout.metrics.maxHr,
             distanceKm: workout.metrics.distanceKm,

@@ -67,6 +67,8 @@ function toSessionUpsert(session: WorkoutSession): WorkoutSessionUpsert {
     return {
         id: session.id,
         type: session.type,
+        activityType: session.activityType ?? null,
+        cardioEnvironment: session.cardioEnvironment ?? null,
         startAt: session.startAt ?? null,
         endAt: session.endAt ?? null,
         durationSeconds: session.durationSeconds ?? null,
@@ -79,6 +81,10 @@ function toSessionUpsert(session: WorkoutSession): WorkoutSessionUpsert {
         elevationGainM: session.elevationGainM ?? null,
         paceSecPerKm: session.paceSecPerKm ?? null,
         cadenceRpm: session.cadenceRpm ?? null,
+        hasRoute: session.hasRoute ?? false,
+        cardioMetrics: session.cardioMetrics ?? null,
+        routeSummary: session.routeSummary ?? null,
+        routePoints: session.routePoints ?? null,
         effortRpe: session.effortRpe ?? null,
         notes: session.notes ?? null,
         media: session.media ?? null,
@@ -92,10 +98,23 @@ function mergeMetricsIntoExistingSession(
     imported: HealthImportedWorkoutSessionMinimal
 ): WorkoutSessionUpsert {
     const patch = mapImportedWorkoutToGymCheckMetricsPatch(imported);
+    const hasImportedTotal =
+        typeof patch.totalKcal === "number" && Number.isFinite(patch.totalKcal);
+    const mergedMeta = mergeSessionMeta(current.meta ?? null, patch.meta ?? null);
+    const meta = mergedMeta
+        ? {
+            ...mergedMeta,
+            totalKcalEstimated: hasImportedTotal
+                ? patch.meta?.totalKcalEstimated === true
+                : current.meta?.totalKcalEstimated ?? null,
+        }
+        : null;
 
     return {
         id: current.id,
         type: current.type,
+        activityType: null,
+        cardioEnvironment: null,
 
         startAt: patch.startAt ?? current.startAt ?? null,
         endAt: patch.endAt ?? current.endAt ?? null,
@@ -108,12 +127,19 @@ function mergeMetricsIntoExistingSession(
         avgHr: patch.avgHr ?? current.avgHr ?? null,
         maxHr: patch.maxHr ?? current.maxHr ?? null,
 
-        distanceKm: patch.distanceKm ?? current.distanceKm ?? null,
-        steps: patch.steps ?? current.steps ?? null,
-        elevationGainM: patch.elevationGainM ?? current.elevationGainM ?? null,
-
-        paceSecPerKm: patch.paceSecPerKm ?? current.paceSecPerKm ?? null,
-        cadenceRpm: patch.cadenceRpm ?? current.cadenceRpm ?? null,
+        /**
+         * Gym Check is strength-only. Explicitly clear legacy cardio values so
+         * they cannot survive a re-sync from an older app version.
+         */
+        distanceKm: null,
+        steps: null,
+        elevationGainM: null,
+        paceSecPerKm: null,
+        cadenceRpm: null,
+        hasRoute: false,
+        cardioMetrics: null,
+        routeSummary: null,
+        routePoints: null,
 
         /**
          * Gym Check keeps effortRpe manual until the provider exposes a stable,
@@ -124,7 +150,7 @@ function mergeMetricsIntoExistingSession(
         media: current.media ?? null,
         exercises: current.exercises ?? null,
 
-        meta: mergeSessionMeta(current.meta ?? null, patch.meta ?? null),
+        meta,
     };
 }
 

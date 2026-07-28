@@ -1,26 +1,37 @@
-// src/features/gymCheck/components/GymCheckDeviceMetricsCard.tsx
+// /src/features/gymCheck/components/GymCheckDeviceMetricsCard.tsx
+// Collapsible strength-session metrics form used by Gym Check and trainee mode.
+
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type { GymDayMetricsState } from "@/src/types/gymCheck.types";
 import { DeviceSelectRN } from "../../components/DeviceSelectRN";
 import { GymCheckField } from "./GymCheckField";
 
-type Metrics = Record<string, string | undefined>;
-
 type Props = {
     title?: string;
-    metrics: Metrics;
-    onChange: (patch: Metrics) => void;
+    metrics: GymDayMetricsState;
+    onChange: (patch: Partial<GymDayMetricsState>) => void;
     disabled?: boolean;
     defaultOpen?: boolean;
 };
 
-function hasAnyValue(metrics: Metrics): boolean {
-    for (const v of Object.values(metrics)) {
-        if (String(v ?? "").trim()) return true;
-    }
-    return false;
+function hasAnyValue(metrics: GymDayMetricsState): boolean {
+    return (
+        metrics.totalKcalEstimated ||
+        [
+            metrics.startAt,
+            metrics.endAt,
+            metrics.activeKcal,
+            metrics.totalKcal,
+            metrics.avgHr,
+            metrics.maxHr,
+            metrics.effortRpe,
+            metrics.trainingSource,
+            metrics.dayEffortRpe,
+        ].some((value) => value.trim().length > 0)
+    );
 }
 
 type FieldKey =
@@ -30,11 +41,6 @@ type FieldKey =
     | "totalKcal"
     | "avgHr"
     | "maxHr"
-    | "distanceKm"
-    | "steps"
-    | "elevationGainM"
-    | "paceSecPerKm"
-    | "cadenceRpm"
     | "effortRpe"
     | "trainingSource"
     | "dayEffortRpe";
@@ -56,7 +62,9 @@ function FieldWrap(props: { active: boolean; children: React.ReactNode }) {
             <View
                 style={{
                     borderRadius: 14,
-                    backgroundColor: props.active ? `${colors.primary}14` : "transparent",
+                    backgroundColor: props.active
+                        ? `${colors.primary}14`
+                        : "transparent",
                 }}
             >
                 {props.children}
@@ -65,60 +73,49 @@ function FieldWrap(props: { active: boolean; children: React.ReactNode }) {
     );
 }
 
-function pad2(n: number): string {
-    return n < 10 ? `0${n}` : `${n}`;
+function pad2(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`;
 }
 
-function clampInt(n: number, min: number, max: number): number {
-    if (!Number.isFinite(n)) return min;
-    return Math.max(min, Math.min(max, n));
+function clampInt(value: number, min: number, max: number): number {
+    if (!Number.isFinite(value)) return min;
+    return Math.max(min, Math.min(max, value));
 }
 
 /**
- * SOFT formatter for typing:
- * - Keep only digits + at most one ":" in correct spot
- * - Allow partial states: "", "1", "12", "12:", "12:3", "12:34"
- * - Does NOT clamp or auto-pad aggressively while typing
+ * Soft time formatter for input typing.
+ * It keeps partial HH:MM states without aggressively padding or clamping.
  */
 function formatTimeTyping(raw: string): string {
-    const s = String(raw ?? "");
-
-    // Keep digits only
-    const digits = s.replace(/[^\d]/g, "");
+    const digits = raw.replace(/[^\d]/g, "");
 
     if (digits.length === 0) return "";
-    if (digits.length === 1) return digits; // "H"
-    if (digits.length === 2) return digits; // "HH"
-    if (digits.length === 3) return `${digits.slice(0, 2)}:${digits.slice(2)}`; // "HH:M"
-    return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`; // "HH:MM" (ignore extra)
+    if (digits.length === 1) return digits;
+    if (digits.length === 2) return digits;
+    if (digits.length === 3) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
 }
 
 /**
- * Commit formatter for blur:
- * - If empty or incomplete -> return "" (clears)
- * - If complete HH:MM -> clamp and pad
+ * Normalizes a completed time input on blur.
  */
 function normalizeTimeOnBlur(raw: string): string {
-    const s = String(raw ?? "").trim();
-    if (!s) return "";
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
 
-    // Accept only HH:MM exactly at commit time
-    const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(s.replace(/[^\d:]/g, ""));
-    if (!m) return "";
+    const match = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(
+        trimmed.replace(/[^\d:]/g, "")
+    );
+    if (!match) return "";
 
-    const hhPart = m[1] ?? "";
-    const mmPart = m[2] ?? "";
+    const hoursPart = match[1] ?? "";
+    const minutesPart = match[2] ?? "";
+    if (!minutesPart) return "";
 
-    // Require minutes to be present to keep value
-    if (!mmPart) return "";
+    const hours = clampInt(Number(hoursPart), 0, 23);
+    const minutes = clampInt(Number(minutesPart), 0, 59);
 
-    let hh = Number(hhPart);
-    let mm = Number(mmPart);
-
-    hh = clampInt(hh, 0, 23);
-    mm = clampInt(mm, 0, 59);
-
-    return `${pad2(hh)}:${pad2(mm)}`;
+    return `${pad2(hours)}:${pad2(minutes)}`;
 }
 
 export function GymCheckDeviceMetricsCard({
@@ -135,14 +132,14 @@ export function GymCheckDeviceMetricsCard({
 
     const hasAny = React.useMemo(() => hasAnyValue(metrics), [metrics]);
 
-    const setActive = (k: FieldKey) => {
+    const setActive = (key: FieldKey) => {
         if (disabled) return;
-        setActiveKey(k);
+        setActiveKey(key);
         if (!open) setOpen(true);
     };
 
-    const clearActive = (k: FieldKey) => {
-        setActiveKey((cur) => (cur === k ? null : cur));
+    const clearActive = (key: FieldKey) => {
+        setActiveKey((current) => (current === key ? null : current));
     };
 
     return (
@@ -157,17 +154,33 @@ export function GymCheckDeviceMetricsCard({
             }}
         >
             <Pressable
-                onPress={() => setOpen((s) => !s)}
-                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+                onPress={() => setOpen((current) => !current)}
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                }}
             >
                 <View style={{ gap: 2 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>{title}</Text>
+                    <Text
+                        style={{
+                            fontSize: 16,
+                            fontWeight: "900",
+                            color: colors.text,
+                        }}
+                    >
+                        {title}
+                    </Text>
                     <Text style={{ color: colors.mutedText }}>
-                        {hasAny ? "Hay datos guardados" : "Toca para llenar (opcional)"}
+                        {hasAny
+                            ? "Hay datos guardados"
+                            : "Toca para llenar (opcional)"}
                     </Text>
                 </View>
 
-                <Text style={{ fontWeight: "900", color: colors.text }}>{open ? "▲" : "▼"}</Text>
+                <Text style={{ fontWeight: "900", color: colors.text }}>
+                    {open ? "▲" : "▼"}
+                </Text>
             </Pressable>
 
             {open ? (
@@ -176,14 +189,18 @@ export function GymCheckDeviceMetricsCard({
                         <FieldWrap active={activeKey === "startAt"}>
                             <GymCheckField
                                 label="Hora inicio (HH:MM)"
-                                value={String(metrics.startAt ?? "")}
-                                onChange={(v) => onChange({ startAt: formatTimeTyping(v) })}
+                                value={metrics.startAt}
+                                onChange={(value) =>
+                                    onChange({ startAt: formatTimeTyping(value) })
+                                }
                                 placeholder="07:10"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("startAt")}
                                 onBlur={() => {
-                                    onChange({ startAt: normalizeTimeOnBlur(String(metrics.startAt ?? "")) });
+                                    onChange({
+                                        startAt: normalizeTimeOnBlur(metrics.startAt),
+                                    });
                                     clearActive("startAt");
                                 }}
                             />
@@ -192,28 +209,33 @@ export function GymCheckDeviceMetricsCard({
                         <FieldWrap active={activeKey === "endAt"}>
                             <GymCheckField
                                 label="Hora fin (HH:MM)"
-                                value={String(metrics.endAt ?? "")}
-                                onChange={(v) => onChange({ endAt: formatTimeTyping(v) })}
+                                value={metrics.endAt}
+                                onChange={(value) =>
+                                    onChange({ endAt: formatTimeTyping(value) })
+                                }
                                 placeholder="08:10"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("endAt")}
                                 onBlur={() => {
-                                    onChange({ endAt: normalizeTimeOnBlur(String(metrics.endAt ?? "")) });
+                                    onChange({
+                                        endAt: normalizeTimeOnBlur(metrics.endAt),
+                                    });
                                     clearActive("endAt");
                                 }}
                             />
                         </FieldWrap>
                     </View>
 
-                    {/* The rest stays as-is */}
                     <View style={{ flexDirection: "row", gap: 12 }}>
                         <FieldWrap active={activeKey === "activeKcal"}>
                             <GymCheckField
                                 label="Kcal activas"
-                                value={String(metrics.activeKcal ?? "")}
-                                onChange={(v) => onChange({ activeKcal: v })}
-                                placeholder="e.g. 432"
+                                value={metrics.activeKcal}
+                                onChange={(value) =>
+                                    onChange({ activeKcal: value })
+                                }
+                                placeholder="Ej. 425"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("activeKcal")}
@@ -223,10 +245,19 @@ export function GymCheckDeviceMetricsCard({
 
                         <FieldWrap active={activeKey === "totalKcal"}>
                             <GymCheckField
-                                label="Kcal totales"
-                                value={String(metrics.totalKcal ?? "")}
-                                onChange={(v) => onChange({ totalKcal: v })}
-                                placeholder="e.g. 545"
+                                label={
+                                    metrics.totalKcalEstimated
+                                        ? "Kcal totales (estimadas)"
+                                        : "Kcal totales"
+                                }
+                                value={metrics.totalKcal}
+                                onChange={(value) =>
+                                    onChange({
+                                        totalKcal: value,
+                                        totalKcalEstimated: false,
+                                    })
+                                }
+                                placeholder="Ej. 587"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("totalKcal")}
@@ -235,13 +266,26 @@ export function GymCheckDeviceMetricsCard({
                         </FieldWrap>
                     </View>
 
+                    {metrics.totalKcalEstimated ? (
+                        <Text
+                            style={{
+                                color: colors.mutedText,
+                                fontSize: 12,
+                                lineHeight: 17,
+                            }}
+                        >
+                            Estimación calculada con energía activa + energía basal
+                            del intervalo de HealthKit.
+                        </Text>
+                    ) : null}
+
                     <View style={{ flexDirection: "row", gap: 12 }}>
                         <FieldWrap active={activeKey === "avgHr"}>
                             <GymCheckField
                                 label="HR promedio"
-                                value={String(metrics.avgHr ?? "")}
-                                onChange={(v) => onChange({ avgHr: v })}
-                                placeholder="e.g. 121"
+                                value={metrics.avgHr}
+                                onChange={(value) => onChange({ avgHr: value })}
+                                placeholder="Ej. 112"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("avgHr")}
@@ -252,9 +296,9 @@ export function GymCheckDeviceMetricsCard({
                         <FieldWrap active={activeKey === "maxHr"}>
                             <GymCheckField
                                 label="HR máximo"
-                                value={String(metrics.maxHr ?? "")}
-                                onChange={(v) => onChange({ maxHr: v })}
-                                placeholder="e.g. 160"
+                                value={metrics.maxHr}
+                                onChange={(value) => onChange({ maxHr: value })}
+                                placeholder="Ej. 154"
                                 keyboardType="numeric"
                                 disabled={disabled}
                                 onFocus={() => setActive("maxHr")}
@@ -264,80 +308,13 @@ export function GymCheckDeviceMetricsCard({
                     </View>
 
                     <View style={{ flexDirection: "row", gap: 12 }}>
-                        <FieldWrap active={activeKey === "distanceKm"}>
-                            <GymCheckField
-                                label="Distancia (km)"
-                                value={String(metrics.distanceKm ?? "")}
-                                onChange={(v) => onChange({ distanceKm: v })}
-                                placeholder="e.g. 1.17"
-                                keyboardType="numeric"
-                                disabled={disabled}
-                                onFocus={() => setActive("distanceKm")}
-                                onBlur={() => clearActive("distanceKm")}
-                            />
-                        </FieldWrap>
-
-                        <FieldWrap active={activeKey === "steps"}>
-                            <GymCheckField
-                                label="Pasos"
-                                value={String(metrics.steps ?? "")}
-                                onChange={(v) => onChange({ steps: v })}
-                                placeholder="e.g. 4200"
-                                keyboardType="numeric"
-                                disabled={disabled}
-                                onFocus={() => setActive("steps")}
-                                onBlur={() => clearActive("steps")}
-                            />
-                        </FieldWrap>
-                    </View>
-
-                    <View style={{ flexDirection: "row", gap: 12 }}>
-                        <FieldWrap active={activeKey === "elevationGainM"}>
-                            <GymCheckField
-                                label="Elevación (m)"
-                                value={String(metrics.elevationGainM ?? "")}
-                                onChange={(v) => onChange({ elevationGainM: v })}
-                                placeholder="e.g. 20"
-                                keyboardType="numeric"
-                                disabled={disabled}
-                                onFocus={() => setActive("elevationGainM")}
-                                onBlur={() => clearActive("elevationGainM")}
-                            />
-                        </FieldWrap>
-
-                        <FieldWrap active={activeKey === "paceSecPerKm"}>
-                            <GymCheckField
-                                label="Ritmo (sec/km)"
-                                value={String(metrics.paceSecPerKm ?? "")}
-                                onChange={(v) => onChange({ paceSecPerKm: v })}
-                                placeholder="e.g. 512"
-                                keyboardType="numeric"
-                                disabled={disabled}
-                                onFocus={() => setActive("paceSecPerKm")}
-                                onBlur={() => clearActive("paceSecPerKm")}
-                            />
-                        </FieldWrap>
-                    </View>
-
-                    <View style={{ flexDirection: "row", gap: 12 }}>
-                        <FieldWrap active={activeKey === "cadenceRpm"}>
-                            <GymCheckField
-                                label="Cadencia (rpm)"
-                                value={String(metrics.cadenceRpm ?? "")}
-                                onChange={(v) => onChange({ cadenceRpm: v })}
-                                placeholder="e.g. 78"
-                                keyboardType="numeric"
-                                disabled={disabled}
-                                onFocus={() => setActive("cadenceRpm")}
-                                onBlur={() => clearActive("cadenceRpm")}
-                            />
-                        </FieldWrap>
-
                         <FieldWrap active={activeKey === "effortRpe"}>
                             <GymCheckField
                                 label="Esfuerzo (RPE)"
-                                value={String(metrics.effortRpe ?? "")}
-                                onChange={(v) => onChange({ effortRpe: v })}
+                                value={metrics.effortRpe}
+                                onChange={(value) =>
+                                    onChange({ effortRpe: value })
+                                }
                                 placeholder="1-10"
                                 keyboardType="numeric"
                                 disabled={disabled}
@@ -345,27 +322,14 @@ export function GymCheckDeviceMetricsCard({
                                 onBlur={() => clearActive("effortRpe")}
                             />
                         </FieldWrap>
-                    </View>
-
-                    <View style={{ flexDirection: "row", gap: 12 }}>
-                        <FieldWrap active={activeKey === "trainingSource"}>
-                            <DeviceSelectRN
-                                label="Dispositivo"
-                                value={metrics.trainingSource ?? null}
-                                onChange={(next) => onChange({ trainingSource: next ?? undefined })}
-                                disabled={disabled}
-                                allowOther
-                                placeholder="Selecciona un dispositivo"
-                                onOpen={() => setActive("trainingSource")}
-                                onClose={() => clearActive("trainingSource")}
-                            />
-                        </FieldWrap>
 
                         <FieldWrap active={activeKey === "dayEffortRpe"}>
                             <GymCheckField
                                 label="RPE del día"
-                                value={String(metrics.dayEffortRpe ?? "")}
-                                onChange={(v) => onChange({ dayEffortRpe: v })}
+                                value={metrics.dayEffortRpe}
+                                onChange={(value) =>
+                                    onChange({ dayEffortRpe: value })
+                                }
                                 placeholder="1-10"
                                 keyboardType="numeric"
                                 disabled={disabled}
@@ -374,6 +338,21 @@ export function GymCheckDeviceMetricsCard({
                             />
                         </FieldWrap>
                     </View>
+
+                    <FieldWrap active={activeKey === "trainingSource"}>
+                        <DeviceSelectRN
+                            label="Dispositivo"
+                            value={metrics.trainingSource || null}
+                            onChange={(next) =>
+                                onChange({ trainingSource: next ?? "" })
+                            }
+                            disabled={disabled}
+                            allowOther
+                            placeholder="Selecciona un dispositivo"
+                            onOpen={() => setActive("trainingSource")}
+                            onClose={() => clearActive("trainingSource")}
+                        />
+                    </FieldWrap>
                 </View>
             ) : null}
         </View>

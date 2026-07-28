@@ -122,9 +122,16 @@ function diffNewAttachmentPublicIds(before: Set<string>, after: Set<string>): st
 
 function hasAnyMetricValue(metrics: Record<string, unknown> | null | undefined): boolean {
     if (!metrics) return false;
-    for (const v of Object.values(metrics)) {
-        if (String(v ?? "").trim()) return true;
+
+    for (const value of Object.values(metrics)) {
+        if (typeof value === "boolean") {
+            if (value) return true;
+            continue;
+        }
+
+        if (String(value ?? "").trim()) return true;
     }
+
     return false;
 }
 
@@ -242,14 +249,18 @@ function mergeImportedMetricsIntoPayload(
         totalKcal: patch.totalKcal ?? payload.totalKcal ?? null,
         avgHr: patch.avgHr ?? payload.avgHr ?? null,
         maxHr: patch.maxHr ?? payload.maxHr ?? null,
-        distanceKm: patch.distanceKm ?? payload.distanceKm ?? null,
-        steps: patch.steps ?? payload.steps ?? null,
-        elevationGainM: patch.elevationGainM ?? payload.elevationGainM ?? null,
-        paceSecPerKm: patch.paceSecPerKm ?? payload.paceSecPerKm ?? null,
-        cadenceRpm: patch.cadenceRpm ?? payload.cadenceRpm ?? null,
+        distanceKm: null,
+        steps: null,
+        elevationGainM: null,
+        paceSecPerKm: null,
+        cadenceRpm: null,
         meta: {
             ...(payload.meta ?? {}),
             ...(patch.meta ?? {}),
+            totalKcalEstimated:
+                typeof patch.totalKcal === "number"
+                    ? patch.meta?.totalKcalEstimated === true
+                    : payload.meta?.totalKcalEstimated ?? null,
         },
     };
 }

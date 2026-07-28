@@ -412,6 +412,7 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
                 asNullableNumber(sample.kcal) ??
                 null,
             totalKcal: null,
+            totalKcalEstimated: false,
             avgHr: null,
             maxHr: null,
             distanceKm:
@@ -729,6 +730,7 @@ export const healthIOSBridge: NativeHealthBridge = {
             durationSeconds: null,
             activeKcal,
             totalKcal,
+            totalKcalEstimated: totalKcal !== null,
             avgHr: avgNumericFromUnknownArray(heartRateSamples, ["value", "heartRate"]),
             maxHr: maxNumericFromUnknownArray(heartRateSamples, ["value", "heartRate"]),
             distanceKm: extractDistanceKm(distanceResult),

@@ -89,6 +89,7 @@ export type HealthWorkoutDiagnosticMetrics = {
     durationSeconds: number | null;
     activeKcal: number | null;
     totalKcal: number | null;
+    totalKcalEstimated: boolean;
     avgHr: number | null;
     maxHr: number | null;
     distanceKm: number | null;

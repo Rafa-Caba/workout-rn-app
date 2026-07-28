@@ -1,86 +1,60 @@
+// /src/hooks/gymCheck/useSyncGymCheckDay.ts
+// Converts the local Gym Check draft into the routine metadata patch contract.
+
 import { useMutation } from "@tanstack/react-query";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { syncGymCheckDay } from "@/src/services/workout/gymCheck.service";
-import type { GymCheckDayPatchBody } from "@/src/types/gymCheck.types";
+import type {
+    GymCheckDayPatchBody,
+    GymDayState,
+} from "@/src/types/gymCheck.types";
 import type { WorkoutExerciseSet } from "@/src/types/workoutDay.types";
 import type { DayKey } from "@/src/utils/routines/plan";
 
-type GymExerciseState = {
-    done: boolean;
-    notes?: string;
-    durationMin?: string;
-    mediaPublicIds: string[];
-    performedSets?: WorkoutExerciseSet[];
-};
-
-type GymDayMetricsState = {
-    startAt: string; // ISO datetime or ""
-    endAt: string; // ISO datetime or ""
-    activeKcal: string;
-    totalKcal: string;
-    avgHr: string;
-    maxHr: string;
-    distanceKm: string;
-    steps: string;
-    elevationGainM: string;
-    paceSecPerKm: string;
-    cadenceRpm: string;
-    effortRpe: string;
-
-    trainingSource: string;
-    dayEffortRpe: string;
-};
-
-type GymDayState = {
-    durationMin: string;
-    notes: string;
-    metrics: GymDayMetricsState;
-    exercises: Record<string, GymExerciseState>;
-};
-
-// ---------- helpers ----------
-function strOrNull(v: unknown): string | null {
-    if (typeof v !== "string") return null;
-    const s = v.trim();
-    return s.length ? s : null;
+function stringOrNull(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
 
-function isoOrNull(v: unknown): string | null {
-    // "" -> null, otherwise string trimmed.
-    return strOrNull(v);
-}
+function numberOrNull(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
 
-function numOrNull(v: unknown): number | null {
-    if (v === null || v === undefined) return null;
-
-    if (typeof v === "number") {
-        return Number.isFinite(v) ? v : null;
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
     }
 
-    if (typeof v !== "string") return null;
-    const s = v.trim();
-    if (!s) return null;
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
 
-    const n = Number(s);
-    if (!Number.isFinite(n)) return null;
-    return n;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
-function intOrNull(v: unknown): number | null {
-    const n = numOrNull(v);
-    if (n === null) return null;
-    return Math.trunc(n);
+function roundedIntOrNull(value: unknown): number | null {
+    const parsed = numberOrNull(value);
+    return parsed === null ? null : Math.round(parsed);
 }
 
-function arrayOrNull(v: unknown): string[] | null {
-    if (!Array.isArray(v)) return null;
-    const out = v.map((x) => String(x).trim()).filter(Boolean);
-    return out.length ? out : null;
+function intOrNull(value: unknown): number | null {
+    const parsed = numberOrNull(value);
+    return parsed === null ? null : Math.trunc(parsed);
 }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
+function stringArrayOrNull(value: unknown): string[] | null {
+    if (!Array.isArray(value)) return null;
+
+    const items = value
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+
+    return items.length > 0 ? items : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
@@ -93,19 +67,23 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
 
         items.push({
             setIndex:
-                typeof item.setIndex === "number" && Number.isFinite(item.setIndex) && item.setIndex > 0
+                typeof item.setIndex === "number" &&
+                    Number.isFinite(item.setIndex) &&
+                    item.setIndex > 0
                     ? Math.trunc(item.setIndex)
                     : index + 1,
             reps:
                 item.reps === null
                     ? null
-                    : typeof item.reps === "number" && Number.isFinite(item.reps)
+                    : typeof item.reps === "number" &&
+                        Number.isFinite(item.reps)
                         ? Math.trunc(item.reps)
                         : null,
             weight:
                 item.weight === null
                     ? null
-                    : typeof item.weight === "number" && Number.isFinite(item.weight)
+                    : typeof item.weight === "number" &&
+                        Number.isFinite(item.weight)
                         ? item.weight
                         : null,
             unit: item.unit === "kg" ? "kg" : "lb",
@@ -121,10 +99,13 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
             restSec:
                 item.restSec === null
                     ? null
-                    : typeof item.restSec === "number" && Number.isFinite(item.restSec)
+                    : typeof item.restSec === "number" &&
+                        Number.isFinite(item.restSec)
                         ? Math.trunc(item.restSec)
                         : null,
-            tags: Array.isArray(item.tags) ? item.tags.map((tag) => String(tag).trim()).filter(Boolean) : null,
+            tags: Array.isArray(item.tags)
+                ? item.tags.map((tag) => String(tag).trim()).filter(Boolean)
+                : null,
             meta: isRecord(item.meta) ? item.meta : null,
         });
     });
@@ -138,75 +119,59 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
 }
 
 /**
- * Convert local GymDayState (string-based inputs) into BE patch payload.
+ * Converts local string-based Gym Check state into the routine metadata patch.
+ * Cardio-only metrics are explicitly cleared because Gym Check is strength-only.
  */
 function toPatchPayload(gymDay: GymDayState): GymCheckDayPatchBody {
-    const durationMin = numOrNull(gymDay.durationMin);
-    const notes = strOrNull(gymDay.notes);
+    const metrics = gymDay.metrics;
 
-    const m = gymDay.metrics ?? ({} as GymDayMetricsState);
+    const exercises: NonNullable<GymCheckDayPatchBody["exercises"]> = {};
 
-    const metrics = {
-        startAt: isoOrNull(m.startAt),
-        endAt: isoOrNull(m.endAt),
-
-        activeKcal: numOrNull(m.activeKcal),
-        totalKcal: numOrNull(m.totalKcal),
-
-        avgHr: intOrNull(m.avgHr),
-        maxHr: intOrNull(m.maxHr),
-
-        distanceKm: numOrNull(m.distanceKm),
-        steps: intOrNull(m.steps),
-        elevationGainM: numOrNull(m.elevationGainM),
-
-        paceSecPerKm: intOrNull(m.paceSecPerKm),
-        cadenceRpm: intOrNull(m.cadenceRpm),
-
-        effortRpe: numOrNull(m.effortRpe),
-
-        trainingSource: strOrNull(m.trainingSource),
-        dayEffortRpe: numOrNull(m.dayEffortRpe),
-    };
-
-    const exercises: Record<
-        string,
-        {
-            done?: boolean | null;
-            notes?: string | null;
-            durationMin?: number | null;
-            mediaPublicIds?: string[] | null;
-            performedSets?: WorkoutExerciseSet[] | null;
-        }
-    > = {};
-
-    for (const [exerciseId, ex] of Object.entries(gymDay.exercises ?? {})) {
+    for (const [exerciseId, exercise] of Object.entries(gymDay.exercises)) {
         if (!exerciseId) continue;
 
         exercises[exerciseId] = {
-            done: typeof ex.done === "boolean" ? ex.done : null,
-            notes: strOrNull(ex.notes),
-            durationMin: numOrNull(ex.durationMin),
-            mediaPublicIds: arrayOrNull(ex.mediaPublicIds) ?? null,
-            performedSets: normalizePerformedSets(ex.performedSets),
+            done: exercise.done,
+            notes: stringOrNull(exercise.notes),
+            durationMin: numberOrNull(exercise.durationMin),
+            mediaPublicIds: stringArrayOrNull(exercise.mediaPublicIds),
+            performedSets: normalizePerformedSets(exercise.performedSets),
         };
     }
 
     return {
-        durationMin,
-        notes,
-        metrics,
+        durationMin: numberOrNull(gymDay.durationMin),
+        notes: stringOrNull(gymDay.notes),
+        metrics: {
+            startAt: stringOrNull(metrics.startAt),
+            endAt: stringOrNull(metrics.endAt),
+            activeKcal: roundedIntOrNull(metrics.activeKcal),
+            totalKcal: roundedIntOrNull(metrics.totalKcal),
+            totalKcalEstimated: metrics.totalKcalEstimated,
+            avgHr: intOrNull(metrics.avgHr),
+            maxHr: intOrNull(metrics.maxHr),
+            distanceKm: null,
+            steps: null,
+            elevationGainM: null,
+            paceSecPerKm: null,
+            cadenceRpm: null,
+            effortRpe: numberOrNull(metrics.effortRpe),
+            trainingSource: stringOrNull(metrics.trainingSource),
+            dayEffortRpe: numberOrNull(metrics.dayEffortRpe),
+        },
         exercises,
     };
 }
 
 /**
- * IMPORTANT UX RULE:
- * - This mutation must NOT invalidate/refetch routineWeek automatically.
- * - The page decides when to refetch (only on explicit Save / Create Session).
+ * The screen controls refetch timing so local edits are not overwritten.
  */
 export function useSyncGymCheckDay(weekKey: string) {
-    return useMutation<unknown, ApiAxiosError, { routine: unknown; dayKey: DayKey; gymDay: GymDayState }>({
+    return useMutation<
+        unknown,
+        ApiAxiosError,
+        { routine: unknown; dayKey: DayKey; gymDay: GymDayState }
+    >({
         mutationFn: async ({ dayKey, gymDay }) => {
             const payload = toPatchPayload(gymDay);
             return syncGymCheckDay(weekKey, dayKey, payload);

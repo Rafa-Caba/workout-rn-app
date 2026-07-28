@@ -1,3 +1,6 @@
+// /src/services/workout/gymCheck.service.ts
+// Normalizes and synchronizes Gym Check day state with the routine backend.
+
 import { api } from "@/src/services/http.client";
 import type {
     GymCheckDayPatchBody,
@@ -10,45 +13,52 @@ import type { DayKey, WorkoutRoutineWeek } from "@/src/types/workoutRoutine.type
 
 /**
  * Supports two caller styles:
- * 1) Old: GymDayState with string inputs (UX)
- * 2) New: Already-clean patch payload (numbers/null) from sync hook
+ * 1. GymDayState with string-based form inputs.
+ * 2. A normalized API patch with numbers and null values.
  */
 
-// -------------------- Helpers --------------------
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function toNumberOrNull(v: unknown): number | null {
-    if (typeof v === "number") {
-        return Number.isFinite(v) ? v : null;
+function toNumberOrNull(value: unknown): number | null {
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
     }
 
-    const s = String(v ?? "").trim();
-    if (!s) return null;
+    if (typeof value !== "string") return null;
 
-    const n = Number(s);
-    return Number.isFinite(n) ? n : null;
+    const normalized = value.trim();
+    if (!normalized) return null;
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
-function toIntOrNull(v: unknown): number | null {
-    const n = toNumberOrNull(v);
-    if (n === null) return null;
-    return Math.trunc(n);
+function toRoundedIntOrNull(value: unknown): number | null {
+    const parsed = toNumberOrNull(value);
+    return parsed === null ? null : Math.round(parsed);
 }
 
-function toStringOrNull(v: unknown): string | null {
-    if (v === null || v === undefined) return null;
-    const s = String(v).trim();
-    return s.length ? s : null;
+function toTruncatedIntOrNull(value: unknown): number | null {
+    const parsed = toNumberOrNull(value);
+    return parsed === null ? null : Math.trunc(parsed);
 }
 
-function toStringArrayOrNull(v: unknown): string[] | null {
-    if (v === null) return null;
-    if (!Array.isArray(v)) return null;
-    const out = v.map((x) => String(x).trim()).filter(Boolean);
-    return out.length ? out : null;
+function toStringOrNull(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
+function toStringArrayOrNull(value: unknown): string[] | null {
+    if (!Array.isArray(value)) return null;
+
+    const items = value
+        .map((item) => String(item).trim())
+        .filter((item) => item.length > 0);
+
+    return items.length > 0 ? items : null;
 }
 
 function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
@@ -59,56 +69,49 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
     value.forEach((item, index) => {
         if (!isPlainObject(item)) return;
 
-        const setIndexRaw = item.setIndex;
-        const repsRaw = item.reps;
-        const weightRaw = item.weight;
-        const unitRaw = item.unit;
-        const rpeRaw = item.rpe;
-        const isWarmupRaw = item.isWarmup;
-        const isDropSetRaw = item.isDropSet;
-        const tempoRaw = item.tempo;
-        const restSecRaw = item.restSec;
-        const tagsRaw = item.tags;
-        const metaRaw = item.meta;
+        const setIndex =
+            typeof item.setIndex === "number" &&
+                Number.isFinite(item.setIndex) &&
+                item.setIndex > 0
+                ? Math.trunc(item.setIndex)
+                : index + 1;
+
+        const unit = item.unit === "kg" ? "kg" : "lb";
 
         items.push({
-            setIndex:
-                typeof setIndexRaw === "number" && Number.isFinite(setIndexRaw) && setIndexRaw > 0
-                    ? Math.trunc(setIndexRaw)
-                    : index + 1,
+            setIndex,
             reps:
-                repsRaw === null
+                item.reps === null
                     ? null
-                    : typeof repsRaw === "number" && Number.isFinite(repsRaw)
-                        ? Math.trunc(repsRaw)
+                    : typeof item.reps === "number" && Number.isFinite(item.reps)
+                        ? Math.trunc(item.reps)
                         : null,
             weight:
-                weightRaw === null
+                item.weight === null
                     ? null
-                    : typeof weightRaw === "number" && Number.isFinite(weightRaw)
-                        ? weightRaw
+                    : typeof item.weight === "number" && Number.isFinite(item.weight)
+                        ? item.weight
                         : null,
-            unit: unitRaw === "kg" ? "kg" : "lb",
+            unit,
             rpe:
-                rpeRaw === null
+                item.rpe === null
                     ? null
-                    : typeof rpeRaw === "number" && Number.isFinite(rpeRaw)
-                        ? rpeRaw
+                    : typeof item.rpe === "number" && Number.isFinite(item.rpe)
+                        ? item.rpe
                         : null,
-            isWarmup: isWarmupRaw === true,
-            isDropSet: isDropSetRaw === true,
-            tempo: typeof tempoRaw === "string" ? tempoRaw : null,
+            isWarmup: item.isWarmup === true,
+            isDropSet: item.isDropSet === true,
+            tempo: typeof item.tempo === "string" ? item.tempo : null,
             restSec:
-                restSecRaw === null
+                item.restSec === null
                     ? null
-                    : typeof restSecRaw === "number" && Number.isFinite(restSecRaw)
-                        ? Math.trunc(restSecRaw)
+                    : typeof item.restSec === "number" && Number.isFinite(item.restSec)
+                        ? Math.trunc(item.restSec)
                         : null,
-            tags: Array.isArray(tagsRaw) ? tagsRaw.map((tag) => String(tag).trim()).filter(Boolean) : null,
-            meta:
-                metaRaw && typeof metaRaw === "object" && !Array.isArray(metaRaw)
-                    ? (metaRaw as Record<string, unknown>)
-                    : null,
+            tags: Array.isArray(item.tags)
+                ? item.tags.map((tag) => String(tag).trim()).filter(Boolean)
+                : null,
+            meta: isPlainObject(item.meta) ? item.meta : null,
         });
     });
 
@@ -121,60 +124,60 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
 }
 
 /**
- * If caller already sends the "clean" payload (numbers/null + metrics),
- * pass it through as-is.
+ * Determines whether the caller already supplied a normalized API patch.
  */
 function looksLikeCleanPatch(input: unknown): input is GymCheckDayPatchBody {
     if (!isPlainObject(input)) return false;
 
     const hasMetrics = "metrics" in input;
-    const dm = input.durationMin;
-    const hasNumberDuration = typeof dm === "number" || dm === null;
+    const durationMin = input.durationMin;
+    const hasNormalizedDuration =
+        typeof durationMin === "number" || durationMin === null;
 
-    return hasMetrics || hasNumberDuration;
+    return hasMetrics || hasNormalizedDuration;
 }
 
 /**
- * Convert old GymDayState (string inputs) -> GymCheckDayPatchBody
+ * Converts local Gym Check form state into the backend patch contract.
+ * Cardio-only fields are explicitly cleared so legacy data cannot remain
+ * attached to a strength session.
  */
 function buildPatchFromGymDayState(gymDay: GymDayState): GymCheckDayPatchBody {
     const exercises: Record<string, GymCheckExercisePatch> = {};
 
-    for (const [exerciseId, st] of Object.entries(gymDay.exercises ?? {})) {
+    for (const [exerciseId, state] of Object.entries(gymDay.exercises)) {
         if (!exerciseId) continue;
 
         exercises[exerciseId] = {
-            done: typeof st?.done === "boolean" ? Boolean(st.done) : null,
-            notes: toStringOrNull(st?.notes),
-            durationMin: toNumberOrNull(st?.durationMin),
-            mediaPublicIds: toStringArrayOrNull(st?.mediaPublicIds) ?? null,
-            performedSets: normalizePerformedSets(st?.performedSets),
+            done: state.done,
+            notes: toStringOrNull(state.notes),
+            durationMin: toNumberOrNull(state.durationMin),
+            mediaPublicIds: toStringArrayOrNull(state.mediaPublicIds),
+            performedSets: normalizePerformedSets(state.performedSets),
         };
     }
 
-    const m = gymDay.metrics ?? {};
-
+    const metricsState = gymDay.metrics;
     const metrics: GymCheckMetricsPatch = {
-        startAt: toStringOrNull(m.startAt),
-        endAt: toStringOrNull(m.endAt),
+        startAt: toStringOrNull(metricsState.startAt),
+        endAt: toStringOrNull(metricsState.endAt),
 
-        activeKcal: toNumberOrNull(m.activeKcal),
-        totalKcal: toNumberOrNull(m.totalKcal),
+        activeKcal: toRoundedIntOrNull(metricsState.activeKcal),
+        totalKcal: toRoundedIntOrNull(metricsState.totalKcal),
+        totalKcalEstimated: metricsState.totalKcalEstimated,
 
-        avgHr: toIntOrNull(m.avgHr),
-        maxHr: toIntOrNull(m.maxHr),
+        avgHr: toTruncatedIntOrNull(metricsState.avgHr),
+        maxHr: toTruncatedIntOrNull(metricsState.maxHr),
 
-        distanceKm: toNumberOrNull(m.distanceKm),
-        steps: toIntOrNull(m.steps),
-        elevationGainM: toNumberOrNull(m.elevationGainM),
+        distanceKm: null,
+        steps: null,
+        elevationGainM: null,
+        paceSecPerKm: null,
+        cadenceRpm: null,
 
-        paceSecPerKm: toIntOrNull(m.paceSecPerKm),
-        cadenceRpm: toIntOrNull(m.cadenceRpm),
-
-        effortRpe: toNumberOrNull(m.effortRpe),
-
-        trainingSource: toStringOrNull(m.trainingSource),
-        dayEffortRpe: toNumberOrNull(m.dayEffortRpe),
+        effortRpe: toNumberOrNull(metricsState.effortRpe),
+        trainingSource: toStringOrNull(metricsState.trainingSource),
+        dayEffortRpe: toNumberOrNull(metricsState.dayEffortRpe),
     };
 
     return {
@@ -185,21 +188,22 @@ function buildPatchFromGymDayState(gymDay: GymDayState): GymCheckDayPatchBody {
     };
 }
 
-// -------------------- API --------------------
-
+/**
+ * Persists one Gym Check day inside the workout routine metadata.
+ */
 export async function syncGymCheckDay(
     weekKey: string,
     dayKey: DayKey,
     input: GymDayState | GymCheckDayPatchBody
 ): Promise<WorkoutRoutineWeek> {
-    const payload: GymCheckDayPatchBody = looksLikeCleanPatch(input)
+    const payload = looksLikeCleanPatch(input)
         ? input
         : buildPatchFromGymDayState(input);
 
-    const res = await api.patch(
+    const response = await api.patch<WorkoutRoutineWeek>(
         `/workout/routines/weeks/${encodeURIComponent(weekKey)}/gym-check/${encodeURIComponent(dayKey)}`,
         payload
     );
 
-    return res.data as WorkoutRoutineWeek;
+    return response.data;
 }

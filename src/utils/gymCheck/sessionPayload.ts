@@ -1,4 +1,11 @@
-import type { AttachMediaItem, CreateSessionBody, CreateSessionExerciseInput } from "@/src/services/workout/sessions.service";
+// /src/utils/gymCheck/sessionPayload.ts
+// Builds typed Gym Check session payloads and media attachments.
+
+import type {
+    AttachMediaItem,
+    CreateSessionBody,
+    CreateSessionExerciseInput,
+} from "@/src/services/workout/sessions.service";
 import type { GymDayState, GymExerciseState } from "@/src/types/gymCheck.types";
 import type { WorkoutExerciseSet } from "@/src/types/workoutDay.types";
 import type { AttachmentOption } from "@/src/utils/routines/attachments";
@@ -35,7 +42,12 @@ function toNumberOrNull(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-function toIntOrNull(value: unknown): number | null {
+function toRoundedIntOrNull(value: unknown): number | null {
+    const parsed = toNumberOrNull(value);
+    return parsed === null ? null : Math.round(parsed);
+}
+
+function toTruncatedIntOrNull(value: unknown): number | null {
     const parsed = toNumberOrNull(value);
     return parsed === null ? null : Math.trunc(parsed);
 }
@@ -60,7 +72,9 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
 
         items.push({
             setIndex:
-                typeof item.setIndex === "number" && Number.isFinite(item.setIndex) && item.setIndex > 0
+                typeof item.setIndex === "number" &&
+                    Number.isFinite(item.setIndex) &&
+                    item.setIndex > 0
                     ? Math.trunc(item.setIndex)
                     : index + 1,
             reps:
@@ -91,7 +105,9 @@ function normalizePerformedSets(value: unknown): WorkoutExerciseSet[] | null {
                     : typeof item.restSec === "number" && Number.isFinite(item.restSec)
                         ? Math.trunc(item.restSec)
                         : null,
-            tags: Array.isArray(item.tags) ? item.tags.map((tag) => String(tag).trim()).filter(Boolean) : null,
+            tags: Array.isArray(item.tags)
+                ? item.tags.map((tag) => String(tag).trim()).filter(Boolean)
+                : null,
             meta: isRecord(item.meta) ? item.meta : null,
         });
     });
@@ -112,34 +128,31 @@ function getExerciseState(
     return gymDay.exercises[exerciseId] ?? null;
 }
 
+/**
+ * Preserves the original plan and local Gym Check execution metadata for one
+ * completed exercise.
+ */
 function buildExerciseMeta(args: {
     exercise: ExerciseItem;
     exerciseState: GymExerciseState;
-}): Record<string, unknown> | null {
+}): Record<string, unknown> {
     const { exercise, exerciseState } = args;
-
-    const plannedSets = cleanString(exercise.sets) ?? null;
-    const plannedReps = cleanString(exercise.reps) ?? null;
-    const plannedLoad = cleanString(exercise.load) ?? null;
-    const plannedRpe = cleanString(exercise.rpe) ?? null;
-    const plannedAttachmentPublicIds = toStringArrayOrNull(exercise.attachmentPublicIds);
-    const mediaPublicIds = toStringArrayOrNull(exerciseState.mediaPublicIds);
-    const durationMin = toIntOrNull(exerciseState.durationMin);
-    const exerciseId = cleanString((exercise as { id?: string }).id);
 
     return {
         gymCheck: {
             done: true,
-            durationMin,
-            mediaPublicIds,
-            exerciseId,
+            durationMin: toTruncatedIntOrNull(exerciseState.durationMin),
+            mediaPublicIds: toStringArrayOrNull(exerciseState.mediaPublicIds),
+            exerciseId: cleanString(exercise.id),
         },
         plan: {
-            sets: plannedSets,
-            reps: plannedReps,
-            load: plannedLoad,
-            rpe: plannedRpe,
-            attachmentPublicIds: plannedAttachmentPublicIds,
+            sets: cleanString(exercise.sets),
+            reps: cleanString(exercise.reps),
+            load: cleanString(exercise.load),
+            rpe: cleanString(exercise.rpe),
+            attachmentPublicIds: toStringArrayOrNull(
+                exercise.attachmentPublicIds
+            ),
         },
     };
 }
@@ -150,21 +163,19 @@ function buildDoneExercise(args: {
 }): CreateSessionExerciseInput | null {
     const { exercise, gymDay } = args;
 
-    const exerciseId = typeof exercise.id === "string" ? exercise.id.trim() : "";
+    const exerciseId = cleanString(exercise.id);
     if (!exerciseId) return null;
 
     const exerciseState = getExerciseState(gymDay, exerciseId);
     if (!exerciseState?.done) return null;
 
-    const notes = cleanString(exerciseState.notes) ?? cleanString(exercise.notes) ?? null;
-    const performedSets = normalizePerformedSets(exerciseState.performedSets);
-
     return {
         name: cleanString(exercise.name) ?? "Exercise",
-        movementId: cleanString(exercise.movementId) ?? null,
-        movementName: cleanString(exercise.movementName) ?? null,
-        notes,
-        sets: performedSets,
+        movementId: cleanString(exercise.movementId),
+        movementName: cleanString(exercise.movementName),
+        notes:
+            cleanString(exerciseState.notes) ?? cleanString(exercise.notes),
+        sets: normalizePerformedSets(exerciseState.performedSets),
         meta: buildExerciseMeta({ exercise, exerciseState }),
     };
 }
@@ -173,75 +184,91 @@ function buildDoneExercises(
     plan: DayPlan | null | undefined,
     gymDay: GymDayState
 ): CreateSessionExerciseInput[] {
-    const plannedExercises = Array.isArray(plan?.exercises) ? plan.exercises : [];
+    const plannedExercises = Array.isArray(plan?.exercises)
+        ? plan.exercises
+        : [];
 
-    return plannedExercises.reduce<CreateSessionExerciseInput[]>((acc, exercise) => {
-        const built = buildDoneExercise({ exercise, gymDay });
-        if (built) {
-            acc.push(built);
-        }
-        return acc;
-    }, []);
+    return plannedExercises.reduce<CreateSessionExerciseInput[]>(
+        (accumulator, exercise) => {
+            const built = buildDoneExercise({ exercise, gymDay });
+            if (built) accumulator.push(built);
+            return accumulator;
+        },
+        []
+    );
 }
 
-export function dayKeyToDateIso(weekKey: string, dayKey: DayKey): string | null {
+/**
+ * Converts a week key and weekday into the corresponding local calendar date.
+ */
+export function dayKeyToDateIso(
+    weekKey: string,
+    dayKey: DayKey
+): string | null {
     const start = weekKeyToStartDate(weekKey);
     if (!start) return null;
-    const idx = DAY_KEYS.indexOf(dayKey);
-    if (idx < 0) return null;
-    return format(addDays(start, idx), "yyyy-MM-dd");
+
+    const dayIndex = DAY_KEYS.indexOf(dayKey);
+    if (dayIndex < 0) return null;
+
+    return format(addDays(start, dayIndex), "yyyy-MM-dd");
 }
 
-export function parseDurationMinutesToSeconds(input: unknown): number | undefined {
+/**
+ * Converts the duration form field from minutes to rounded seconds.
+ */
+export function parseDurationMinutesToSeconds(
+    input: unknown
+): number | undefined {
     const minutes = toNumberOrNull(input);
     if (minutes === null || minutes <= 0) return undefined;
 
     return Math.round(minutes) * 60;
 }
 
+/**
+ * Resolves media selected on completed Gym Check exercises into session media.
+ */
 export function buildAttachMediaItemsFromGymDay(args: {
     gymDay: GymDayState;
     attachmentByPublicId: Map<string, AttachmentOption>;
 }): AttachMediaItem[] {
-    const out: AttachMediaItem[] = [];
+    const output: AttachMediaItem[] = [];
     const seen = new Set<string>();
 
-    const exMap = args.gymDay?.exercises ?? {};
+    for (const exerciseState of Object.values(args.gymDay.exercises)) {
+        if (!exerciseState.done) continue;
 
-    for (const exState of Object.values(exMap)) {
-        const done = Boolean(exState?.done);
-        if (!done) continue;
+        for (const rawPublicId of exerciseState.mediaPublicIds) {
+            const publicId = rawPublicId.trim();
+            if (!publicId || seen.has(publicId)) continue;
 
-        const ids = exState?.mediaPublicIds;
-        if (!Array.isArray(ids) || ids.length === 0) continue;
+            const attachment = args.attachmentByPublicId.get(publicId);
+            if (!attachment) continue;
 
-        for (const pid of ids) {
-            if (typeof pid !== "string" || !pid.trim()) continue;
-            const publicId = pid.trim();
-            if (seen.has(publicId)) continue;
-
-            const opt = args.attachmentByPublicId.get(publicId);
-            if (!opt) continue;
-
-            const url = typeof opt.url === "string" ? opt.url.trim() : "";
+            const url = cleanString(attachment.url);
             if (!url) continue;
 
             seen.add(publicId);
-
-            out.push({
+            output.push({
                 publicId,
                 url,
-                resourceType: opt.resourceType === "video" ? "video" : "image",
-                format: opt.format ?? null,
-                createdAt: opt.createdAt ?? null,
-                meta: isRecord(opt.meta) ? opt.meta : null,
+                resourceType:
+                    attachment.resourceType === "video" ? "video" : "image",
+                format: attachment.format ?? null,
+                createdAt: attachment.createdAt ?? null,
+                meta: isRecord(attachment.meta) ? attachment.meta : null,
             });
         }
     }
 
-    return out;
+    return output;
 }
 
+/**
+ * Builds a Gym Check create/update payload. Strength sessions intentionally
+ * clear cardio-only fields and preserve whether total calories were estimated.
+ */
 export function buildGymCheckSessionPayload(args: {
     gymDay: GymDayState;
     plan: DayPlan | null | undefined;
@@ -252,31 +279,34 @@ export function buildGymCheckSessionPayload(args: {
     const exercises = buildDoneExercises(plan, gymDay);
     if (exercises.length === 0) return null;
 
-    const metrics = gymDay.metrics ?? {};
-    const durationSeconds = parseDurationMinutesToSeconds(gymDay.durationMin);
+    const metrics = gymDay.metrics;
+    const durationSeconds = parseDurationMinutesToSeconds(
+        gymDay.durationMin
+    );
 
     return {
         type: cleanString(plan?.sessionType) ?? fallbackType,
-        durationSeconds: typeof durationSeconds === "number" ? durationSeconds : null,
-        notes: cleanString(gymDay.notes) ?? null,
-        startAt: cleanString(metrics.startAt) ?? null,
-        endAt: cleanString(metrics.endAt) ?? null,
-        activeKcal: toNumberOrNull(metrics.activeKcal),
-        totalKcal: toNumberOrNull(metrics.totalKcal),
-        avgHr: toIntOrNull(metrics.avgHr),
-        maxHr: toIntOrNull(metrics.maxHr),
-        distanceKm: toNumberOrNull(metrics.distanceKm),
-        steps: toIntOrNull(metrics.steps),
-        elevationGainM: toNumberOrNull(metrics.elevationGainM),
-        paceSecPerKm: toIntOrNull(metrics.paceSecPerKm),
-        cadenceRpm: toIntOrNull(metrics.cadenceRpm),
+        durationSeconds: durationSeconds ?? null,
+        notes: cleanString(gymDay.notes),
+        startAt: cleanString(metrics.startAt),
+        endAt: cleanString(metrics.endAt),
+        activeKcal: toRoundedIntOrNull(metrics.activeKcal),
+        totalKcal: toRoundedIntOrNull(metrics.totalKcal),
+        avgHr: toTruncatedIntOrNull(metrics.avgHr),
+        maxHr: toTruncatedIntOrNull(metrics.maxHr),
+        distanceKm: null,
+        steps: null,
+        elevationGainM: null,
+        paceSecPerKm: null,
+        cadenceRpm: null,
         effortRpe: toNumberOrNull(metrics.effortRpe),
         exercises,
         meta: {
             sessionKey: "gym_check",
-            trainingSource: cleanString(metrics.trainingSource) ?? null,
+            trainingSource: cleanString(metrics.trainingSource),
             dayEffortRpe: toNumberOrNull(metrics.dayEffortRpe),
             sessionKind: "gym-check",
+            totalKcalEstimated: metrics.totalKcalEstimated,
         },
     };
 }
