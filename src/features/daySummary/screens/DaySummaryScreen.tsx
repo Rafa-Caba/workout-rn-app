@@ -13,6 +13,7 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import { DayNotesSection } from "@/src/features/daySummary/components/DayNotesSection";
 import { useDaySummary } from "@/src/hooks/summary/useDaySummary";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { minutesToHhMm, secondsToHhMm } from "@/src/utils/dashboard/format";
@@ -69,6 +70,8 @@ export function DaySummaryScreen({ date }: Props) {
                     <MetricCard title="🛌 Sueño" value={minutesToHhMm(sleepMinutes)} colors={colors} />
                 </View>
             </View>
+
+            <DayNotesSection date={date} />
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Notas & Tags</Text>

@@ -383,6 +383,35 @@ export type PlannedMeta = {
  * =========================================================
  */
 
+export type WorkoutDayNoteType =
+    | "birthday"
+    | "appointment"
+    | "reminder"
+    | "health"
+    | "personal"
+    | "other";
+
+/**
+ * Typed structured note attached to one workout calendar day.
+ */
+export type WorkoutDayNote = {
+    id: string;
+    type: WorkoutDayNoteType;
+    title: string;
+    description: string | null;
+    createdAt: ISODateTime;
+    updatedAt: ISODateTime;
+};
+
+/**
+ * Editable note fields accepted by create and update endpoints.
+ */
+export type WorkoutDayNoteDraft = {
+    type: WorkoutDayNoteType;
+    title: string;
+    description: string | null;
+};
+
 export type WorkoutDayMeta = Record<string, unknown> | null;
 
 export type WorkoutDay = {
@@ -398,6 +427,8 @@ export type WorkoutDay = {
 
     plannedRoutine: PlannedRoutine | null;
     plannedMeta: PlannedMeta | null;
+
+    dayNotes: WorkoutDayNote[];
 
     notes: string | null;
     tags: string[] | null;
@@ -480,6 +511,8 @@ export type CalendarDayFull = {
 
     plannedRoutine?: PlannedRoutine | null;
     plannedMeta?: PlannedMeta | null;
+
+    dayNotes?: WorkoutDayNote[];
 
     notes?: string | null;
     tags?: string[] | null;

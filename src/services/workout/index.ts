@@ -1,5 +1,6 @@
 // src/services/workout/index.ts
 
+export * from "./dayNotes.service";
 export * from "./days.service";
 export * from "./insights.service";
 export * from "./media.service";

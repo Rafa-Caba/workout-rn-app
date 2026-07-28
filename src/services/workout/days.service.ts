@@ -18,6 +18,8 @@ import type {
     WorkoutDay,
     WorkoutDayBackfillBody,
     WorkoutDayBackfillResult,
+    WorkoutDayNote,
+    WorkoutDayNoteType,
     WorkoutDayUpsertBody,
     WorkoutExercise,
     WorkoutExerciseMeta,
@@ -86,6 +88,50 @@ function parseNullableNumber(value: unknown): number | null {
 
 function parseNullableStringArray(value: unknown): string[] | null {
     return isStringArray(value) ? value : null;
+}
+
+const WORKOUT_DAY_NOTE_TYPES: readonly WorkoutDayNoteType[] = [
+    "birthday",
+    "appointment",
+    "reminder",
+    "health",
+    "personal",
+    "other",
+];
+
+function parseWorkoutDayNoteType(value: unknown): WorkoutDayNoteType | null {
+    return WORKOUT_DAY_NOTE_TYPES.find((type) => type === value) ?? null;
+}
+
+function parseWorkoutDayNote(value: unknown): WorkoutDayNote | null {
+    if (!isRecord(value)) return null;
+
+    const id = parseNullableString(value.id)?.trim() ?? "";
+    const type = parseWorkoutDayNoteType(value.type);
+    const title = parseNullableString(value.title)?.trim() ?? "";
+    const createdAt = parseNullableString(value.createdAt)?.trim() ?? "";
+    const updatedAt = parseNullableString(value.updatedAt)?.trim() ?? "";
+
+    if (!id || !type || !title || !createdAt || !updatedAt) return null;
+
+    const description = parseNullableString(value.description)?.trim() ?? null;
+
+    return {
+        id,
+        type,
+        title,
+        description: description && description.length > 0 ? description : null,
+        createdAt,
+        updatedAt,
+    };
+}
+
+function parseWorkoutDayNotes(value: unknown): WorkoutDayNote[] {
+    if (!Array.isArray(value)) return [];
+
+    return value
+        .map((note) => parseWorkoutDayNote(note))
+        .filter((note): note is WorkoutDayNote => note !== null);
 }
 
 function parseNullableMeta(value: unknown): Record<string, unknown> | null {
@@ -432,6 +478,7 @@ function parseWorkoutDay(value: unknown): WorkoutDay | null {
                         : null,
             }
             : null,
+        dayNotes: parseWorkoutDayNotes(value.dayNotes),
         notes: parseNullableString(value.notes),
         tags: parseNullableStringArray(value.tags),
         meta: parseNullableMeta(value.meta),
@@ -1002,6 +1049,10 @@ export function parseCalendarDayFull(value: unknown): CalendarDayFull | null {
                     : undefined,
         plannedRoutine: undefined,
         plannedMeta: undefined,
+        dayNotes:
+            value.dayNotes !== undefined
+                ? parseWorkoutDayNotes(value.dayNotes)
+                : undefined,
         notes: value.notes !== undefined ? parseNullableString(value.notes) : undefined,
         tags: value.tags !== undefined ? parseNullableStringArray(value.tags) : undefined,
         meta: value.meta !== undefined ? parseNullableMeta(value.meta) : undefined,
