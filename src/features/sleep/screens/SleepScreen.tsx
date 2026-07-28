@@ -329,6 +329,12 @@ export default function SleepScreen() {
 
                 <SleepMetricsRow sleep={derived} />
 
+                {derived?.source === "healthkit" && derived.score === null ? (
+                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                        Salud no expone el Sleep Score de Apple mediante HealthKit.
+                    </Text>
+                ) : null}
+
                 <View style={{ flexDirection: "row", gap: 10 }}>
                     <Pressable
                         onPress={() => void runHealthImport("initial")}

@@ -13,6 +13,15 @@ type ExpoConfigExtra = {
     apiBaseUrl?: string;
 };
 
+type ExpoUpdateChannel = "development" | "preview" | "production";
+
+type ExpoUpdatesConfig = {
+    url: string;
+    requestHeaders: {
+        "expo-channel-name": ExpoUpdateChannel;
+    };
+};
+
 type PluginTuple = [string, { [key: string]: JsonValue }];
 type PluginEntry = string | PluginTuple;
 
@@ -42,9 +51,7 @@ type AppConfig = {
         scheme: string;
         userInterfaceStyle: "automatic" | "light" | "dark";
         newArchEnabled?: boolean;
-        updates: {
-            url: string;
-        };
+        updates: ExpoUpdatesConfig;
         runtimeVersion: {
             policy: string;
         };
@@ -153,6 +160,10 @@ const splashImage = "./assets/images/splash-icon.png";
 const splashBackgroundColor = "#000000";
 const splashImageWidth = 300;
 
+const easProjectId = "90004283-7528-46d7-a1a0-55da280d91bc";
+const easUpdatesUrl = `https://u.expo.dev/${easProjectId}`;
+const easUpdateChannel: ExpoUpdateChannel = "production";
+
 const apiBaseUrl =
     readEnv("EXPO_PUBLIC_API_URL") ??
     readEnv("PROD_URL") ??
@@ -209,7 +220,10 @@ const config: AppConfig = {
         userInterfaceStyle: "automatic",
         newArchEnabled: true,
         updates: {
-            url: "https://u.expo.dev/90004283-7528-46d7-a1a0-55da280d91bc",
+            url: easUpdatesUrl,
+            requestHeaders: {
+                "expo-channel-name": easUpdateChannel,
+            },
         },
         runtimeVersion: {
             policy: "appVersion",
@@ -294,7 +308,7 @@ const config: AppConfig = {
         extra: {
             router: {},
             eas: {
-                projectId: "90004283-7528-46d7-a1a0-55da280d91bc",
+                projectId: easProjectId,
             },
             apiBaseUrl,
             googleMapsAndroidApiKeyConfigured: Boolean(

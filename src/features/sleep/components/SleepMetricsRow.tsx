@@ -20,7 +20,7 @@ function percent(asleep: number | null, inBed: number | null): string {
 
 function sumPhases(s: SleepBlock | null): number | null {
     if (!s) return null;
-    const parts = [s.awakeMinutes, s.remMinutes, s.coreMinutes, s.deepMinutes].filter(
+    const parts = [s.remMinutes, s.coreMinutes, s.deepMinutes].filter(
         (x): x is number => typeof x === "number" && Number.isFinite(x)
     );
     if (!parts.length) return null;
@@ -62,7 +62,7 @@ export function SleepMetricsRow({ sleep }: { sleep: SleepBlock | null }) {
             </View>
             <View style={{ display: 'flex', flexDirection: 'row', gap: 5 }}>
                 {chip("Eficiencia", eff)}
-                {chip("Sleep Score", score === null ? "—" : String(score))}
+                {chip("Sleep Score", score === null && sleep?.source === "healthkit" ? "No disponible" : score === null ? "—" : String(score))}
                 {chip("Suma fases", phases === null ? "—" : `${phases}m`)}
             </View>
         </View>

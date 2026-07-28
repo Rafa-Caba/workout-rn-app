@@ -10,6 +10,7 @@ import { extractImportedWorkoutRoute } from "@/src/services/health/bridge/health
 import {
     appendHealthDiagnosticEvent,
     createHealthDiagnosticId,
+    toHealthDiagnosticJson,
 } from "@/src/services/health/diagnostics/healthDiagnostics.service";
 import type { NativeHealthBridge } from "@/src/services/health/healthBridge.types";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
@@ -52,14 +53,21 @@ function toIsoNow(): string {
     return new Date().toISOString();
 }
 
-function buildDayRange(date: string): { startDate: string; endDate: string } {
+function buildDayRange(date: string): {
+    targetDate: string;
+    startDate: string;
+    endDate: string;
+    strategy: "local-calendar-day";
+} {
     const start = new Date(`${date}T00:00:00`);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
     return {
+        targetDate: date,
         startDate: start.toISOString(),
         endDate: end.toISOString(),
+        strategy: "local-calendar-day",
     };
 }
 
@@ -400,6 +408,44 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
     };
 }
 
+function toWorkoutDiagnosticSample(
+    workout: HealthImportedWorkoutSessionMinimal
+): import("@/src/types/health/healthDiagnostics.types").HealthWorkoutDiagnosticSample {
+    return {
+        externalId: workout.externalId ?? null,
+        type: workout.type,
+        providerWorkoutType: workout.providerWorkoutType ?? null,
+        startAt: workout.startAt,
+        endAt: workout.endAt,
+        sourceDevice: workout.sourceDevice,
+        hasMeaningfulMetrics: [
+            workout.metrics.durationSeconds,
+            workout.metrics.activeKcal,
+            workout.metrics.totalKcal,
+            workout.metrics.avgHr,
+            workout.metrics.maxHr,
+            workout.metrics.distanceKm,
+            workout.metrics.steps,
+            workout.metrics.elevationGainM,
+            workout.metrics.paceSecPerKm,
+            workout.metrics.cadenceRpm,
+        ].some((value) => typeof value === "number" && Number.isFinite(value)),
+        metrics: {
+            durationSeconds: workout.metrics.durationSeconds,
+            activeKcal: workout.metrics.activeKcal,
+            totalKcal: workout.metrics.totalKcal,
+            avgHr: workout.metrics.avgHr,
+            maxHr: workout.metrics.maxHr,
+            distanceKm: workout.metrics.distanceKm,
+            steps: workout.metrics.steps,
+            elevationGainM: workout.metrics.elevationGainM,
+            paceSecPerKm: workout.metrics.paceSecPerKm,
+            cadenceRpm: workout.metrics.cadenceRpm,
+        },
+        raw: toHealthDiagnosticJson(workout.raw),
+    };
+}
+
 function sumNumericFromUnknownArray(values: unknown[], keys: string[]): number | null {
     let total = 0;
     let found = false;
@@ -600,18 +646,86 @@ export const healthIOSBridge: NativeHealthBridge = {
 
     async readWorkoutsByDate(input): Promise<HealthImportedWorkoutSessionMinimal[]> {
         const range = buildDayRange(input.date);
-        const samples = await hkGetWorkoutSamples(buildRangeOptions(range.startDate, range.endDate));
 
-        const mapped: HealthImportedWorkoutSessionMinimal[] = [];
+        await appendHealthDiagnosticEvent({
+            id: createHealthDiagnosticId("workout-query"),
+            createdAt: toIsoNow(),
+            provider: "healthkit",
+            level: "info",
+            kind: "workout-query-started",
+            range,
+        });
 
-        for (const sample of samples) {
-            const workout = mapWorkoutSample(sample);
-            if (workout) {
-                mapped.push(workout);
+        try {
+            const samples = await hkGetWorkoutSamples(
+                buildRangeOptions(range.startDate, range.endDate)
+            );
+            const mapped: HealthImportedWorkoutSessionMinimal[] = [];
+
+            for (const sample of samples) {
+                const workout = mapWorkoutSample(sample);
+                if (workout) {
+                    mapped.push(workout);
+                }
             }
-        }
 
-        return mapped;
+            const diagnosticSamples = mapped.slice(0, 30).map(toWorkoutDiagnosticSample);
+            const meaningful = diagnosticSamples.filter((sample) => sample.hasMeaningfulMetrics);
+            const selected = meaningful[0] ?? null;
+
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("workout-query-result"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level: samples.length > 0 ? "info" : "warning",
+                kind: "workout-query-result",
+                range,
+                receivedSampleCount: samples.length,
+                mappedSampleCount: mapped.length,
+                rejectedSampleCount: Math.max(0, samples.length - mapped.length),
+                storedSampleCount: diagnosticSamples.length,
+                samplesTruncated: mapped.length > diagnosticSamples.length,
+                samples: diagnosticSamples,
+            });
+
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("workout-selection"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level: selected ? "info" : "warning",
+                kind: "workout-selection",
+                targetDate: input.date,
+                candidateCount: mapped.length,
+                meaningfulCandidateCount: meaningful.length,
+                selectedExternalId: selected?.externalId ?? null,
+                selectedType: selected?.type ?? null,
+                outcome:
+                    mapped.length === 0
+                        ? "no-samples"
+                        : selected
+                            ? "selected"
+                            : "no-meaningful-workout",
+            });
+
+            return mapped;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const codeMatch = /(?:code|error)\s*[:=]\s*([A-Z0-9_-]+)/i.exec(errorMessage);
+
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("workout-query-error"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level: "error",
+                kind: "workout-query-error",
+                targetDate: input.date,
+                range,
+                errorMessage,
+                nativeCode: codeMatch?.[1] ?? null,
+            });
+
+            throw error;
+        }
     },
 
     async readMetricsByRange(input): Promise<HealthImportedWorkoutMetrics | null> {

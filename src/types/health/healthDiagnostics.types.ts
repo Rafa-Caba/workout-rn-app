@@ -78,6 +78,38 @@ export type HealthSleepNormalizedTotals = {
     deepMinutes: number | null;
 };
 
+export type HealthWorkoutQueryRange = {
+    targetDate: ISODate;
+    startDate: ISODateTime;
+    endDate: ISODateTime;
+    strategy: "local-calendar-day";
+};
+
+export type HealthWorkoutDiagnosticMetrics = {
+    durationSeconds: number | null;
+    activeKcal: number | null;
+    totalKcal: number | null;
+    avgHr: number | null;
+    maxHr: number | null;
+    distanceKm: number | null;
+    steps: number | null;
+    elevationGainM: number | null;
+    paceSecPerKm: number | null;
+    cadenceRpm: number | null;
+};
+
+export type HealthWorkoutDiagnosticSample = {
+    externalId: string | null;
+    type: string;
+    providerWorkoutType: string | null;
+    startAt: ISODateTime | null;
+    endAt: ISODateTime | null;
+    sourceDevice: string | null;
+    hasMeaningfulMetrics: boolean;
+    metrics: HealthWorkoutDiagnosticMetrics;
+    raw: HealthDiagnosticJsonValue | null;
+};
+
 export type HealthDiagnosticEventBase = {
     id: string;
     createdAt: ISODateTime;
@@ -149,6 +181,49 @@ export type HealthSleepPersistenceDiagnosticEvent = HealthDiagnosticEventBase & 
     errorMessage: string | null;
 };
 
+export type HealthWorkoutQueryStartedDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "workout-query-started";
+    range: HealthWorkoutQueryRange;
+};
+
+export type HealthWorkoutQueryResultDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "workout-query-result";
+    range: HealthWorkoutQueryRange;
+    receivedSampleCount: number;
+    mappedSampleCount: number;
+    rejectedSampleCount: number;
+    storedSampleCount: number;
+    samplesTruncated: boolean;
+    samples: HealthWorkoutDiagnosticSample[];
+};
+
+export type HealthWorkoutSelectionDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "workout-selection";
+    targetDate: ISODate;
+    candidateCount: number;
+    meaningfulCandidateCount: number;
+    selectedExternalId: string | null;
+    selectedType: string | null;
+    outcome: "selected" | "no-samples" | "no-meaningful-workout";
+};
+
+export type HealthWorkoutQueryErrorDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "workout-query-error";
+    targetDate: ISODate;
+    range: HealthWorkoutQueryRange | null;
+    errorMessage: string;
+    nativeCode: string | null;
+};
+
+export type HealthWorkoutPersistenceDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "workout-persistence";
+    targetDate: ISODate;
+    saved: boolean;
+    mode: "patched-existing-session" | "created-minimal-session" | "noop";
+    selectedExternalId: string | null;
+    errorMessage: string | null;
+};
+
 export type HealthDiagnosticEvent =
     | HealthAvailabilityDiagnosticEvent
     | HealthPermissionsDiagnosticEvent
@@ -156,4 +231,9 @@ export type HealthDiagnosticEvent =
     | HealthSleepQueryResultDiagnosticEvent
     | HealthSleepNormalizationDiagnosticEvent
     | HealthSleepQueryErrorDiagnosticEvent
-    | HealthSleepPersistenceDiagnosticEvent;
+    | HealthSleepPersistenceDiagnosticEvent
+    | HealthWorkoutQueryStartedDiagnosticEvent
+    | HealthWorkoutQueryResultDiagnosticEvent
+    | HealthWorkoutSelectionDiagnosticEvent
+    | HealthWorkoutQueryErrorDiagnosticEvent
+    | HealthWorkoutPersistenceDiagnosticEvent;

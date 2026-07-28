@@ -29,6 +29,25 @@ type HealthSleepNormalizationEvent = Extract<
     HealthDiagnosticEvent,
     { kind: "sleep-normalization" }
 >;
+type SleepHealthDiagnosticEvent = Extract<
+    HealthDiagnosticEvent,
+    {
+        kind:
+        | "availability"
+        | "permissions"
+        | "sleep-query-started"
+        | "sleep-query-result"
+        | "sleep-normalization"
+        | "sleep-query-error"
+        | "sleep-persistence";
+    }
+>;
+
+function isSleepHealthDiagnosticEvent(
+    event: HealthDiagnosticEvent
+): event is SleepHealthDiagnosticEvent {
+    return !event.kind.startsWith("workout-");
+}
 
 function todayISO(): string {
     const now = new Date();
@@ -64,7 +83,7 @@ function formatDateTime(value: string): string {
     return Number.isFinite(parsed.getTime()) ? parsed.toLocaleString() : value;
 }
 
-function formatEventTitle(event: HealthDiagnosticEvent): string {
+function formatEventTitle(event: SleepHealthDiagnosticEvent): string {
     if (event.kind === "availability") return "Disponibilidad";
     if (event.kind === "permissions") return "Permisos";
     if (event.kind === "sleep-query-started") return "Consulta iniciada";
@@ -74,7 +93,7 @@ function formatEventTitle(event: HealthDiagnosticEvent): string {
     return "Persistencia";
 }
 
-function formatEventSummary(event: HealthDiagnosticEvent): string {
+function formatEventSummary(event: SleepHealthDiagnosticEvent): string {
     if (event.kind === "availability") {
         return event.available ? "HealthKit disponible" : "HealthKit no disponible";
     }
@@ -108,7 +127,7 @@ function formatEventSummary(event: HealthDiagnosticEvent): string {
 }
 
 function latestNormalization(
-    events: HealthDiagnosticEvent[]
+    events: SleepHealthDiagnosticEvent[]
 ): HealthSleepNormalizationEvent | null {
     for (let index = events.length - 1; index >= 0; index -= 1) {
         const event = events[index];
@@ -134,8 +153,12 @@ export default function HealthDiagnosticsScreen() {
     const [isRunning, setIsRunning] = React.useState(false);
     const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set());
 
-    const latest = React.useMemo(() => latestNormalization(events), [events]);
-    const newestEvents = React.useMemo(() => [...events].reverse(), [events]);
+    const sleepEvents = React.useMemo(
+        () => events.filter(isSleepHealthDiagnosticEvent),
+        [events]
+    );
+    const latest = React.useMemo(() => latestNormalization(sleepEvents), [sleepEvents]);
+    const newestEvents = React.useMemo(() => [...sleepEvents].reverse(), [sleepEvents]);
     const busy = isRunning || isCheckingAvailability || isRequestingPermissions;
 
     const toggleExpanded = React.useCallback((id: string) => {

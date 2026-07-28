@@ -1,6 +1,7 @@
 // src/features/gymCheck/screens/GymCheckSessionScreen.tsx
 import NetInfo from "@react-native-community/netinfo";
 import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import React from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 
@@ -260,6 +261,7 @@ function mergeImportedMetricsIntoPayload(
 
 export function GymCheckSessionScreen() {
     const { colors } = useTheme();
+    const router = useRouter();
 
     const [anchorDateIso, setAnchorDateIso] = React.useState<string>(() => todayIsoLocal());
     const weekKey = React.useMemo(
@@ -854,6 +856,33 @@ export function GymCheckSessionScreen() {
                         {hasRelevantWorkoutPermissions(permissionsStatus) ? "Concedidos" : "Pendientes"}
                     </Text>
                 </View>
+
+                <Pressable
+                    onPress={() => {
+                        const date = dayKeyToDateIso(weekKey, activeDayKey);
+                        if (!date) {
+                            Alert.alert("Error", "No se pudo calcular la fecha del día.");
+                            return;
+                        }
+
+                        router.push({
+                            pathname: "/(app)/calendar/gym-check/diagnostics",
+                            params: { date },
+                        });
+                    }}
+                    style={{
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 12,
+                        paddingHorizontal: 14,
+                        paddingVertical: 12,
+                        backgroundColor: colors.background,
+                    }}
+                >
+                    <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
+                        Abrir diagnóstico de workouts
+                    </Text>
+                </Pressable>
 
                 <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
                     <Pressable

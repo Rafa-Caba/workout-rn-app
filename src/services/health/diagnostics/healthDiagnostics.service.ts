@@ -32,13 +32,23 @@ function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
-function isQueryRange(value: unknown): boolean {
+function isSleepQueryRange(value: unknown): boolean {
     return (
         isRecord(value) &&
         typeof value.targetDate === "string" &&
         typeof value.startDate === "string" &&
         typeof value.endDate === "string" &&
         value.strategy === "previous-noon-to-target-evening"
+    );
+}
+
+function isWorkoutQueryRange(value: unknown): boolean {
+    return (
+        isRecord(value) &&
+        typeof value.targetDate === "string" &&
+        typeof value.startDate === "string" &&
+        typeof value.endDate === "string" &&
+        value.strategy === "local-calendar-day"
     );
 }
 
@@ -77,12 +87,12 @@ function isHealthDiagnosticEvent(value: unknown): value is HealthDiagnosticEvent
     }
 
     if (value.kind === "sleep-query-started") {
-        return isQueryRange(value.range);
+        return isSleepQueryRange(value.range);
     }
 
     if (value.kind === "sleep-query-result") {
         return (
-            isQueryRange(value.range) &&
+            isSleepQueryRange(value.range) &&
             isFiniteNumber(value.receivedSampleCount) &&
             isFiniteNumber(value.storedSampleCount) &&
             typeof value.samplesTruncated === "boolean" &&
@@ -119,7 +129,7 @@ function isHealthDiagnosticEvent(value: unknown): value is HealthDiagnosticEvent
     if (value.kind === "sleep-query-error") {
         return (
             typeof value.targetDate === "string" &&
-            (value.range === null || isQueryRange(value.range)) &&
+            (value.range === null || isSleepQueryRange(value.range)) &&
             typeof value.errorMessage === "string" &&
             (typeof value.nativeCode === "string" || value.nativeCode === null)
         );
@@ -130,6 +140,56 @@ function isHealthDiagnosticEvent(value: unknown): value is HealthDiagnosticEvent
             typeof value.targetDate === "string" &&
             typeof value.saved === "boolean" &&
             value.rawPersisted === false &&
+            (typeof value.errorMessage === "string" || value.errorMessage === null)
+        );
+    }
+
+    if (value.kind === "workout-query-started") {
+        return isWorkoutQueryRange(value.range);
+    }
+
+    if (value.kind === "workout-query-result") {
+        return (
+            isWorkoutQueryRange(value.range) &&
+            isFiniteNumber(value.receivedSampleCount) &&
+            isFiniteNumber(value.mappedSampleCount) &&
+            isFiniteNumber(value.rejectedSampleCount) &&
+            isFiniteNumber(value.storedSampleCount) &&
+            typeof value.samplesTruncated === "boolean" &&
+            Array.isArray(value.samples)
+        );
+    }
+
+    if (value.kind === "workout-selection") {
+        return (
+            typeof value.targetDate === "string" &&
+            isFiniteNumber(value.candidateCount) &&
+            isFiniteNumber(value.meaningfulCandidateCount) &&
+            (typeof value.selectedExternalId === "string" || value.selectedExternalId === null) &&
+            (typeof value.selectedType === "string" || value.selectedType === null) &&
+            (value.outcome === "selected" ||
+                value.outcome === "no-samples" ||
+                value.outcome === "no-meaningful-workout")
+        );
+    }
+
+    if (value.kind === "workout-query-error") {
+        return (
+            typeof value.targetDate === "string" &&
+            (value.range === null || isWorkoutQueryRange(value.range)) &&
+            typeof value.errorMessage === "string" &&
+            (typeof value.nativeCode === "string" || value.nativeCode === null)
+        );
+    }
+
+    if (value.kind === "workout-persistence") {
+        return (
+            typeof value.targetDate === "string" &&
+            typeof value.saved === "boolean" &&
+            (value.mode === "patched-existing-session" ||
+                value.mode === "created-minimal-session" ||
+                value.mode === "noop") &&
+            (typeof value.selectedExternalId === "string" || value.selectedExternalId === null) &&
             (typeof value.errorMessage === "string" || value.errorMessage === null)
         );
     }

@@ -13,6 +13,7 @@ export default function GymCheckLayout() {
             <Stack.Screen name="index" options={{ title: "Gym Check" }} />
             <Stack.Screen name="[date]" options={{ title: "Gym Check (Día)" }} />
             <Stack.Screen name="session/[sessionId]" options={{ title: "Gym Check (Sesión)" }} />
+            <Stack.Screen name="diagnostics" options={{ headerShown: false }} />
         </Stack>
     );
 }

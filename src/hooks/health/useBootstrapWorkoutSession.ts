@@ -2,6 +2,10 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import {
+    appendHealthDiagnosticEvent,
+    createHealthDiagnosticId,
+} from "@/src/services/health/diagnostics/healthDiagnostics.service";
 import { readHealthWorkoutsByDate } from "@/src/services/health/health.service";
 import {
     ensureWorkoutDayExistsDays,
@@ -132,6 +136,26 @@ function mergeMetricsIntoExistingSession(
     };
 }
 
+async function logWorkoutPersistence(args: {
+    date: string;
+    mode: BootstrapWorkoutSessionResult["mode"];
+    selectedExternalId: string | null;
+    errorMessage?: string | null;
+}): Promise<void> {
+    await appendHealthDiagnosticEvent({
+        id: createHealthDiagnosticId("workout-persistence"),
+        createdAt: new Date().toISOString(),
+        provider: "healthkit",
+        level: args.errorMessage ? "error" : args.mode === "noop" ? "warning" : "info",
+        kind: "workout-persistence",
+        targetDate: args.date,
+        saved: args.mode !== "noop" && !args.errorMessage,
+        mode: args.mode,
+        selectedExternalId: args.selectedExternalId,
+        errorMessage: args.errorMessage ?? null,
+    });
+}
+
 export function useBootstrapWorkoutSession() {
     const qc = useQueryClient();
 
@@ -146,6 +170,11 @@ export function useBootstrapWorkoutSession() {
 
             if (!meaningfulImportedSessions.length) {
                 const day = await getWorkoutDayServ(date);
+                await logWorkoutPersistence({
+                    date,
+                    mode: "noop",
+                    selectedExternalId: null,
+                });
                 return {
                     day,
                     mode: "noop",
@@ -165,6 +194,11 @@ export function useBootstrapWorkoutSession() {
                 const importedForPatch = pickImportedWorkoutForPatch(meaningfulImportedSessions);
 
                 if (!importedForPatch) {
+                    await logWorkoutPersistence({
+                        date,
+                        mode: "noop",
+                        selectedExternalId: null,
+                    });
                     return {
                         day: currentDay,
                         mode: "noop",
@@ -190,6 +224,11 @@ export function useBootstrapWorkoutSession() {
                     "merge"
                 );
 
+                await logWorkoutPersistence({
+                    date,
+                    mode: "patched-existing-session",
+                    selectedExternalId: importedForPatch.externalId ?? null,
+                });
                 return {
                     day,
                     mode: "patched-existing-session",
@@ -202,6 +241,11 @@ export function useBootstrapWorkoutSession() {
                 latestDay = await saveMinimalImportedSessionForDay(date, importedSession, "merge");
             }
 
+            await logWorkoutPersistence({
+                date,
+                mode: "created-minimal-session",
+                selectedExternalId: meaningfulImportedSessions[0]?.externalId ?? null,
+            });
             return {
                 day: latestDay,
                 mode: "created-minimal-session",
@@ -213,6 +257,14 @@ export function useBootstrapWorkoutSession() {
             }
 
             qc.setQueryData(["workoutDay", vars.date], result.day);
+        },
+        onError: async (error, vars) => {
+            await logWorkoutPersistence({
+                date: vars.date,
+                mode: "noop",
+                selectedExternalId: null,
+                errorMessage: error.message,
+            });
         },
     });
 }
