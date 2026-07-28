@@ -1,4 +1,5 @@
-// src/hooks/health/useBootstrapWorkoutSession.ts
+// /src/hooks/health/useBootstrapWorkoutSession.ts
+// Imports one eligible strength workout into an existing or minimal Gym Check session.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -6,30 +7,30 @@ import {
     appendHealthDiagnosticEvent,
     createHealthDiagnosticId,
 } from "@/src/services/health/diagnostics/healthDiagnostics.service";
-import { readHealthWorkoutsByDate } from "@/src/services/health/health.service";
+import { readHealthGymCheckWorkoutByDate } from "@/src/services/health/health.service";
 import {
     ensureWorkoutDayExistsDays,
     getWorkoutDayServ,
     saveMinimalImportedSessionForDay,
     upsertWorkoutDay,
 } from "@/src/services/workout/days.service";
-import type { HealthImportedWorkoutSessionMinimal } from "@/src/types/health/cardio/health.types";
+import type {
+    HealthImportedWorkoutSessionMinimal,
+    HealthProvider,
+} from "@/src/types/health/cardio/health.types";
 import type {
     WorkoutDay,
     WorkoutSession,
     WorkoutSessionMeta,
     WorkoutSessionUpsert,
 } from "@/src/types/workoutDay.types";
-import {
-    hasMeaningfulImportedWorkoutMetrics,
-    mapImportedWorkoutToGymCheckMetricsPatch,
-} from "@/src/utils/health/healthWorkout.mapper";
+import { mapImportedWorkoutToGymCheckMetricsPatch } from "@/src/utils/health/healthWorkout.mapper";
 
 type BootstrapWorkoutSessionArgs = {
     date: string;
 };
 
-type BootstrapWorkoutSessionResult = {
+export type BootstrapWorkoutSessionResult = {
     day: WorkoutDay | null;
     mode: "patched-existing-session" | "created-minimal-session" | "noop";
 };
@@ -46,16 +47,6 @@ function isPatchableGymCheckSession(session: WorkoutSession): boolean {
             : null;
 
     return sessionKey === "gym_check" || sessionKind === "gym-check";
-}
-
-function pickImportedWorkoutForPatch(
-    sessions: HealthImportedWorkoutSessionMinimal[]
-): HealthImportedWorkoutSessionMinimal | null {
-    const meaningful = sessions.filter((session) =>
-        hasMeaningfulImportedWorkoutMetrics(session.metrics)
-    );
-
-    return meaningful[0] ?? null;
 }
 
 function mergeSessionMeta(
@@ -125,7 +116,8 @@ function mergeMetricsIntoExistingSession(
         cadenceRpm: patch.cadenceRpm ?? current.cadenceRpm ?? null,
 
         /**
-         * GymCheck remains manual for effortRpe.
+         * Gym Check keeps effortRpe manual until the provider exposes a stable,
+         * documented workout-effort field in the imported sample.
          */
         effortRpe: current.effortRpe ?? null,
         notes: current.notes ?? null,
@@ -138,6 +130,7 @@ function mergeMetricsIntoExistingSession(
 
 async function logWorkoutPersistence(args: {
     date: string;
+    provider: HealthProvider;
     mode: BootstrapWorkoutSessionResult["mode"];
     selectedExternalId: string | null;
     errorMessage?: string | null;
@@ -145,7 +138,7 @@ async function logWorkoutPersistence(args: {
     await appendHealthDiagnosticEvent({
         id: createHealthDiagnosticId("workout-persistence"),
         createdAt: new Date().toISOString(),
-        provider: "healthkit",
+        provider: args.provider,
         level: args.errorMessage ? "error" : args.mode === "noop" ? "warning" : "info",
         kind: "workout-persistence",
         targetDate: args.date,
@@ -163,15 +156,14 @@ export function useBootstrapWorkoutSession() {
         mutationFn: async ({ date }) => {
             await ensureWorkoutDayExistsDays(date);
 
-            const importedSessions = await readHealthWorkoutsByDate({ date });
-            const meaningfulImportedSessions = importedSessions.filter((session) =>
-                hasMeaningfulImportedWorkoutMetrics(session.metrics)
-            );
+            const importResult = await readHealthGymCheckWorkoutByDate({ date });
+            const importedSession = importResult.selected;
 
-            if (!meaningfulImportedSessions.length) {
+            if (!importedSession) {
                 const day = await getWorkoutDayServ(date);
                 await logWorkoutPersistence({
                     date,
+                    provider: importResult.provider ?? "healthkit",
                     mode: "noop",
                     selectedExternalId: null,
                 });
@@ -191,23 +183,9 @@ export function useBootstrapWorkoutSession() {
                 null;
 
             if (patchableSession) {
-                const importedForPatch = pickImportedWorkoutForPatch(meaningfulImportedSessions);
-
-                if (!importedForPatch) {
-                    await logWorkoutPersistence({
-                        date,
-                        mode: "noop",
-                        selectedExternalId: null,
-                    });
-                    return {
-                        day: currentDay,
-                        mode: "noop",
-                    };
-                }
-
                 const nextSessions: WorkoutSessionUpsert[] = currentSessions.map((session) =>
                     session.id === patchableSession.id
-                        ? mergeMetricsIntoExistingSession(session, importedForPatch)
+                        ? mergeMetricsIntoExistingSession(session, importedSession)
                         : toSessionUpsert(session)
                 );
 
@@ -215,7 +193,7 @@ export function useBootstrapWorkoutSession() {
                     date,
                     {
                         training: {
-                            source: currentDay.training?.source ?? importedForPatch.source ?? null,
+                            source: currentDay.training?.source ?? importedSession.source ?? null,
                             dayEffortRpe: currentDay.training?.dayEffortRpe ?? null,
                             raw: currentDay.training?.raw ?? null,
                             sessions: nextSessions,
@@ -226,8 +204,9 @@ export function useBootstrapWorkoutSession() {
 
                 await logWorkoutPersistence({
                     date,
+                    provider: importResult.provider ?? "healthkit",
                     mode: "patched-existing-session",
-                    selectedExternalId: importedForPatch.externalId ?? null,
+                    selectedExternalId: importedSession.externalId ?? null,
                 });
                 return {
                     day,
@@ -235,32 +214,34 @@ export function useBootstrapWorkoutSession() {
                 };
             }
 
-            let latestDay: WorkoutDay | null = currentDay;
-
-            for (const importedSession of meaningfulImportedSessions) {
-                latestDay = await saveMinimalImportedSessionForDay(date, importedSession, "merge");
-            }
+            const day = await saveMinimalImportedSessionForDay(
+                date,
+                importedSession,
+                "merge"
+            );
 
             await logWorkoutPersistence({
                 date,
+                provider: importResult.provider ?? "healthkit",
                 mode: "created-minimal-session",
-                selectedExternalId: meaningfulImportedSessions[0]?.externalId ?? null,
+                selectedExternalId: importedSession.externalId ?? null,
             });
             return {
-                day: latestDay,
+                day,
                 mode: "created-minimal-session",
             };
         },
-        onSuccess: (result, vars) => {
+        onSuccess: (result, variables) => {
             if (!result.day) {
                 return;
             }
 
-            qc.setQueryData(["workoutDay", vars.date], result.day);
+            qc.setQueryData(["workoutDay", variables.date], result.day);
         },
-        onError: async (error, vars) => {
+        onError: async (error, variables) => {
             await logWorkoutPersistence({
-                date: vars.date,
+                date: variables.date,
+                provider: "healthkit",
                 mode: "noop",
                 selectedExternalId: null,
                 errorMessage: error.message,

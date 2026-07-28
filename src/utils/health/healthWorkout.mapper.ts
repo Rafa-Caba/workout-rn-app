@@ -9,7 +9,6 @@ import type {
     WorkoutDataSource,
     WorkoutSessionMeta,
     WorkoutSessionUpsert,
-    WorkoutSourceDevice,
 } from "@/src/types/workoutDay.types";
 import { resolveWorkoutDateFromDateTime } from "@/src/utils/health/healthDate.utils";
 
@@ -117,7 +116,12 @@ export function hasMeaningfulImportedWorkoutMetrics(
         input.paceSecPerKm,
         input.cadenceRpm,
         input.effortRpe,
-    ].some((value) => typeof value === "number" && Number.isFinite(value));
+    ].some(
+        (value) =>
+            typeof value === "number" &&
+            Number.isFinite(value) &&
+            value > 0
+    );
 }
 
 /**
@@ -157,7 +161,7 @@ export function mapImportedWorkoutToSessionMeta(
 ): WorkoutSessionMeta {
     return {
         source: toWorkoutDataSource(input.source),
-        sourceDevice: asNullableString(input.sourceDevice) as WorkoutSourceDevice | null,
+        sourceDevice: asNullableString(input.sourceDevice),
         importedAt: asNullableString(input.importedAt) ?? toIsoNow(),
         lastSyncedAt: asNullableString(input.lastSyncedAt) ?? toIsoNow(),
         sessionKind: input.sessionKind ?? "device-import",

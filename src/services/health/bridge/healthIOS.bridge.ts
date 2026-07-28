@@ -10,7 +10,6 @@ import { extractImportedWorkoutRoute } from "@/src/services/health/bridge/health
 import {
     appendHealthDiagnosticEvent,
     createHealthDiagnosticId,
-    toHealthDiagnosticJson,
 } from "@/src/services/health/diagnostics/healthDiagnostics.service";
 import type { NativeHealthBridge } from "@/src/services/health/healthBridge.types";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
@@ -24,10 +23,21 @@ import {
     buildHealthKitSleepQueryRange,
     normalizeHealthKitSleepSamples,
 } from "@/src/utils/health/healthSleep.normalizer";
+import { toHealthWorkoutDiagnosticSample } from "@/src/utils/health/healthWorkoutDiagnostics.mapper";
 
 /**
  * Helpers
  */
+const MILES_TO_KILOMETERS = 1.609344;
+
+type HealthKitWorkoutQueryOptions = {
+    startDate: string;
+    endDate: string;
+    type: "Workout";
+};
+
+type HealthKitArrayQueryOptions = HealthInputOptions | HealthKitWorkoutQueryOptions;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -75,6 +85,17 @@ function buildRangeOptions(from: string, to: string): HealthInputOptions {
     return {
         startDate: from,
         endDate: to,
+    };
+}
+
+function buildWorkoutRangeOptions(
+    from: string,
+    to: string
+): HealthKitWorkoutQueryOptions {
+    return {
+        startDate: from,
+        endDate: to,
+        type: "Workout",
     };
 }
 
@@ -139,8 +160,14 @@ function getHKReadPermissions(keys: HealthPermissionKey[]): HealthPermission[] {
             read.push(permissionsMap.DistanceWalkingRunning);
         }
 
-        if (key === "active-energy" && permissionsMap.ActiveEnergyBurned) {
-            read.push(permissionsMap.ActiveEnergyBurned);
+        if (key === "active-energy") {
+            if (permissionsMap.ActiveEnergyBurned) {
+                read.push(permissionsMap.ActiveEnergyBurned);
+            }
+
+            if (permissionsMap.BasalEnergyBurned) {
+                read.push(permissionsMap.BasalEnergyBurned);
+            }
         }
     }
 
@@ -248,7 +275,7 @@ type MissingArrayMethodBehavior = "reject" | "empty";
 
 function hkGetArraySamples(
     methodName: string,
-    options: HealthInputOptions,
+    options: HealthKitArrayQueryOptions,
     missingBehavior: MissingArrayMethodBehavior
 ): Promise<unknown[]> {
     return new Promise((resolve, reject) => {
@@ -279,7 +306,7 @@ function hkGetSleepSamples(options: HealthInputOptions): Promise<unknown[]> {
     return hkGetArraySamples("getSleepSamples", options, "reject");
 }
 
-function hkGetWorkoutSamples(options: HealthInputOptions): Promise<unknown[]> {
+function hkGetWorkoutSamples(options: HealthKitWorkoutQueryOptions): Promise<unknown[]> {
     return hkGetArraySamples("getSamples", options, "empty");
 }
 
@@ -316,7 +343,11 @@ function hkGetActiveEnergyBurned(options: HealthInputOptions): Promise<unknown[]
     return hkGetArraySamples("getActiveEnergyBurned", options, "empty");
 }
 
-function minutesBetween(startAt: string | null, endAt: string | null): number | null {
+function hkGetBasalEnergyBurned(options: HealthInputOptions): Promise<unknown[]> {
+    return hkGetArraySamples("getBasalEnergyBurned", options, "empty");
+}
+
+function secondsBetween(startAt: string | null, endAt: string | null): number | null {
     if (!startAt || !endAt) return null;
 
     const startMs = new Date(startAt).getTime();
@@ -326,7 +357,11 @@ function minutesBetween(startAt: string | null, endAt: string | null): number | 
         return null;
     }
 
-    return Math.round((endMs - startMs) / 60000);
+    return Math.round((endMs - startMs) / 1000);
+}
+
+function milesToKilometers(value: number | null): number | null {
+    return value === null ? null : value * MILES_TO_KILOMETERS;
 }
 
 function extractWorkoutType(sample: Record<string, unknown>): string {
@@ -353,10 +388,7 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
 
     const durationSeconds =
         asNullableNumber(sample.duration) ??
-        (() => {
-            const mins = minutesBetween(startAt, endAt);
-            return mins === null ? null : mins * 60;
-        })();
+        secondsBetween(startAt, endAt);
 
     const providerWorkoutType = extractWorkoutType(sample);
     const route = extractImportedWorkoutRoute(sample);
@@ -374,20 +406,17 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
         metrics: {
             durationSeconds,
             activeKcal:
+                asNullableNumber(sample.calories) ??
                 asNullableNumber(sample.activeEnergyBurned) ??
                 asNullableNumber(sample.activeEnergy) ??
                 asNullableNumber(sample.kcal) ??
                 null,
-            totalKcal:
-                asNullableNumber(sample.totalEnergyBurned) ??
-                asNullableNumber(sample.energy) ??
-                null,
+            totalKcal: null,
             avgHr: null,
             maxHr: null,
             distanceKm:
-                asNullableNumber(sample.distance) ??
                 asNullableNumber(sample.distanceKm) ??
-                null,
+                milesToKilometers(asNullableNumber(sample.distance)),
             steps: null,
             elevationGainM: asNullableNumber(sample.elevationAscended),
             paceSecPerKm: null,
@@ -405,44 +434,6 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
         lastSyncedAt: toIsoNow(),
         sessionKind: "device-import",
         raw: sample,
-    };
-}
-
-function toWorkoutDiagnosticSample(
-    workout: HealthImportedWorkoutSessionMinimal
-): import("@/src/types/health/healthDiagnostics.types").HealthWorkoutDiagnosticSample {
-    return {
-        externalId: workout.externalId ?? null,
-        type: workout.type,
-        providerWorkoutType: workout.providerWorkoutType ?? null,
-        startAt: workout.startAt,
-        endAt: workout.endAt,
-        sourceDevice: workout.sourceDevice,
-        hasMeaningfulMetrics: [
-            workout.metrics.durationSeconds,
-            workout.metrics.activeKcal,
-            workout.metrics.totalKcal,
-            workout.metrics.avgHr,
-            workout.metrics.maxHr,
-            workout.metrics.distanceKm,
-            workout.metrics.steps,
-            workout.metrics.elevationGainM,
-            workout.metrics.paceSecPerKm,
-            workout.metrics.cadenceRpm,
-        ].some((value) => typeof value === "number" && Number.isFinite(value)),
-        metrics: {
-            durationSeconds: workout.metrics.durationSeconds,
-            activeKcal: workout.metrics.activeKcal,
-            totalKcal: workout.metrics.totalKcal,
-            avgHr: workout.metrics.avgHr,
-            maxHr: workout.metrics.maxHr,
-            distanceKm: workout.metrics.distanceKm,
-            steps: workout.metrics.steps,
-            elevationGainM: workout.metrics.elevationGainM,
-            paceSecPerKm: workout.metrics.paceSecPerKm,
-            cadenceRpm: workout.metrics.cadenceRpm,
-        },
-        raw: toHealthDiagnosticJson(workout.raw),
     };
 }
 
@@ -658,7 +649,7 @@ export const healthIOSBridge: NativeHealthBridge = {
 
         try {
             const samples = await hkGetWorkoutSamples(
-                buildRangeOptions(range.startDate, range.endDate)
+                buildWorkoutRangeOptions(range.startDate, range.endDate)
             );
             const mapped: HealthImportedWorkoutSessionMinimal[] = [];
 
@@ -669,9 +660,9 @@ export const healthIOSBridge: NativeHealthBridge = {
                 }
             }
 
-            const diagnosticSamples = mapped.slice(0, 30).map(toWorkoutDiagnosticSample);
-            const meaningful = diagnosticSamples.filter((sample) => sample.hasMeaningfulMetrics);
-            const selected = meaningful[0] ?? null;
+            const diagnosticSamples = mapped
+                .slice(0, 30)
+                .map(toHealthWorkoutDiagnosticSample);
 
             await appendHealthDiagnosticEvent({
                 id: createHealthDiagnosticId("workout-query-result"),
@@ -688,24 +679,6 @@ export const healthIOSBridge: NativeHealthBridge = {
                 samples: diagnosticSamples,
             });
 
-            await appendHealthDiagnosticEvent({
-                id: createHealthDiagnosticId("workout-selection"),
-                createdAt: toIsoNow(),
-                provider: "healthkit",
-                level: selected ? "info" : "warning",
-                kind: "workout-selection",
-                targetDate: input.date,
-                candidateCount: mapped.length,
-                meaningfulCandidateCount: meaningful.length,
-                selectedExternalId: selected?.externalId ?? null,
-                selectedType: selected?.type ?? null,
-                outcome:
-                    mapped.length === 0
-                        ? "no-samples"
-                        : selected
-                            ? "selected"
-                            : "no-meaningful-workout",
-            });
 
             return mapped;
         } catch (error: unknown) {
@@ -731,17 +704,31 @@ export const healthIOSBridge: NativeHealthBridge = {
     async readMetricsByRange(input): Promise<HealthImportedWorkoutMetrics | null> {
         const options = buildRangeOptions(input.from, input.to);
 
-        const [heartRateSamples, stepSamples, distanceResult, energyResults] = await Promise.all([
+        const [
+            heartRateSamples,
+            stepSamples,
+            distanceResult,
+            activeEnergyResults,
+            basalEnergyResults,
+        ] = await Promise.all([
             hkGetHeartRateSamples(options).catch((): unknown[] => []),
             hkGetDailyStepCountSamples(options).catch((): unknown[] => []),
             hkGetDistanceWalkingRunning(options).catch((): unknown | null => null),
             hkGetActiveEnergyBurned(options).catch((): unknown[] => []),
+            hkGetBasalEnergyBurned(options).catch((): unknown[] => []),
         ]);
+
+        const activeKcal = extractEnergyKcal(activeEnergyResults);
+        const basalKcal = extractEnergyKcal(basalEnergyResults);
+        const totalKcal =
+            activeKcal !== null && basalKcal !== null
+                ? activeKcal + basalKcal
+                : null;
 
         return {
             durationSeconds: null,
-            activeKcal: extractEnergyKcal(energyResults),
-            totalKcal: null,
+            activeKcal,
+            totalKcal,
             avgHr: avgNumericFromUnknownArray(heartRateSamples, ["value", "heartRate"]),
             maxHr: maxNumericFromUnknownArray(heartRateSamples, ["value", "heartRate"]),
             distanceKm: extractDistanceKm(distanceResult),

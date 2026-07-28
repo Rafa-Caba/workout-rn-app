@@ -1,4 +1,5 @@
-// /src/features/healthDiagnostics/screens/HealthDiagnosticsScreen.tsx
+// /src/features/healthDiagnostics/screens/WorkoutHealthDiagnosticsScreen.tsx
+// Local-only HealthKit workout diagnostics focused on Gym Check imports.
 
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
@@ -20,34 +21,14 @@ import {
     HEALTH_DIAGNOSTIC_MAX_EVENTS,
     serializeHealthDiagnostics,
 } from "@/src/services/health/diagnostics/healthDiagnostics.service";
-import { readHealthSleepByDate } from "@/src/services/health/health.service";
-import { SLEEP_HEALTH_READ_PERMISSIONS } from "@/src/services/health/healthPermissionKeys";
+import { readHealthGymCheckWorkoutByDate } from "@/src/services/health/health.service";
+import { WORKOUT_HEALTH_READ_PERMISSIONS } from "@/src/services/health/healthPermissionKeys";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { HealthDiagnosticEvent } from "@/src/types/health/healthDiagnostics.types";
-
-type HealthSleepNormalizationEvent = Extract<
+import type {
     HealthDiagnosticEvent,
-    { kind: "sleep-normalization" }
->;
-type SleepHealthDiagnosticEvent = Extract<
-    HealthDiagnosticEvent,
-    {
-        kind:
-        | "availability"
-        | "permissions"
-        | "sleep-query-started"
-        | "sleep-query-result"
-        | "sleep-normalization"
-        | "sleep-query-error"
-        | "sleep-persistence";
-    }
->;
-
-function isSleepHealthDiagnosticEvent(
-    event: HealthDiagnosticEvent
-): event is SleepHealthDiagnosticEvent {
-    return !event.kind.startsWith("workout-");
-}
+    HealthWorkoutDiagnosticSample,
+} from "@/src/types/health/healthDiagnostics.types";
+import { GYM_CHECK_PROVIDER_WORKOUT_LABEL } from "@/src/utils/health/healthGymCheckWorkout.selector";
 
 function todayISO(): string {
     const now = new Date();
@@ -57,201 +38,265 @@ function todayISO(): string {
     return `${year}-${month}-${day}`;
 }
 
-function isValidISODate(value: string): boolean {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+function initialDate(value: string | string[] | undefined): string {
+    const candidate = Array.isArray(value) ? value[0] : value;
+    return candidate && /^\d{4}-\d{2}-\d{2}$/.test(candidate)
+        ? candidate
+        : todayISO();
+}
 
-    const [yearText, monthText, dayText] = value.split("-");
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const candidate = new Date(year, month - 1, day, 12, 0, 0, 0);
+function isWorkoutEvent(event: HealthDiagnosticEvent): boolean {
+    return event.kind.startsWith("workout-");
+}
+
+function eventTitle(event: HealthDiagnosticEvent): string {
+    if (event.kind === "workout-query-started") return "Consulta iniciada";
+    if (event.kind === "workout-query-result") return "Entrenamientos recibidos";
+    if (event.kind === "workout-selection") return "Selección para Gym Check";
+    if (event.kind === "workout-query-error") return "Error de consulta";
+    if (event.kind === "workout-persistence") return "Persistencia";
+    return event.kind;
+}
+
+function eventSummary(event: HealthDiagnosticEvent): string {
+    if (event.kind === "workout-query-started") {
+        return `${event.range.startDate} → ${event.range.endDate}`;
+    }
+
+    if (event.kind === "workout-query-result") {
+        return `${event.receivedSampleCount} recibidos · ${event.mappedSampleCount} mapeados · ${event.rejectedSampleCount} rechazados`;
+    }
+
+    if (event.kind === "workout-selection") {
+        const matchingCount =
+            event.matchingCandidateCount ?? event.meaningfulCandidateCount;
+        return `${event.outcome} · ${matchingCount}/${event.candidateCount} del tipo requerido · ${event.selectedType ?? "sin selección"}`;
+    }
+
+    if (event.kind === "workout-query-error") return event.errorMessage;
+
+    if (event.kind === "workout-persistence") {
+        return event.saved
+            ? `Guardado: ${event.mode}`
+            : event.errorMessage ?? "No se guardó";
+    }
+
+    return "";
+}
+
+function formatDuration(seconds: number | null): string {
+    if (seconds === null || !Number.isFinite(seconds)) {
+        return "—";
+    }
+
+    const rounded = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(rounded / 3600);
+    const minutes = Math.floor((rounded % 3600) / 60);
+    const remainingSeconds = rounded % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${remainingSeconds}s`;
+    }
+
+    return `${minutes}m ${remainingSeconds}s`;
+}
+
+function formatMetric(value: number | null, suffix = ""): string {
+    if (value === null || !Number.isFinite(value)) {
+        return "—";
+    }
+
+    const rounded = Number(value.toFixed(2));
+    return `${rounded}${suffix}`;
+}
+
+function SelectedWorkoutCard(props: {
+    sample: HealthWorkoutDiagnosticSample | null;
+    colors: ReturnType<typeof useTheme>["colors"];
+}) {
+    const { sample, colors } = props;
 
     return (
-        candidate.getFullYear() === year &&
-        candidate.getMonth() === month - 1 &&
-        candidate.getDate() === day
+        <View
+            style={{
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                borderRadius: 16,
+                padding: 12,
+                gap: 7,
+            }}
+        >
+            <Text style={{ color: colors.text, fontWeight: "900" }}>
+                Workout elegido
+            </Text>
+
+            {!sample ? (
+                <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                    No hay una sesión elegible para Gym Check.
+                </Text>
+            ) : (
+                <>
+                    <Text style={{ color: colors.text, fontWeight: "900" }}>
+                        {sample.providerWorkoutType ?? sample.type}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                        {sample.startAt ?? "—"} → {sample.endAt ?? "—"}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        Duración: {formatDuration(sample.metrics.durationSeconds)}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        Kcal activas: {formatMetric(sample.metrics.activeKcal)}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        Kcal totales: {formatMetric(sample.metrics.totalKcal)}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        HR promedio: {formatMetric(sample.metrics.avgHr)}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        HR máximo: {formatMetric(sample.metrics.maxHr)}
+                    </Text>
+                    <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                        Dispositivo: {sample.sourceDevice ?? "—"}
+                    </Text>
+                </>
+            )}
+        </View>
     );
 }
 
-function initialDateFromParam(value: string | string[] | undefined): string {
-    const candidate = Array.isArray(value) ? value[0] : value;
-    return candidate && isValidISODate(candidate) ? candidate : todayISO();
-}
-
-function formatDateTime(value: string): string {
-    const parsed = new Date(value);
-    return Number.isFinite(parsed.getTime()) ? parsed.toLocaleString() : value;
-}
-
-function formatEventTitle(event: SleepHealthDiagnosticEvent): string {
-    if (event.kind === "availability") return "Disponibilidad";
-    if (event.kind === "permissions") return "Permisos";
-    if (event.kind === "sleep-query-started") return "Consulta iniciada";
-    if (event.kind === "sleep-query-result") return "Muestras recibidas";
-    if (event.kind === "sleep-normalization") return "Normalización";
-    if (event.kind === "sleep-query-error") return "Error de consulta";
-    return "Persistencia";
-}
-
-function formatEventSummary(event: SleepHealthDiagnosticEvent): string {
-    if (event.kind === "availability") {
-        return event.available ? "HealthKit disponible" : "HealthKit no disponible";
-    }
-
-    if (event.kind === "permissions") {
-        return event.nativeRequestCompleted
-            ? "Solicitud nativa completada; Apple no confirma lecturas individuales"
-            : event.errorMessage ?? "Solicitud nativa incompleta";
-    }
-
-    if (event.kind === "sleep-query-started") {
-        return `${event.range.targetDate}: ${formatDateTime(event.range.startDate)} → ${formatDateTime(event.range.endDate)}`;
-    }
-
-    if (event.kind === "sleep-query-result") {
-        const suffix = event.samplesTruncated ? " (vista previa limitada)" : "";
-        return `${event.receivedSampleCount} muestras recibidas${suffix}`;
-    }
-
-    if (event.kind === "sleep-normalization") {
-        return `${event.outcome} · ${event.totals.timeAsleepMinutes ?? 0} min dormido · ${event.selectedSourceKey ?? "sin fuente"}`;
-    }
-
-    if (event.kind === "sleep-query-error") {
-        return event.errorMessage;
-    }
-
-    return event.saved
-        ? "Sueño normalizado guardado sin raw"
-        : event.errorMessage ?? "No se guardó sueño";
-}
-
-function latestNormalization(
-    events: SleepHealthDiagnosticEvent[]
-): HealthSleepNormalizationEvent | null {
-    for (let index = events.length - 1; index >= 0; index -= 1) {
-        const event = events[index];
-        if (event.kind === "sleep-normalization") return event;
-    }
-
-    return null;
-}
-
-export default function HealthDiagnosticsScreen() {
+export default function WorkoutHealthDiagnosticsScreen() {
     const { colors } = useTheme();
     const params = useLocalSearchParams<{ date?: string | string[] }>();
     const { events, isLoading, refresh, clear } = useHealthDiagnostics();
     const {
         availability,
-        provider,
         requestPermissions,
         isCheckingAvailability,
         isRequestingPermissions,
     } = useHealthPermissions();
 
-    const [date, setDate] = React.useState(() => initialDateFromParam(params.date));
-    const [isRunning, setIsRunning] = React.useState(false);
-    const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set());
+    const [date, setDate] = React.useState(() => initialDate(params.date));
+    const [running, setRunning] = React.useState(false);
+    const [expandedIds, setExpandedIds] = React.useState<Set<string>>(
+        () => new Set()
+    );
 
-    const sleepEvents = React.useMemo(
-        () => events.filter(isSleepHealthDiagnosticEvent),
+    const workoutEvents = React.useMemo(
+        () => events.filter(isWorkoutEvent).reverse(),
         [events]
     );
-    const latest = React.useMemo(() => latestNormalization(sleepEvents), [sleepEvents]);
-    const newestEvents = React.useMemo(() => [...sleepEvents].reverse(), [sleepEvents]);
-    const busy = isRunning || isCheckingAvailability || isRequestingPermissions;
 
-    const toggleExpanded = React.useCallback((id: string) => {
+    const latestResult = React.useMemo(() => {
+        for (const event of workoutEvents) {
+            if (
+                event.kind === "workout-query-result" &&
+                event.range.targetDate === date
+            ) {
+                return event;
+            }
+        }
+        return null;
+    }, [date, workoutEvents]);
+
+    const latestSelection = React.useMemo(() => {
+        for (const event of workoutEvents) {
+            if (
+                event.kind === "workout-selection" &&
+                event.targetDate === date
+            ) {
+                return event;
+            }
+        }
+        return null;
+    }, [date, workoutEvents]);
+
+    const selectedSample = latestSelection?.selectedSample ?? null;
+    const busy = running || isCheckingAvailability || isRequestingPermissions;
+
+    async function runDiagnostic(): Promise<void> {
+        if (!availability) {
+            Alert.alert(
+                "Salud no disponible",
+                "HealthKit no está disponible en este dispositivo o build."
+            );
+            return;
+        }
+
+        setRunning(true);
+        try {
+            const status = await requestPermissions(
+                WORKOUT_HEALTH_READ_PERMISSIONS
+            );
+            if (!status.available) {
+                Alert.alert(
+                    "Salud no disponible",
+                    "No se pudo inicializar HealthKit."
+                );
+                return;
+            }
+
+            const result = await readHealthGymCheckWorkoutByDate({ date });
+            await refresh();
+
+            Alert.alert(
+                "Diagnóstico completado",
+                result.selected
+                    ? `Se eligió una sesión ${GYM_CHECK_PROVIDER_WORKOUT_LABEL}. No se guardó nada en la base de datos.`
+                    : `Se recibieron ${result.workouts.length} entrenamientos, pero no se encontró una sesión ${GYM_CHECK_PROVIDER_WORKOUT_LABEL} importable.`
+            );
+        } catch (error: unknown) {
+            Alert.alert(
+                "Error",
+                error instanceof Error ? error.message : String(error)
+            );
+        } finally {
+            setRunning(false);
+        }
+    }
+
+    async function shareDiagnostics(): Promise<void> {
+        await Share.share({
+            message: serializeHealthDiagnostics(events),
+            title: `Diagnóstico HealthKit workouts ${date}`,
+        });
+    }
+
+    function toggleExpanded(id: string): void {
         setExpandedIds((current) => {
             const next = new Set(current);
             if (next.has(id)) next.delete(id);
             else next.add(id);
             return next;
         });
-    }, []);
-
-    const runDiagnostic = React.useCallback(async () => {
-        if (!availability) {
-            Alert.alert(
-                "Salud no disponible",
-                "HealthKit / Health Connect no está disponible en este dispositivo o build."
-            );
-            return;
-        }
-
-        setIsRunning(true);
-        try {
-            const status = await requestPermissions(SLEEP_HEALTH_READ_PERMISSIONS);
-            if (!status.available) {
-                Alert.alert("Salud no disponible", "No fue posible inicializar el proveedor de Salud.");
-                return;
-            }
-
-            const sleep = await readHealthSleepByDate({ date });
-            await refresh();
-
-            if (!sleep) {
-                Alert.alert(
-                    "Diagnóstico completado",
-                    "La consulta terminó sin sueño normalizado. Revisa el evento de Normalización para ver muestras, fuentes y motivo."
-                );
-                return;
-            }
-
-            Alert.alert(
-                "Diagnóstico completado",
-                `${sleep.timeAsleepMinutes ?? 0} min dormido · ${sleep.sourceDevice ?? "fuente sin nombre"}. No se guardó en la base de datos.`
-            );
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            await refresh();
-            Alert.alert("Error de diagnóstico", message);
-        } finally {
-            setIsRunning(false);
-        }
-    }, [availability, date, refresh, requestPermissions]);
-
-    const shareDiagnostics = React.useCallback(async () => {
-        if (events.length === 0) {
-            Alert.alert("Sin eventos", "Todavía no hay diagnóstico para compartir.");
-            return;
-        }
-
-        await Share.share({
-            title: "Diagnóstico de Salud",
-            message: serializeHealthDiagnostics(events),
-        });
-    }, [events]);
-
-    const confirmClear = React.useCallback(() => {
-        Alert.alert(
-            "Limpiar diagnóstico",
-            "Se eliminarán únicamente los eventos locales de diagnóstico. No se modificará Salud ni la base de datos.",
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Limpiar",
-                    style: "destructive",
-                    onPress: () => {
-                        void clear();
-                    },
-                },
-            ]
-        );
-    }, [clear]);
+    }
 
     return (
         <ScrollView
             style={{ flex: 1, backgroundColor: colors.background }}
-            contentContainerStyle={{ padding: 16, paddingBottom: 36, gap: 12 }}
-            refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refresh} />}
+            contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
+            refreshControl={
+                <RefreshControl
+                    refreshing={isLoading}
+                    onRefresh={() => void refresh()}
+                />
+            }
         >
             <View style={{ gap: 4 }}>
-                <Text style={{ color: colors.text, fontSize: 22, fontWeight: "900" }}>
-                    Diagnóstico de Salud
+                <Text
+                    style={{
+                        color: colors.text,
+                        fontSize: 22,
+                        fontWeight: "900",
+                    }}
+                >
+                    Diagnóstico de Gym Check
                 </Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "600" }}>
-                    Consulta Salud sin guardar datos y explica cada paso del importador.
+                    Consulta HealthKit sin guardar y verifica la sesión exacta que
+                    completaría las métricas de Gym Check.
                 </Text>
             </View>
 
@@ -266,58 +311,69 @@ export default function HealthDiagnosticsScreen() {
                 }}
             >
                 <DatePickerField value={date} onChange={setDate} disabled={busy} />
-
-                <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700" }}>
-                    En iOS se consulta desde las 12:00 del día anterior hasta las 18:00 del día seleccionado y se asignan las muestras por su fecha local de finalización.
+                <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                    Filtro requerido: {GYM_CHECK_PROVIDER_WORKOUT_LABEL}. Los demás
+                    tipos permanecen visibles para diagnóstico, pero no se usan en
+                    Gym Check.
                 </Text>
-
                 <Pressable
                     onPress={() => void runDiagnostic()}
                     disabled={busy}
-                    style={({ pressed }) => ({
+                    style={{
                         backgroundColor: colors.primary,
                         borderRadius: 12,
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
-                        opacity: busy ? 0.6 : pressed ? 0.9 : 1,
-                    })}
+                        padding: 12,
+                        opacity: busy ? 0.6 : 1,
+                    }}
                 >
-                    <Text style={{ color: colors.primaryText, fontWeight: "900", textAlign: "center" }}>
+                    <Text
+                        style={{
+                            color: colors.primaryText,
+                            textAlign: "center",
+                            fontWeight: "900",
+                        }}
+                    >
                         {busy ? "Consultando..." : "Probar consulta sin guardar"}
                     </Text>
                 </Pressable>
-
                 <View style={{ flexDirection: "row", gap: 10 }}>
                     <Pressable
                         onPress={() => void shareDiagnostics()}
-                        style={({ pressed }) => ({
+                        style={{
                             flex: 1,
                             borderWidth: 1,
                             borderColor: colors.border,
-                            backgroundColor: colors.background,
                             borderRadius: 12,
                             padding: 11,
-                            opacity: pressed ? 0.9 : 1,
-                        })}
+                        }}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
+                        <Text
+                            style={{
+                                color: colors.text,
+                                textAlign: "center",
+                                fontWeight: "800",
+                            }}
+                        >
                             Compartir
                         </Text>
                     </Pressable>
-
                     <Pressable
-                        onPress={confirmClear}
-                        style={({ pressed }) => ({
+                        onPress={() => void clear()}
+                        style={{
                             flex: 1,
                             borderWidth: 1,
                             borderColor: colors.border,
-                            backgroundColor: colors.background,
                             borderRadius: 12,
                             padding: 11,
-                            opacity: pressed ? 0.9 : 1,
-                        })}
+                        }}
                     >
-                        <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
+                        <Text
+                            style={{
+                                color: colors.text,
+                                textAlign: "center",
+                                fontWeight: "800",
+                            }}
+                        >
                             Limpiar
                         </Text>
                     </Pressable>
@@ -334,235 +390,124 @@ export default function HealthDiagnosticsScreen() {
                     gap: 8,
                 }}
             >
-                <Text style={{ color: colors.text, fontWeight: "900" }}>Estado operativo</Text>
-                <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                    Provider: {provider === "healthkit" ? "HealthKit" : provider === "health-connect" ? "Health Connect" : "Sin resolver"}
+                <Text style={{ color: colors.text, fontWeight: "900" }}>
+                    Resumen de la fecha
                 </Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                    Disponible: {availability ? "Sí" : "No"}
+                    Entrenamientos reales recibidos: {latestResult?.receivedSampleCount ?? 0}
                 </Text>
                 <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                    Eventos locales: {events.length}/{HEALTH_DIAGNOSTIC_MAX_EVENTS}
+                    Mapeados: {latestResult?.mappedSampleCount ?? 0}
+                </Text>
+                <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                    Coincidencias del tipo requerido:{" "}
+                    {latestSelection?.matchingCandidateCount ?? 0}
+                </Text>
+                <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                    Coincidencias con métricas útiles:{" "}
+                    {latestSelection?.meaningfulCandidateCount ?? 0}
+                </Text>
+                <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
+                    Resultado: {latestSelection?.outcome ?? "—"}
                 </Text>
                 <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                    Apple permite saber que la solicitud de permisos terminó, pero no confirma si cada permiso individual de lectura fue concedido.
+                    Eventos locales: {events.length}/{HEALTH_DIAGNOSTIC_MAX_EVENTS}
                 </Text>
             </View>
 
-            {latest ? (
-                <View
-                    style={{
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                        borderRadius: 16,
-                        padding: 12,
-                        gap: 10,
-                    }}
-                >
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>
-                        Última normalización · {latest.targetDate}
-                    </Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        <Metric label="Resultado" value={latest.outcome} />
-                        <Metric label="Recibidas" value={String(latest.receivedSampleCount)} />
-                        <Metric label="Válidas" value={String(latest.validSampleCount)} />
-                        <Metric label="Duplicadas" value={String(latest.duplicateSampleCount)} />
-                        <Metric label="Día objetivo" value={String(latest.targetDateSampleCount)} />
-                        <Metric label="Noche elegida" value={String(latest.targetNightSampleCount)} />
-                        <Metric label="Descartadas" value={String(latest.discardedTargetDateSampleCount)} />
-                        <Metric label="Dormido" value={`${latest.totals.timeAsleepMinutes ?? 0} min`} />
-                        <Metric label="REM" value={`${latest.totals.remMinutes ?? 0} min`} />
-                        <Metric label="Core" value={`${latest.totals.coreMinutes ?? 0} min`} />
-                        <Metric label="Deep" value={`${latest.totals.deepMinutes ?? 0} min`} />
-                        <Metric label="Awake" value={`${latest.totals.awakeMinutes ?? 0} min`} />
-                    </View>
-                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        Fuente seleccionada: {latest.selectedSourceKey ?? "—"}
-                    </Text>
-                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        Fechas de finalización encontradas: {latest.availableNightKeys.join(", ") || "—"}
-                    </Text>
-                    <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        Bloques de sueño detectados: {latest.nightSummaries.length}
-                    </Text>
-                    {latest.unknownValues.length > 0 ? (
-                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                            Valores no reconocidos: {latest.unknownValues.join(", ")}
-                        </Text>
-                    ) : null}
-
-                    {latest.nightSummaries.length > 0 ? (
-                        <View style={{ gap: 6 }}>
-                            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 12 }}>
-                                Bloques detectados
-                            </Text>
-                            {latest.nightSummaries.map((night) => (
-                                <View
-                                    key={`${night.startDate}-${night.endDate}`}
-                                    style={{
-                                        borderWidth: 1,
-                                        borderColor: colors.border,
-                                        backgroundColor: colors.background,
-                                        borderRadius: 10,
-                                        padding: 8,
-                                        gap: 2,
-                                    }}
-                                >
-                                    <Text style={{ color: colors.text, fontWeight: "800", fontSize: 12 }}>
-                                        {night.selected ? "Seleccionado · " : "Descartado · "}
-                                        {night.meaningfulSleepMinutes} min
-                                    </Text>
-                                    <Text style={{ color: colors.mutedText, fontSize: 11 }}>
-                                        {formatDateTime(night.startDate)} → {formatDateTime(night.endDate)}
-                                    </Text>
-                                    <Text style={{ color: colors.mutedText, fontSize: 11 }}>
-                                        Muestras relacionadas: {night.sampleCount}
-                                    </Text>
-                                </View>
-                            ))}
-                        </View>
-                    ) : null}
-
-                    {latest.sourceSummaries.length > 0 ? (
-                        <View style={{ gap: 6 }}>
-                            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 12 }}>
-                                Fuentes de la noche elegida
-                            </Text>
-                            {latest.sourceSummaries.map((source) => (
-                                <View
-                                    key={source.sourceKey}
-                                    style={{
-                                        borderWidth: 1,
-                                        borderColor: colors.border,
-                                        backgroundColor: colors.background,
-                                        borderRadius: 10,
-                                        padding: 8,
-                                        gap: 2,
-                                    }}
-                                >
-                                    <Text style={{ color: colors.text, fontWeight: "800", fontSize: 12 }}>
-                                        {source.sourceName ?? source.sourceId ?? "Fuente sin nombre"}
-                                    </Text>
-                                    <Text style={{ color: colors.mutedText, fontSize: 11 }}>
-                                        {source.selected ? "Sueño principal" : "Fuente secundaria"}
-                                        {source.selectedForInBed ? " · Tiempo en cama" : ""}
-                                    </Text>
-                                    <Text style={{ color: colors.mutedText, fontSize: 11 }}>
-                                        Detallado {source.detailedStageMinutes} min · Genérico {source.genericAsleepMinutes} min · En cama {source.inBedMinutes} min · Despierto {source.awakeMinutes} min
-                                    </Text>
-                                </View>
-                            ))}
-                        </View>
-                    ) : null}
-                </View>
-            ) : null}
+            <SelectedWorkoutCard sample={selectedSample} colors={colors} />
 
             <View style={{ gap: 8 }}>
-                <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>
-                    Eventos
+                <Text style={{ color: colors.text, fontWeight: "900" }}>
+                    Entrenamientos devueltos por HealthKit
                 </Text>
-
-                {isLoading && events.length === 0 ? (
-                    <View style={{ alignItems: "center", paddingVertical: 18, gap: 8 }}>
-                        <ActivityIndicator />
-                        <Text style={{ color: colors.mutedText }}>Cargando diagnóstico...</Text>
-                    </View>
-                ) : null}
-
-                {!isLoading && events.length === 0 ? (
+                {latestResult?.samples.map((sample, index) => (
                     <View
+                        key={`${sample.externalId ?? sample.startAt ?? "sample"}-${index}`}
                         style={{
                             borderWidth: 1,
-                            borderColor: colors.border,
+                            borderColor: sample.eligibleForGymCheck
+                                ? colors.primary
+                                : colors.border,
                             backgroundColor: colors.surface,
-                            borderRadius: 16,
-                            padding: 14,
+                            borderRadius: 14,
+                            padding: 12,
+                            gap: 5,
                         }}
                     >
-                        <Text style={{ color: colors.mutedText, textAlign: "center" }}>
-                            Aún no hay eventos. Ejecuta una consulta o importa sueño desde la pantalla anterior.
+                        <Text style={{ color: colors.text, fontWeight: "900" }}>
+                            {sample.providerWorkoutType ?? sample.type}
+                        </Text>
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            {sample.startAt ?? "—"} → {sample.endAt ?? "—"}
+                        </Text>
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            Elegible para Gym Check:{" "}
+                            {sample.eligibleForGymCheck ? "Sí" : "No"}
+                        </Text>
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            Dispositivo: {sample.sourceDevice ?? "—"}
+                        </Text>
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            Duración {formatDuration(sample.metrics.durationSeconds)} ·
+                            Activas {formatMetric(sample.metrics.activeKcal, " kcal")} ·
+                            Totales {formatMetric(sample.metrics.totalKcal, " kcal")}
+                        </Text>
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            HR {formatMetric(sample.metrics.avgHr)}/
+                            {formatMetric(sample.metrics.maxHr)} · Distancia{" "}
+                            {formatMetric(sample.metrics.distanceKm, " km")} · Pasos{" "}
+                            {formatMetric(sample.metrics.steps)}
                         </Text>
                     </View>
-                ) : null}
+                ))}
+            </View>
 
-                {newestEvents.map((event) => {
+            <View style={{ gap: 8 }}>
+                <Text style={{ color: colors.text, fontWeight: "900" }}>
+                    Eventos
+                </Text>
+                {isLoading ? <ActivityIndicator /> : null}
+                {workoutEvents.map((event) => {
                     const expanded = expandedIds.has(event.id);
-                    const levelSymbol = event.level === "error" ? "🔴" : event.level === "warning" ? "🟡" : "🟢";
-
                     return (
                         <Pressable
                             key={event.id}
                             onPress={() => toggleExpanded(event.id)}
-                            style={({ pressed }) => ({
+                            style={{
                                 borderWidth: 1,
                                 borderColor: colors.border,
                                 backgroundColor: colors.surface,
                                 borderRadius: 14,
                                 padding: 12,
-                                gap: 6,
-                                opacity: pressed ? 0.92 : 1,
-                            })}
+                                gap: 5,
+                            }}
                         >
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                                <Text>{levelSymbol}</Text>
-                                <Text style={{ color: colors.text, fontWeight: "900", flex: 1 }}>
-                                    {formatEventTitle(event)}
-                                </Text>
-                                <Text style={{ color: colors.mutedText, fontWeight: "800" }}>
-                                    {expanded ? "−" : "+"}
-                                </Text>
-                            </View>
-                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                                {formatDateTime(event.createdAt)}
+                            <Text style={{ color: colors.text, fontWeight: "900" }}>
+                                {eventTitle(event)}
                             </Text>
-                            <Text style={{ color: colors.text, fontSize: 13 }}>
-                                {formatEventSummary(event)}
+                            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                                {event.createdAt}
+                            </Text>
+                            <Text style={{ color: colors.mutedText }}>
+                                {eventSummary(event)}
                             </Text>
                             {expanded ? (
-                                <ScrollView horizontal>
-                                    <Text
-                                        selectable
-                                        style={{
-                                            color: colors.mutedText,
-                                            fontFamily: "monospace",
-                                            fontSize: 11,
-                                            lineHeight: 16,
-                                            paddingTop: 6,
-                                        }}
-                                    >
-                                        {JSON.stringify(event, null, 2)}
-                                    </Text>
-                                </ScrollView>
+                                <Text
+                                    selectable
+                                    style={{
+                                        color: colors.mutedText,
+                                        fontFamily: "Courier",
+                                        fontSize: 10,
+                                    }}
+                                >
+                                    {JSON.stringify(event, null, 2)}
+                                </Text>
                             ) : null}
                         </Pressable>
                     );
                 })}
             </View>
         </ScrollView>
-    );
-}
-
-function Metric(props: { label: string; value: string }) {
-    const { colors } = useTheme();
-
-    return (
-        <View
-            style={{
-                minWidth: "30%",
-                flexGrow: 1,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-                borderRadius: 12,
-                padding: 9,
-                gap: 2,
-            }}
-        >
-            <Text style={{ color: colors.mutedText, fontSize: 11, fontWeight: "700" }}>
-                {props.label}
-            </Text>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>{props.value}</Text>
-        </View>
     );
 }

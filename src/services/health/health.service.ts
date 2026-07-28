@@ -1,7 +1,12 @@
-// src/services/health/health.service.ts
+// /src/services/health/health.service.ts
+// Cross-platform Health facade plus Gym Check-specific workout selection.
 
 import { Platform } from "react-native";
 
+import {
+    appendHealthDiagnosticEvent,
+    createHealthDiagnosticId,
+} from "@/src/services/health/diagnostics/healthDiagnostics.service";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import type {
     HealthImportedSleep,
@@ -11,6 +16,13 @@ import type {
     HealthProvider,
 } from "@/src/types/health/cardio/health.types";
 import type { ISODate, ISODateTime } from "@/src/types/workoutDay.types";
+import {
+    GYM_CHECK_PROVIDER_WORKOUT_TYPE,
+    getGymCheckHealthWorkoutCandidates,
+    selectGymCheckHealthWorkout,
+} from "@/src/utils/health/healthGymCheckWorkout.selector";
+import { hasMeaningfulImportedWorkoutMetrics } from "@/src/utils/health/healthWorkout.mapper";
+import { toHealthWorkoutDiagnosticSample } from "@/src/utils/health/healthWorkoutDiagnostics.mapper";
 
 import {
     isHealthAndroidAvailable,
@@ -28,7 +40,7 @@ import {
 } from "@/src/services/health/healthIOS.service";
 
 /**
- * Facade input types
+ * Facade input types.
  */
 export type HealthPermissionsRequest = {
     permissions: HealthPermissionKey[];
@@ -45,6 +57,14 @@ export type HealthReadWorkoutsInput = {
 export type HealthReadMetricsRangeInput = {
     from: ISODateTime;
     to: ISODateTime;
+};
+
+export type HealthGymCheckWorkoutReadResult = {
+    provider: HealthProvider | null;
+    targetWorkoutType: typeof GYM_CHECK_PROVIDER_WORKOUT_TYPE;
+    workouts: HealthImportedWorkoutSessionMinimal[];
+    matchingWorkouts: HealthImportedWorkoutSessionMinimal[];
+    selected: HealthImportedWorkoutSessionMinimal | null;
 };
 
 function isIOS(): boolean {
@@ -72,6 +92,109 @@ function buildUnavailablePermissionsStatus(): HealthPermissionsStatus {
 
 function throwUnsupportedPlatform(): never {
     throw new Error("Health service is only supported on iOS and Android.");
+}
+
+function mergeGymCheckMetrics(
+    workout: HealthImportedWorkoutSessionMinimal,
+    rangeMetrics: HealthImportedWorkoutMetrics | null
+): HealthImportedWorkoutSessionMinimal {
+    return {
+        ...workout,
+        metrics: {
+            durationSeconds:
+                workout.metrics.durationSeconds ??
+                rangeMetrics?.durationSeconds ??
+                null,
+            activeKcal:
+                workout.metrics.activeKcal ?? rangeMetrics?.activeKcal ?? null,
+            totalKcal:
+                rangeMetrics?.totalKcal ?? workout.metrics.totalKcal ?? null,
+            avgHr: rangeMetrics?.avgHr ?? workout.metrics.avgHr ?? null,
+            maxHr: rangeMetrics?.maxHr ?? workout.metrics.maxHr ?? null,
+
+            /**
+             * Gym Check intentionally imports only strength-session metrics.
+             * Distance, steps, elevation, pace, and cadence remain reserved for
+             * the Cardio workflow so daily aggregate samples cannot leak into a
+             * gym session.
+             */
+            distanceKm: null,
+            steps: null,
+            elevationGainM: null,
+            paceSecPerKm: null,
+            cadenceRpm: null,
+
+            /**
+             * Workout effort remains manual until the provider exposes a stable,
+             * documented effort field through the current workout query.
+             */
+            effortRpe: null,
+        },
+    };
+}
+
+async function enrichGymCheckWorkout(
+    workout: HealthImportedWorkoutSessionMinimal
+): Promise<HealthImportedWorkoutSessionMinimal> {
+    if (!workout.startAt || !workout.endAt) {
+        return mergeGymCheckMetrics(workout, null);
+    }
+
+    try {
+        const rangeMetrics = await readHealthMetricsByRange({
+            from: workout.startAt,
+            to: workout.endAt,
+        });
+
+        return mergeGymCheckMetrics(workout, rangeMetrics);
+    } catch {
+        return mergeGymCheckMetrics(workout, null);
+    }
+}
+
+async function logGymCheckWorkoutSelection(args: {
+    date: ISODate;
+    provider: HealthProvider | null;
+    workouts: HealthImportedWorkoutSessionMinimal[];
+    matchingWorkouts: HealthImportedWorkoutSessionMinimal[];
+    selected: HealthImportedWorkoutSessionMinimal | null;
+}): Promise<void> {
+    if (!args.provider) {
+        return;
+    }
+
+    const meaningfulMatchingCount = args.matchingWorkouts.filter((workout) =>
+        hasMeaningfulImportedWorkoutMetrics(workout.metrics)
+    ).length;
+
+    const outcome =
+        args.workouts.length === 0
+            ? "no-samples"
+            : args.matchingWorkouts.length === 0
+                ? "no-matching-workout"
+                : args.selected
+                    ? "selected"
+                    : "no-meaningful-workout";
+
+    await appendHealthDiagnosticEvent({
+        id: createHealthDiagnosticId("workout-selection"),
+        createdAt: new Date().toISOString(),
+        provider: args.provider,
+        level: args.selected ? "info" : "warning",
+        kind: "workout-selection",
+        targetDate: args.date,
+        candidateCount: args.workouts.length,
+        matchingCandidateCount: args.matchingWorkouts.length,
+        meaningfulCandidateCount: meaningfulMatchingCount,
+        requiredProviderWorkoutType: GYM_CHECK_PROVIDER_WORKOUT_TYPE,
+        selectedExternalId: args.selected?.externalId ?? null,
+        selectedType:
+            args.selected?.providerWorkoutType ?? args.selected?.type ?? null,
+        selectedSample: args.selected
+            ? toHealthWorkoutDiagnosticSample(args.selected)
+            : null,
+        outcome,
+    });
 }
 
 export async function isHealthAvailable(): Promise<boolean> {
@@ -149,6 +272,39 @@ export async function readHealthMetricsByRange(
     }
 
     return null;
+}
+
+/**
+ * Reads all provider workouts for diagnostics, then selects and enriches only
+ * Traditional Strength Training for Gym Check. Cardio remains free to consume
+ * the generic workout reader without this filter.
+ */
+export async function readHealthGymCheckWorkoutByDate(
+    input: HealthReadWorkoutsInput
+): Promise<HealthGymCheckWorkoutReadResult> {
+    const provider = getCurrentProvider();
+    const workouts = await readHealthWorkoutsByDate(input);
+    const matchingWorkouts = getGymCheckHealthWorkoutCandidates(workouts);
+    const baseSelected = selectGymCheckHealthWorkout(matchingWorkouts);
+    const selected = baseSelected
+        ? await enrichGymCheckWorkout(baseSelected)
+        : null;
+
+    await logGymCheckWorkoutSelection({
+        date: input.date,
+        provider,
+        workouts,
+        matchingWorkouts,
+        selected,
+    });
+
+    return {
+        provider,
+        targetWorkoutType: GYM_CHECK_PROVIDER_WORKOUT_TYPE,
+        workouts,
+        matchingWorkouts,
+        selected,
+    };
 }
 
 /**

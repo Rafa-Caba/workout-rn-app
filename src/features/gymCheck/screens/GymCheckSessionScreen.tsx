@@ -19,15 +19,13 @@ import type {
     HealthPermissionsStatus,
 } from "@/src/types/health/cardio/health.types";
 import type { RNFile } from "@/src/types/upload.types";
+import type { WorkoutDay } from "@/src/types/workoutDay.types";
 import type { WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 
-import { readHealthWorkoutsByDate } from "@/src/services/health/health.service";
+import { readHealthGymCheckWorkoutByDate } from "@/src/services/health/health.service";
 import { uploadRoutineAttachments } from "@/src/services/workout/routineAttachments.service";
 import { getWorkoutDay } from "@/src/services/workout/sessions.service";
-import {
-    hasMeaningfulImportedWorkoutMetrics,
-    mapImportedWorkoutToGymCheckMetricsPatch,
-} from "@/src/utils/health/healthWorkout.mapper";
+import { mapImportedWorkoutToGymCheckMetricsPatch } from "@/src/utils/health/healthWorkout.mapper";
 import {
     extractAttachments,
     toAttachmentOptions,
@@ -42,7 +40,6 @@ import {
     dayKeyToDateIso,
 } from "@/src/utils/gymCheck/sessionPayload";
 
-import { ApiAxiosError } from "@/src/services/http.client";
 import type { ExercisePlanInfo } from "../components/GymCheckExerciseRow";
 import { GymCheckDayScreen } from "./GymCheckDayScreen";
 
@@ -90,18 +87,15 @@ function dayLabelEs(k: DayKey): string {
 }
 
 function plannedTabsFromWeek(data: WorkoutRoutineWeek | null | undefined): DayKey[] {
-    const planned = (data as { plannedDays?: unknown } | null)?.plannedDays;
-    if (Array.isArray(planned) && planned.length) return planned as DayKey[];
-    return [...DAY_KEYS];
+    const planned = data?.plannedDays ?? null;
+    return planned && planned.length > 0 ? [...planned] : [...DAY_KEYS];
 }
 
-function getPlannedDayFromDays(routine: WorkoutRoutineWeek | null | undefined, dayKey: DayKey) {
-    const safeRoutine = routine as
-        | (WorkoutRoutineWeek & { days?: Array<Record<string, unknown>> })
-        | null;
-    const days = safeRoutine?.days;
-    if (!Array.isArray(days)) return null;
-    return days.find((d) => d?.dayKey === dayKey) ?? null;
+function getPlannedDayFromDays(
+    routine: WorkoutRoutineWeek | null | undefined,
+    dayKey: DayKey
+) {
+    return routine?.days.find((day) => day.dayKey === dayKey) ?? null;
 }
 
 function buildAttachmentByPublicIdFromRoutine(routine: unknown): Map<string, AttachmentOption> {
@@ -161,31 +155,42 @@ function shouldSyncGymDay(
 function routineSignature(args: { weekKey: string; routine: WorkoutRoutineWeek | null }): string {
     const { weekKey, routine } = args;
     if (!routine) return `${weekKey}|__null__`;
-    const safeRoutine = routine as WorkoutRoutineWeek & {
-        id?: string;
-        _id?: string;
-        updatedAt?: string;
-        meta?: { updatedAt?: string } | null;
-    };
-    const id = String(safeRoutine.id ?? safeRoutine._id ?? "");
-    const updatedAt = String(safeRoutine.updatedAt ?? "");
-    const metaUpdatedAt = String(safeRoutine.meta?.updatedAt ?? "");
-    return `${weekKey}|${id}|${updatedAt || metaUpdatedAt}`;
+
+    const metaUpdatedAt =
+        typeof routine.meta?.updatedAt === "string"
+            ? routine.meta.updatedAt
+            : "";
+
+    return `${weekKey}|${routine.id}|${routine.updatedAt ?? metaUpdatedAt}`;
 }
 
-function hasGymCheckSession(day: unknown): boolean {
-    const safeDay = day as {
-        training?: {
-            sessions?: Array<{
-                meta?: Record<string, unknown> | null;
-            }> | null;
-        } | null;
-    } | null;
-
-    const sessions = Array.isArray(safeDay?.training?.sessions)
-        ? safeDay.training.sessions
+function hasGymCheckSession(day: WorkoutDay | null | undefined): boolean {
+    const sessions = Array.isArray(day?.training?.sessions)
+        ? day.training.sessions
         : [];
-    return sessions.some((s) => String(s?.meta?.sessionKey ?? "") === "gym_check");
+    return sessions.some(
+        (session) => String(session.meta?.sessionKey ?? "") === "gym_check"
+    );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getBackendErrorMessage(error: unknown): string | null {
+    if (!isRecord(error) || !isRecord(error.response)) {
+        return null;
+    }
+
+    const responseData = error.response.data;
+    if (!isRecord(responseData) || !isRecord(responseData.error)) {
+        return null;
+    }
+
+    const message = responseData.error.message;
+    return typeof message === "string" && message.trim().length > 0
+        ? message.trim()
+        : null;
 }
 
 function hasRelevantWorkoutPermissions(status: HealthPermissionsStatus | null): boolean {
@@ -220,16 +225,6 @@ function isMissingWorkoutPermissionError(error: unknown): boolean {
         message.includes("ExerciseSessionRecord") ||
         message.includes("permission")
     );
-}
-
-function pickImportedMetricsSession(
-    sessions: HealthImportedWorkoutSessionMinimal[]
-): HealthImportedWorkoutSessionMinimal | null {
-    const candidates = sessions.filter((session) =>
-        hasMeaningfulImportedWorkoutMetrics(session.metrics)
-    );
-
-    return candidates[0] ?? null;
 }
 
 function mergeImportedMetricsIntoPayload(
@@ -459,21 +454,21 @@ export function GymCheckSessionScreen() {
             ? permissionsStatus
             : await requestPermissions();
 
+        const fallbackStatus: HealthPermissionsStatus = {
+            provider: provider ?? "health-connect",
+            available,
+            permissions: {},
+            checkedAt: new Date().toISOString(),
+        };
         const grantedNow = hasRelevantWorkoutPermissions(
-            status ??
-            ({
-                provider: provider ?? "health-connect",
-                available,
-                permissions: {},
-                checkedAt: new Date().toISOString(),
-            } as HealthPermissionsStatus)
+            status ?? fallbackStatus
         );
 
         if (!grantedNow) {
             if (showAlertOnFailure) {
                 Alert.alert(
                     "Permisos requeridos",
-                    "Todavía faltan permisos de Salud para leer workouts y métricas importadas."
+                    "Todavía faltan permisos de Salud para leer entrenamientos y métricas importadas."
                 );
             }
 
@@ -496,14 +491,18 @@ export function GymCheckSessionScreen() {
         }
 
         try {
-            const importedSessions = await readHealthWorkoutsByDate({ date: args.date });
-            const importedSession = pickImportedMetricsSession(importedSessions);
+            const importResult = await readHealthGymCheckWorkoutByDate({
+                date: args.date,
+            });
 
-            if (!importedSession) {
+            if (!importResult.selected) {
                 return args.payload;
             }
 
-            return mergeImportedMetricsIntoPayload(args.payload, importedSession);
+            return mergeImportedMetricsIntoPayload(
+                args.payload,
+                importResult.selected
+            );
         } catch {
             return args.payload;
         }
@@ -533,7 +532,7 @@ export function GymCheckSessionScreen() {
             });
 
             if (result.mode === "noop") {
-                Alert.alert("Sin datos", "No se encontraron métricas importables para este día.");
+                Alert.alert("Sin datos", "No se encontró una sesión Traditional Strength Training importable para este día.");
                 return;
             }
 
@@ -547,7 +546,7 @@ export function GymCheckSessionScreen() {
             if (isMissingWorkoutPermissionError(error)) {
                 Alert.alert(
                     "Permisos faltantes",
-                    "La app aún no tiene todos los permisos necesarios para leer workouts del dispositivo."
+                    "La app aún no tiene todos los permisos necesarios para leer entrenamientos del dispositivo."
                 );
                 return;
             }
@@ -699,16 +698,13 @@ export function GymCheckSessionScreen() {
                 workoutDay: freshDay,
                 plannedExercises: exercisesList,
             });
-        } catch (e: unknown) {
-            const apiError = e as ApiAxiosError;
-            const backendMessage =
-                apiError.response?.data?.error?.message ??
-                apiError.response?.data?.error.message ??
-                null;
-
+        } catch (error: unknown) {
+            const backendMessage = getBackendErrorMessage(error);
             const message =
                 backendMessage ??
-                (e instanceof Error ? e.message : "No se pudo crear la sesión");
+                (error instanceof Error
+                    ? error.message
+                    : "No se pudo crear la sesión");
 
             Alert.alert("Error", message);
         }
@@ -846,7 +842,7 @@ export function GymCheckSessionScreen() {
                         Estado de Salud
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                        Provider: {providerLabel}
+                        Proveedor: {providerLabel}
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
                         Disponible: {healthAvailable ? "Sí" : "No"}
@@ -880,7 +876,7 @@ export function GymCheckSessionScreen() {
                     }}
                 >
                     <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
-                        Abrir diagnóstico de workouts
+                        Abrir diagnóstico de entrenamientos
                     </Text>
                 </Pressable>
 

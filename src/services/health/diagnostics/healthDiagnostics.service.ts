@@ -161,14 +161,29 @@ function isHealthDiagnosticEvent(value: unknown): value is HealthDiagnosticEvent
     }
 
     if (value.kind === "workout-selection") {
+        const validMatchingCandidateCount =
+            value.matchingCandidateCount === undefined ||
+            isFiniteNumber(value.matchingCandidateCount);
+        const validRequiredProviderWorkoutType =
+            value.requiredProviderWorkoutType === undefined ||
+            typeof value.requiredProviderWorkoutType === "string";
+        const validSelectedSample =
+            value.selectedSample === undefined ||
+            value.selectedSample === null ||
+            isRecord(value.selectedSample);
+
         return (
             typeof value.targetDate === "string" &&
             isFiniteNumber(value.candidateCount) &&
+            validMatchingCandidateCount &&
             isFiniteNumber(value.meaningfulCandidateCount) &&
+            validRequiredProviderWorkoutType &&
             (typeof value.selectedExternalId === "string" || value.selectedExternalId === null) &&
             (typeof value.selectedType === "string" || value.selectedType === null) &&
+            validSelectedSample &&
             (value.outcome === "selected" ||
                 value.outcome === "no-samples" ||
+                value.outcome === "no-matching-workout" ||
                 value.outcome === "no-meaningful-workout")
         );
     }

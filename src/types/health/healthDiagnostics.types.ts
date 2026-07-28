@@ -105,6 +105,7 @@ export type HealthWorkoutDiagnosticSample = {
     startAt: ISODateTime | null;
     endAt: ISODateTime | null;
     sourceDevice: string | null;
+    eligibleForGymCheck: boolean;
     hasMeaningfulMetrics: boolean;
     metrics: HealthWorkoutDiagnosticMetrics;
     raw: HealthDiagnosticJsonValue | null;
@@ -201,10 +202,17 @@ export type HealthWorkoutSelectionDiagnosticEvent = HealthDiagnosticEventBase & 
     kind: "workout-selection";
     targetDate: ISODate;
     candidateCount: number;
+    matchingCandidateCount?: number;
     meaningfulCandidateCount: number;
+    requiredProviderWorkoutType?: string;
     selectedExternalId: string | null;
     selectedType: string | null;
-    outcome: "selected" | "no-samples" | "no-meaningful-workout";
+    selectedSample?: HealthWorkoutDiagnosticSample | null;
+    outcome:
+    | "selected"
+    | "no-samples"
+    | "no-matching-workout"
+    | "no-meaningful-workout";
 };
 
 export type HealthWorkoutQueryErrorDiagnosticEvent = HealthDiagnosticEventBase & {
