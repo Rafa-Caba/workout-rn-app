@@ -29,7 +29,6 @@ import type {
     WorkoutSessionKind,
     WorkoutSessionMeta,
     WorkoutSessionUpsert,
-    WorkoutSourceDevice,
 } from "@/src/types/workoutDay.types";
 
 /**
@@ -191,7 +190,7 @@ function parseWorkoutSessionMeta(value: unknown): WorkoutSessionMeta | null {
         trainingSource: parseNullableString(value.trainingSource),
         dayEffortRpe: parseNullableNumber(value.dayEffortRpe),
         source: parseWorkoutSessionDataSource(value.source),
-        sourceDevice: parseNullableString(value.sourceDevice) as WorkoutSourceDevice | null,
+        sourceDevice: parseNullableString(value.sourceDevice),
         importedAt: parseNullableString(value.importedAt),
         lastSyncedAt: parseNullableString(value.lastSyncedAt),
         sessionKind: parseWorkoutSessionKind(value.sessionKind),
@@ -369,7 +368,7 @@ function parseSleepBlock(value: unknown): SleepBlock | null {
         coreMinutes: parseNullableNumber(value.coreMinutes),
         deepMinutes: parseNullableNumber(value.deepMinutes),
         source: parseWorkoutDataSource(value.source),
-        sourceDevice: parseNullableString(value.sourceDevice) as WorkoutSourceDevice | null,
+        sourceDevice: parseNullableString(value.sourceDevice),
         importedAt: parseNullableString(value.importedAt),
         lastSyncedAt: parseNullableString(value.lastSyncedAt),
         raw: value.raw ?? null,
@@ -602,22 +601,20 @@ function toStatus(error: unknown): number | null {
     return typeof response.status === "number" ? response.status : null;
 }
 
-function createNotFoundError(date: string): Error & {
-    status: number;
-    code: "NOT_FOUND";
-    details: { date: string };
-} {
-    const error = new Error("Workout day not found") as Error & {
-        status: number;
-        code: "NOT_FOUND";
-        details: { date: string };
-    };
+class WorkoutDayNotFoundError extends Error {
+    readonly status: number = 404;
+    readonly code: "NOT_FOUND" = "NOT_FOUND";
+    readonly details: { date: string };
 
-    error.status = 404;
-    error.code = "NOT_FOUND";
-    error.details = { date };
+    constructor(date: string) {
+        super("Workout day not found");
+        this.name = "WorkoutDayNotFoundError";
+        this.details = { date };
+    }
+}
 
-    return error;
+function createNotFoundError(date: string): WorkoutDayNotFoundError {
+    return new WorkoutDayNotFoundError(date);
 }
 
 /**
@@ -746,7 +743,7 @@ export async function updateSleepForDay(
             sleep.source === "manual" || sleep.source === "healthkit" || sleep.source === "health-connect"
                 ? sleep.source
                 : null,
-        sourceDevice: coerceNullableString(sleep.sourceDevice) as WorkoutSourceDevice | null,
+        sourceDevice: coerceNullableString(sleep.sourceDevice),
         importedAt: coerceNullableIsoDateTime(sleep.importedAt),
         lastSyncedAt: coerceNullableIsoDateTime(sleep.lastSyncedAt),
 
@@ -760,7 +757,19 @@ export async function saveImportedSleepForDay(
     importedSleep: HealthImportedSleep,
     mode: UpsertMode = "merge"
 ): Promise<WorkoutDay> {
-    return updateSleepForDay(importedSleep.date, importedSleep, mode);
+    /**
+     * Native health samples are retained only in the local diagnostics log.
+     * Persisting raw HealthKit / Health Connect payloads in the API would add
+     * sensitive data without improving the normalized WorkoutDay contract.
+     */
+    return updateSleepForDay(
+        importedSleep.date,
+        {
+            ...importedSleep,
+            raw: null,
+        },
+        mode
+    );
 }
 
 /**

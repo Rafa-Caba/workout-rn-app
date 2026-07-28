@@ -4,7 +4,6 @@ import type { HealthImportedSleep } from "@/src/types/health/cardio/health.types
 import type {
     SleepBlock,
     WorkoutDataSource,
-    WorkoutSourceDevice,
 } from "@/src/types/workoutDay.types";
 
 function asNullableString(value: unknown): string | null {
@@ -89,11 +88,11 @@ export function mapImportedSleepToSleepBlock(input: HealthImportedSleep): SleepB
         deepMinutes: toNonNegativeIntOrNull(input.deepMinutes),
 
         source: toWorkoutDataSource(input.source),
-        sourceDevice: asNullableString(input.sourceDevice) as WorkoutSourceDevice | null,
+        sourceDevice: asNullableString(input.sourceDevice),
 
         importedAt: asNullableString(input.importedAt) ?? toIsoNow(),
         lastSyncedAt: asNullableString(input.lastSyncedAt) ?? toIsoNow(),
 
-        raw: input.raw ?? null,
+        raw: null,
     };
 }

@@ -1,5 +1,6 @@
 // /src/features/sleep/screens/SleepScreen.tsx
 
+import { router } from "expo-router";
 import React from "react";
 import {
     ActivityIndicator,
@@ -31,6 +32,17 @@ import type { SleepBlock } from "@/src/types/workoutDay.types";
 function safeText(v: unknown): string {
     const s = String(v ?? "").trim();
     return s.length ? s : "—";
+}
+
+function errorMessage(value: unknown): string {
+    if (value instanceof Error) return safeText(value.message);
+
+    if (typeof value === "object" && value !== null && "message" in value) {
+        const message = Reflect.get(value, "message");
+        if (typeof message === "string") return safeText(message);
+    }
+
+    return safeText(value);
 }
 
 function isISODate(s: string): boolean {
@@ -67,7 +79,7 @@ function hasImportedMetadata(sleep: SleepBlock | null): boolean {
     );
 }
 
-function hasGrantedSleepPermission(status: HealthPermissionsStatus | null): boolean {
+function canAttemptSleepRead(status: HealthPermissionsStatus | null): boolean {
     if (!status || !status.available) {
         return false;
     }
@@ -83,6 +95,12 @@ function hasGrantedSleepPermission(status: HealthPermissionsStatus | null): bool
      */
     const sleepEntries = entries.filter(([key]) => /sleep/i.test(key));
     const relevantEntries = sleepEntries.length > 0 ? sleepEntries : entries;
+
+    if (status.provider === "healthkit") {
+        return relevantEntries.every(
+            ([, value]) => value !== "denied" && value !== "blocked" && value !== "unavailable"
+        );
+    }
 
     return relevantEntries.every(([, value]) => value === "granted");
 }
@@ -109,7 +127,6 @@ export default function SleepScreen() {
 
     const {
         availability,
-        granted,
         provider,
         requestPermissions,
         isCheckingAvailability,
@@ -144,7 +161,7 @@ export default function SleepScreen() {
     const saveLoading = updateSleepM.isPending;
     const busy = loading || syncLoading || saveLoading;
 
-    const error = dayQ.error ? safeText((dayQ.error as { message?: string } | null)?.message) : "";
+    const error = dayQ.error ? errorMessage(dayQ.error) : "";
 
     const onRefresh = async () => {
         await dayQ.refetch();
@@ -216,12 +233,14 @@ export default function SleepScreen() {
              */
             const status = await requestPermissions();
 
-            const permissionGranted = hasGrantedSleepPermission(status);
+            const canAttemptRead = canAttemptSleepRead(status);
 
-            if (!status.available || !permissionGranted) {
+            if (!status.available || !canAttemptRead) {
                 Alert.alert(
                     "Permisos requeridos",
-                    "No se concedieron los permisos necesarios para leer sueño desde Salud."
+                    status.provider === "healthkit"
+                        ? "La solicitud de acceso a Salud no se completó. Apple no confirma permisos individuales de lectura, así que la app valida el acceso intentando consultar los datos."
+                        : "No se concedieron los permisos necesarios para leer sueño desde Salud."
                 );
                 return;
             }
@@ -233,7 +252,7 @@ export default function SleepScreen() {
             if (!result) {
                 Alert.alert(
                     kind === "retry" ? "Sin nuevos datos" : "Sin datos de Salud",
-                    "No se encontraron datos de sueño para esta fecha. Puedes llenarlos manualmente."
+                    "No se encontraron datos normalizados para esta fecha. Abre Diagnóstico de Salud para revisar el rango, las muestras, las fuentes y el motivo exacto."
                 );
                 return;
             }
@@ -369,11 +388,39 @@ export default function SleepScreen() {
                         Disponible: {availability ? "Sí" : "No"}
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                        Permisos: {granted ? "Concedidos" : "Pendientes"}
+                        Solicitud de acceso: {permissionsStatus ? "Completada" : "Pendiente"}
                     </Text>
                     <Text style={{ color: colors.mutedText, fontWeight: "700" }}>
-                        Sleep Permission: {hasGrantedSleepPermission(permissionsStatus) ? "Concedido" : "Pendiente"}
+                        Lectura de sueño: {canAttemptSleepRead(permissionsStatus) ? "Lista para intentar" : "Pendiente"}
                     </Text>
+                    {provider === "healthkit" && permissionsStatus ? (
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                            Apple no confirma permisos individuales de lectura. El acceso real se valida al consultar HealthKit.
+                        </Text>
+                    ) : null}
+
+                    <Pressable
+                        onPress={() =>
+                            router.push({
+                                pathname: "/(app)/sleep/diagnostics",
+                                params: { date },
+                            })
+                        }
+                        style={({ pressed }) => ({
+                            marginTop: 2,
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.surface,
+                            opacity: pressed ? 0.92 : 1,
+                        })}
+                    >
+                        <Text style={{ color: colors.text, fontWeight: "800", textAlign: "center" }}>
+                            Abrir Diagnóstico de Salud
+                        </Text>
+                    </Pressable>
                 </View>
 
                 {importedMetaVisible ? (

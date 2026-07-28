@@ -4,10 +4,13 @@ import AppleHealthKit, {
     type HealthInputOptions,
     type HealthKitPermissions,
     type HealthPermission,
-    type HealthValue,
 } from "react-native-health";
 
 import { extractImportedWorkoutRoute } from "@/src/services/health/bridge/healthRoute.mapper";
+import {
+    appendHealthDiagnosticEvent,
+    createHealthDiagnosticId,
+} from "@/src/services/health/diagnostics/healthDiagnostics.service";
 import type { NativeHealthBridge } from "@/src/services/health/healthBridge.types";
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import type {
@@ -16,6 +19,10 @@ import type {
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
 } from "@/src/types/health/cardio/health.types";
+import {
+    buildHealthKitSleepQueryRange,
+    normalizeHealthKitSleepSamples,
+} from "@/src/utils/health/healthSleep.normalizer";
 
 /**
  * Helpers
@@ -64,50 +71,43 @@ function buildRangeOptions(from: string, to: string): HealthInputOptions {
 }
 
 /**
- * Defensive module access.
- * In some dev builds / native-linking issues, the imported module may exist
- * but native functions can still be undefined.
+ * Resolves native methods at call time. react-native-health is patched with a
+ * lazy Proxy for Bridgeless/New Architecture, so capturing methods during
+ * module initialization can preserve an unavailable native reference.
  */
-type AppleHealthKitModuleLike = {
-    isAvailable?: (callback: (error: string | null, result: boolean) => void) => void;
-    initHealthKit?: (permissions: HealthKitPermissions, callback: (error: string | null) => void) => void;
-    getSleepSamples?: (options: HealthInputOptions, callback: (error: string | null, results: HealthValue[]) => void) => void;
-    getSamples?: (options: HealthInputOptions, callback: (error: string | null, results: HealthValue[]) => void) => void;
-    getHeartRateSamples?: (options: HealthInputOptions, callback: (error: string | null, results: HealthValue[]) => void) => void;
-    getDailyStepCountSamples?: (options: HealthInputOptions, callback: (error: string | null, results: HealthValue[]) => void) => void;
-    getDistanceWalkingRunning?: (
-        options: HealthInputOptions,
-        callback: (error: string | null, result: HealthValue) => void
-    ) => void;
-    getActiveEnergyBurned?: (
-        options: HealthInputOptions,
-        callback: (error: string | null, results: HealthValue[]) => void
-    ) => void;
-    Constants?: {
-        Permissions?: Record<string, HealthPermission | undefined>;
-    };
+type NativeHealthKitMethod = {
+    invoke: (...args: unknown[]) => unknown;
 };
 
-function getHealthModule(): AppleHealthKitModuleLike | null {
-    const moduleCandidate: unknown = AppleHealthKit;
+function getHealthKitMethod(name: string): NativeHealthKitMethod | null {
+    const moduleValue: unknown = AppleHealthKit;
+    if (!isRecord(moduleValue)) return null;
 
-    if (!moduleCandidate || typeof moduleCandidate !== "object") {
+    const candidate = moduleValue[name];
+    if (typeof candidate !== "function") return null;
+
+    return {
+        invoke: (...args: unknown[]) => Reflect.apply(candidate, moduleValue, args),
+    };
+}
+
+function nativeErrorMessage(value: unknown): string | null {
+    if (value === null || value === undefined || value === false || value === "") {
         return null;
     }
 
-    return moduleCandidate as AppleHealthKitModuleLike;
-}
+    if (value instanceof Error) return value.message;
+    if (typeof value === "string") return value;
 
-function hasFunction<K extends keyof AppleHealthKitModuleLike>(
-    moduleRef: AppleHealthKitModuleLike | null,
-    key: K
-): moduleRef is AppleHealthKitModuleLike & Required<Pick<AppleHealthKitModuleLike, K>> {
-    return Boolean(moduleRef && typeof moduleRef[key] === "function");
+    if (isRecord(value)) {
+        return asNonEmptyString(value.message) ?? asNonEmptyString(value.localizedDescription);
+    }
+
+    return String(value);
 }
 
 function getHKReadPermissions(keys: HealthPermissionKey[]): HealthPermission[] {
-    const moduleRef = getHealthModule();
-    const permissionsMap = moduleRef?.Constants?.Permissions ?? {};
+    const permissionsMap = AppleHealthKit.Constants?.Permissions ?? {};
     const read: HealthPermission[] = [];
 
     for (const key of keys) {
@@ -157,32 +157,65 @@ function mapPermissionsStatus(
     };
 }
 
-function hkIsAvailable(): Promise<boolean> {
-    return new Promise((resolve) => {
-        const moduleRef = getHealthModule();
+type HealthKitAvailabilityResult = {
+    available: boolean;
+    nativeFunctionAvailable: boolean;
+    errorMessage: string | null;
+};
 
-        if (!hasFunction(moduleRef, "isAvailable")) {
-            resolve(false);
+function hkCheckAvailability(): Promise<HealthKitAvailabilityResult> {
+    return new Promise((resolve) => {
+        const method = getHealthKitMethod("isAvailable");
+
+        if (!method) {
+            resolve({
+                available: false,
+                nativeFunctionAvailable: false,
+                errorMessage: "HealthKit native function isAvailable is unavailable.",
+            });
             return;
         }
 
-        moduleRef.isAvailable((error: string | null, available: boolean) => {
-            if (error) {
-                resolve(false);
-                return;
-            }
-
-            resolve(Boolean(available));
+        method.invoke((error: unknown, available: unknown) => {
+            const errorMessage = nativeErrorMessage(error);
+            resolve({
+                available: errorMessage === null && available === true,
+                nativeFunctionAvailable: true,
+                errorMessage,
+            });
         });
     });
 }
 
-function hkInitHealthKit(readPermissions: HealthPermission[]): Promise<boolean> {
-    return new Promise((resolve) => {
-        const moduleRef = getHealthModule();
+async function logAvailability(result: HealthKitAvailabilityResult): Promise<void> {
+    await appendHealthDiagnosticEvent({
+        id: createHealthDiagnosticId("availability"),
+        createdAt: toIsoNow(),
+        provider: "healthkit",
+        level: result.available ? "info" : "warning",
+        kind: "availability",
+        available: result.available,
+        nativeFunctionAvailable: result.nativeFunctionAvailable,
+        errorMessage: result.errorMessage,
+    });
+}
 
-        if (!hasFunction(moduleRef, "initHealthKit")) {
-            resolve(false);
+type HealthKitInitializationResult = {
+    completed: boolean;
+    errorMessage: string | null;
+};
+
+function hkInitHealthKit(
+    readPermissions: HealthPermission[]
+): Promise<HealthKitInitializationResult> {
+    return new Promise((resolve) => {
+        const method = getHealthKitMethod("initHealthKit");
+
+        if (!method) {
+            resolve({
+                completed: false,
+                errorMessage: "HealthKit native function initHealthKit is unavailable.",
+            });
             return;
         }
 
@@ -193,24 +226,39 @@ function hkInitHealthKit(readPermissions: HealthPermission[]): Promise<boolean> 
             },
         };
 
-        moduleRef.initHealthKit(permissions, (error: string | null) => {
-            resolve(!error);
+        method.invoke(permissions, (error: unknown) => {
+            const errorMessage = nativeErrorMessage(error);
+            resolve({
+                completed: errorMessage === null,
+                errorMessage,
+            });
         });
     });
 }
 
-function hkGetSleepSamples(options: HealthInputOptions): Promise<HealthValue[]> {
-    return new Promise((resolve, reject) => {
-        const moduleRef = getHealthModule();
+type MissingArrayMethodBehavior = "reject" | "empty";
 
-        if (!hasFunction(moduleRef, "getSleepSamples")) {
-            resolve([]);
+function hkGetArraySamples(
+    methodName: string,
+    options: HealthInputOptions,
+    missingBehavior: MissingArrayMethodBehavior
+): Promise<unknown[]> {
+    return new Promise((resolve, reject) => {
+        const method = getHealthKitMethod(methodName);
+
+        if (!method) {
+            if (missingBehavior === "reject") {
+                reject(new Error(`HealthKit native function ${methodName} is unavailable.`));
+            } else {
+                resolve([]);
+            }
             return;
         }
 
-        moduleRef.getSleepSamples(options, (error: string | null, results: HealthValue[]) => {
-            if (error) {
-                reject(new Error(error));
+        method.invoke(options, (error: unknown, results: unknown) => {
+            const errorMessage = nativeErrorMessage(error);
+            if (errorMessage) {
+                reject(new Error(errorMessage));
                 return;
             }
 
@@ -219,78 +267,35 @@ function hkGetSleepSamples(options: HealthInputOptions): Promise<HealthValue[]> 
     });
 }
 
-function hkGetWorkoutSamples(options: HealthInputOptions): Promise<HealthValue[]> {
-    return new Promise((resolve, reject) => {
-        const moduleRef = getHealthModule();
-
-        if (!hasFunction(moduleRef, "getSamples")) {
-            resolve([]);
-            return;
-        }
-
-        moduleRef.getSamples(options, (error: string | null, results: HealthValue[]) => {
-            if (error) {
-                reject(new Error(error));
-                return;
-            }
-
-            resolve(Array.isArray(results) ? results : []);
-        });
-    });
+function hkGetSleepSamples(options: HealthInputOptions): Promise<unknown[]> {
+    return hkGetArraySamples("getSleepSamples", options, "reject");
 }
 
-function hkGetHeartRateSamples(options: HealthInputOptions): Promise<HealthValue[]> {
-    return new Promise((resolve, reject) => {
-        const moduleRef = getHealthModule();
-
-        if (!hasFunction(moduleRef, "getHeartRateSamples")) {
-            resolve([]);
-            return;
-        }
-
-        moduleRef.getHeartRateSamples(options, (error: string | null, results: HealthValue[]) => {
-            if (error) {
-                reject(new Error(error));
-                return;
-            }
-
-            resolve(Array.isArray(results) ? results : []);
-        });
-    });
+function hkGetWorkoutSamples(options: HealthInputOptions): Promise<unknown[]> {
+    return hkGetArraySamples("getSamples", options, "empty");
 }
 
-function hkGetDailyStepCountSamples(options: HealthInputOptions): Promise<HealthValue[]> {
-    return new Promise((resolve, reject) => {
-        const moduleRef = getHealthModule();
-
-        if (!hasFunction(moduleRef, "getDailyStepCountSamples")) {
-            resolve([]);
-            return;
-        }
-
-        moduleRef.getDailyStepCountSamples(options, (error: string | null, results: HealthValue[]) => {
-            if (error) {
-                reject(new Error(error));
-                return;
-            }
-
-            resolve(Array.isArray(results) ? results : []);
-        });
-    });
+function hkGetHeartRateSamples(options: HealthInputOptions): Promise<unknown[]> {
+    return hkGetArraySamples("getHeartRateSamples", options, "empty");
 }
 
-function hkGetDistanceWalkingRunning(options: HealthInputOptions): Promise<HealthValue | null> {
-    return new Promise((resolve, reject) => {
-        const moduleRef = getHealthModule();
+function hkGetDailyStepCountSamples(options: HealthInputOptions): Promise<unknown[]> {
+    return hkGetArraySamples("getDailyStepCountSamples", options, "empty");
+}
 
-        if (!hasFunction(moduleRef, "getDistanceWalkingRunning")) {
+function hkGetDistanceWalkingRunning(options: HealthInputOptions): Promise<unknown | null> {
+    return new Promise((resolve, reject) => {
+        const method = getHealthKitMethod("getDistanceWalkingRunning");
+
+        if (!method) {
             resolve(null);
             return;
         }
 
-        moduleRef.getDistanceWalkingRunning(options, (error: string | null, result: HealthValue) => {
-            if (error) {
-                reject(new Error(error));
+        method.invoke(options, (error: unknown, result: unknown) => {
+            const errorMessage = nativeErrorMessage(error);
+            if (errorMessage) {
+                reject(new Error(errorMessage));
                 return;
             }
 
@@ -299,24 +304,8 @@ function hkGetDistanceWalkingRunning(options: HealthInputOptions): Promise<Healt
     });
 }
 
-function hkGetActiveEnergyBurned(options: HealthInputOptions): Promise<HealthValue[]> {
-    return new Promise((resolve, reject) => {
-        const moduleRef = getHealthModule();
-
-        if (!hasFunction(moduleRef, "getActiveEnergyBurned")) {
-            resolve([]);
-            return;
-        }
-
-        moduleRef.getActiveEnergyBurned(options, (error: string | null, results: HealthValue[]) => {
-            if (error) {
-                reject(new Error(error));
-                return;
-            }
-
-            resolve(Array.isArray(results) ? results : []);
-        });
-    });
+function hkGetActiveEnergyBurned(options: HealthInputOptions): Promise<unknown[]> {
+    return hkGetArraySamples("getActiveEnergyBurned", options, "empty");
 }
 
 function minutesBetween(startAt: string | null, endAt: string | null): number | null {
@@ -332,119 +321,6 @@ function minutesBetween(startAt: string | null, endAt: string | null): number | 
     return Math.round((endMs - startMs) / 60000);
 }
 
-function classifySleepBucket(sample: Record<string, unknown>): "awake" | "rem" | "deep" | "core" | "in-bed" | "asleep" | "unknown" {
-    const raw =
-        asNonEmptyString(sample.value) ??
-        asNonEmptyString(sample.stage) ??
-        asNonEmptyString(sample.sleepAnalysis) ??
-        "";
-
-    const normalized = raw.toLowerCase();
-
-    if (normalized.includes("awake")) return "awake";
-    if (normalized.includes("rem")) return "rem";
-    if (normalized.includes("deep")) return "deep";
-    if (normalized.includes("core")) return "core";
-    if (normalized.includes("light")) return "core";
-    if (normalized.includes("inbed")) return "in-bed";
-    if (normalized.includes("in bed")) return "in-bed";
-    if (normalized.includes("asleep")) return "asleep";
-
-    return "unknown";
-}
-
-function mapSleepSamplesToImportedSleep(date: string, samples: HealthValue[]): HealthImportedSleep | null {
-    if (!samples.length) return null;
-
-    let timeAsleepMinutes = 0;
-    let timeInBedMinutes = 0;
-    let awakeMinutes = 0;
-    let remMinutes = 0;
-    let coreMinutes = 0;
-    let deepMinutes = 0;
-    let sourceDevice: string | null = null;
-
-    for (const rawSample of samples) {
-        if (!isRecord(rawSample)) continue;
-
-        const startAt =
-            asNonEmptyString(rawSample.startDate) ??
-            asNonEmptyString(rawSample.start) ??
-            null;
-
-        const endAt =
-            asNonEmptyString(rawSample.endDate) ??
-            asNonEmptyString(rawSample.end) ??
-            null;
-
-        const sampleMinutes = minutesBetween(startAt, endAt);
-        if (sampleMinutes === null || sampleMinutes <= 0) continue;
-
-        const sourceName =
-            asNonEmptyString(rawSample.sourceName) ??
-            asNonEmptyString(rawSample.source) ??
-            null;
-
-        if (!sourceDevice && sourceName) {
-            sourceDevice = sourceName;
-        }
-
-        const bucket = classifySleepBucket(rawSample);
-
-        if (bucket === "awake") {
-            awakeMinutes += sampleMinutes;
-            continue;
-        }
-
-        if (bucket === "rem") {
-            remMinutes += sampleMinutes;
-            timeAsleepMinutes += sampleMinutes;
-            continue;
-        }
-
-        if (bucket === "deep") {
-            deepMinutes += sampleMinutes;
-            timeAsleepMinutes += sampleMinutes;
-            continue;
-        }
-
-        if (bucket === "core") {
-            coreMinutes += sampleMinutes;
-            timeAsleepMinutes += sampleMinutes;
-            continue;
-        }
-
-        if (bucket === "in-bed") {
-            timeInBedMinutes += sampleMinutes;
-            continue;
-        }
-
-        if (bucket === "asleep") {
-            timeAsleepMinutes += sampleMinutes;
-        }
-    }
-
-    if (timeInBedMinutes === 0 && timeAsleepMinutes > 0) {
-        timeInBedMinutes = timeAsleepMinutes + awakeMinutes;
-    }
-
-    return {
-        date,
-        timeAsleepMinutes: timeAsleepMinutes || null,
-        timeInBedMinutes: timeInBedMinutes || null,
-        score: null,
-        awakeMinutes: awakeMinutes || null,
-        remMinutes: remMinutes || null,
-        coreMinutes: coreMinutes || null,
-        deepMinutes: deepMinutes || null,
-        source: "healthkit",
-        sourceDevice,
-        importedAt: toIsoNow(),
-        lastSyncedAt: toIsoNow(),
-        raw: samples,
-    };
-}
-
 function extractWorkoutType(sample: Record<string, unknown>): string {
     return (
         asNonEmptyString(sample.activityName) ??
@@ -454,7 +330,7 @@ function extractWorkoutType(sample: Record<string, unknown>): string {
     );
 }
 
-function mapWorkoutSample(sample: HealthValue): HealthImportedWorkoutSessionMinimal | null {
+function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal | null {
     if (!isRecord(sample)) return null;
 
     const startAt =
@@ -524,7 +400,7 @@ function mapWorkoutSample(sample: HealthValue): HealthImportedWorkoutSessionMini
     };
 }
 
-function sumNumericFromUnknownArray(values: HealthValue[], keys: string[]): number | null {
+function sumNumericFromUnknownArray(values: unknown[], keys: string[]): number | null {
     let total = 0;
     let found = false;
 
@@ -544,7 +420,7 @@ function sumNumericFromUnknownArray(values: HealthValue[], keys: string[]): numb
     return found ? total : null;
 }
 
-function avgNumericFromUnknownArray(values: HealthValue[], keys: string[]): number | null {
+function avgNumericFromUnknownArray(values: unknown[], keys: string[]): number | null {
     let total = 0;
     let count = 0;
 
@@ -565,7 +441,7 @@ function avgNumericFromUnknownArray(values: HealthValue[], keys: string[]): numb
     return Math.round(total / count);
 }
 
-function maxNumericFromUnknownArray(values: HealthValue[], keys: string[]): number | null {
+function maxNumericFromUnknownArray(values: unknown[], keys: string[]): number | null {
     let max: number | null = null;
 
     for (const item of values) {
@@ -583,7 +459,7 @@ function maxNumericFromUnknownArray(values: HealthValue[], keys: string[]): numb
     return max;
 }
 
-function extractDistanceKm(value: HealthValue | null): number | null {
+function extractDistanceKm(value: unknown | null): number | null {
     if (!value || !isRecord(value)) return null;
 
     return (
@@ -594,7 +470,7 @@ function extractDistanceKm(value: HealthValue | null): number | null {
     );
 }
 
-function extractEnergyKcal(values: HealthValue[]): number | null {
+function extractEnergyKcal(values: unknown[]): number | null {
     return sumNumericFromUnknownArray(values, ["value", "kcal", "activeEnergyBurned", "activeEnergy"]);
 }
 
@@ -602,26 +478,124 @@ export const healthIOSBridge: NativeHealthBridge = {
     platform: "ios",
 
     async isAvailable(): Promise<boolean> {
-        return hkIsAvailable();
+        const availability = await hkCheckAvailability();
+        await logAvailability(availability);
+        return availability.available;
     },
 
     async requestPermissions(input): Promise<HealthPermissionsStatus> {
-        const available = await hkIsAvailable();
+        const availability = await hkCheckAvailability();
+        await logAvailability(availability);
 
-        if (!available) {
+        if (!availability.available) {
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("permissions"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level: "warning",
+                kind: "permissions",
+                requestedPermissions: [...input.permissions],
+                nativeRequestCompleted: false,
+                readAccessVerification: "unknown",
+                errorMessage: "HealthKit is unavailable on this device or build.",
+            });
+
             return mapPermissionsStatus(input.permissions, false);
         }
 
         const readPermissions = getHKReadPermissions(input.permissions);
-        const granted = await hkInitHealthKit(readPermissions);
+        const initialization = await hkInitHealthKit(readPermissions);
 
-        return mapPermissionsStatus(input.permissions, granted);
+        await appendHealthDiagnosticEvent({
+            id: createHealthDiagnosticId("permissions"),
+            createdAt: toIsoNow(),
+            provider: "healthkit",
+            level: initialization.completed ? "info" : "error",
+            kind: "permissions",
+            requestedPermissions: [...input.permissions],
+            nativeRequestCompleted: initialization.completed,
+            readAccessVerification: initialization.completed ? "requested-only" : "unknown",
+            errorMessage: initialization.errorMessage,
+        });
+
+        return mapPermissionsStatus(input.permissions, initialization.completed);
     },
 
     async readSleepByDate(input): Promise<HealthImportedSleep | null> {
-        const range = buildDayRange(input.date);
-        const samples = await hkGetSleepSamples(buildRangeOptions(range.startDate, range.endDate));
-        return mapSleepSamplesToImportedSleep(input.date, samples);
+        const range = buildHealthKitSleepQueryRange(input.date);
+
+        await appendHealthDiagnosticEvent({
+            id: createHealthDiagnosticId("sleep-query"),
+            createdAt: toIsoNow(),
+            provider: "healthkit",
+            level: "info",
+            kind: "sleep-query-started",
+            range,
+        });
+
+        try {
+            const samples = await hkGetSleepSamples(
+                buildRangeOptions(range.startDate, range.endDate)
+            );
+            const normalized = normalizeHealthKitSleepSamples(input.date, samples);
+
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("sleep-query-result"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level: samples.length > 0 ? "info" : "warning",
+                kind: "sleep-query-result",
+                range,
+                receivedSampleCount: samples.length,
+                storedSampleCount: normalized.diagnostics.diagnosticSamples.length,
+                samplesTruncated: normalized.diagnostics.diagnosticSamplesTruncated,
+                samples: normalized.diagnostics.diagnosticSamples,
+            });
+
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("sleep-normalization"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level:
+                    normalized.diagnostics.outcome === "normalized" ? "info" : "warning",
+                kind: "sleep-normalization",
+                targetDate: input.date,
+                receivedSampleCount: normalized.diagnostics.receivedSampleCount,
+                validSampleCount: normalized.diagnostics.validSampleCount,
+                rejectedSampleCount: normalized.diagnostics.rejectedSampleCount,
+                duplicateSampleCount: normalized.diagnostics.duplicateSampleCount,
+                targetDateSampleCount: normalized.diagnostics.targetDateSampleCount,
+                targetNightSampleCount: normalized.diagnostics.targetNightSampleCount,
+                discardedTargetDateSampleCount:
+                    normalized.diagnostics.discardedTargetDateSampleCount,
+                availableNightKeys: normalized.diagnostics.availableNightKeys,
+                nightSummaries: normalized.diagnostics.nightSummaries,
+                unknownValues: normalized.diagnostics.unknownValues,
+                selectedSourceKey: normalized.diagnostics.selectedSourceKey,
+                sourceSummaries: normalized.diagnostics.sourceSummaries,
+                totals: normalized.diagnostics.totals,
+                outcome: normalized.diagnostics.outcome,
+            });
+
+            return normalized.sleep;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const codeMatch = /(?:code|error)\s*[:=]\s*([A-Z0-9_-]+)/i.exec(errorMessage);
+
+            await appendHealthDiagnosticEvent({
+                id: createHealthDiagnosticId("sleep-query-error"),
+                createdAt: toIsoNow(),
+                provider: "healthkit",
+                level: "error",
+                kind: "sleep-query-error",
+                targetDate: input.date,
+                range,
+                errorMessage,
+                nativeCode: codeMatch?.[1] ?? null,
+            });
+
+            throw error;
+        }
     },
 
     async readWorkoutsByDate(input): Promise<HealthImportedWorkoutSessionMinimal[]> {
@@ -644,10 +618,10 @@ export const healthIOSBridge: NativeHealthBridge = {
         const options = buildRangeOptions(input.from, input.to);
 
         const [heartRateSamples, stepSamples, distanceResult, energyResults] = await Promise.all([
-            hkGetHeartRateSamples(options).catch((): HealthValue[] => []),
-            hkGetDailyStepCountSamples(options).catch((): HealthValue[] => []),
-            hkGetDistanceWalkingRunning(options).catch((): HealthValue | null => null),
-            hkGetActiveEnergyBurned(options).catch((): HealthValue[] => []),
+            hkGetHeartRateSamples(options).catch((): unknown[] => []),
+            hkGetDailyStepCountSamples(options).catch((): unknown[] => []),
+            hkGetDistanceWalkingRunning(options).catch((): unknown | null => null),
+            hkGetActiveEnergyBurned(options).catch((): unknown[] => []),
         ]);
 
         return {
