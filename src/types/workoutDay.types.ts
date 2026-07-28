@@ -573,6 +573,18 @@ export type WeekViewResponse = {
 };
 
 /**
+ * Response returned by GET /workout/calendar for an arbitrary date range.
+ */
+export type CalendarViewResponse = {
+    from: ISODate;
+    to: ISODate;
+    fields: string[] | null;
+    fillMissingDays: boolean;
+    days: CalendarDayFull[];
+    rollups?: WeekRollups;
+};
+
+/**
  * =========================================================
  * Upsert payload helpers
  * =========================================================
