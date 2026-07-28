@@ -1,3 +1,6 @@
+// src/hooks/workout/useWorkoutWeekView.ts
+// React Query wrapper for the complete typed ISO-week view.
+
 import { useQuery } from "@tanstack/react-query";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
@@ -8,17 +11,25 @@ import {
 } from "@/src/services/workout/workoutWeek.service";
 import type { WeekKey, WeekViewResponse } from "@/src/types/workoutDay.types";
 
-export function useWorkoutWeekView(weekKey: WeekKey | null | undefined, args?: Partial<GetWorkoutWeekArgs>) {
-    const enabled = Boolean(weekKey);
-
+export function useWorkoutWeekView(
+    weekKey: WeekKey | null | undefined,
+    args?: Partial<GetWorkoutWeekArgs>,
+) {
     return useQuery<WeekViewResponse, ApiAxiosError>({
         queryKey: ["workoutWeekView", weekKey, args ?? null],
         queryFn: () => {
-            const wk = String(weekKey);
-            const base = defaultTraineeWeekViewParams(wk as WeekKey);
-            return getWorkoutWeekView({ ...base, ...(args ?? {}), weekKey: wk as WeekKey });
+            if (!weekKey) {
+                throw new Error("A week key is required to load the WorkoutDay week view.");
+            }
+
+            const base = defaultTraineeWeekViewParams(weekKey);
+            return getWorkoutWeekView({
+                ...base,
+                ...(args ?? {}),
+                weekKey,
+            });
         },
-        enabled,
+        enabled: Boolean(weekKey),
         staleTime: 30_000,
     });
 }

@@ -1,4 +1,6 @@
 // src/app/(app)/_layout.tsx
+// Bottom navigation plus the Más sheet for secondary sections.
+
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs, router, type Href } from "expo-router";
 import React from "react";
@@ -25,29 +27,24 @@ type MoreItem = {
 };
 
 export default function AppLayout() {
-    const user = useAuthStore((s) => s.user);
-
+    const user = useAuthStore((state) => state.user);
     const isAdmin = user?.role === "admin";
     const isTrainer = user?.coachMode === "TRAINER";
 
     const theme = useTheme();
     const { colors } = theme;
     const insets = useSafeAreaInsets();
-
     const [moreOpen, setMoreOpen] = React.useState(false);
 
-    const moreItems: MoreItem[] = React.useMemo(() => {
-        const list: MoreItem[] = [
-            { key: "media", title: "Media", icon: "image-multiple-outline", href: "/media" },
-            { key: "trends", title: "Tendencias (Semanas)", icon: "trending-up", href: "/trends" },
-            { key: "progress", title: "Progreso", icon: "chart-timeline-variant", href: "/progress" },
-            { key: "insights", title: "Insights", icon: "chart-bell-curve", href: "/insights" },
-            { key: "pva", title: "Plan vs Real", icon: "chart-box-multiple", href: "/pva" },
-            { key: "me", title: "Perfil", icon: "face-man-outline", href: "/me" },
-        ];
-
-        return list;
-    }, []);
+    const moreItems = React.useMemo<MoreItem[]>(() => [
+        { key: "periods", title: "Periodos", icon: "calendar-range", href: "/periods" },
+        { key: "media", title: "Media", icon: "image-multiple-outline", href: "/media" },
+        { key: "trends", title: "Tendencias (Semanas)", icon: "trending-up", href: "/trends" },
+        { key: "progress", title: "Progreso", icon: "chart-timeline-variant", href: "/progress" },
+        { key: "insights", title: "Insights", icon: "chart-bell-curve", href: "/insights" },
+        { key: "pva", title: "Plan vs Real", icon: "chart-box-multiple", href: "/pva" },
+        { key: "me", title: "Perfil", icon: "face-man-outline", href: "/me" },
+    ], []);
 
     const openMore = React.useCallback(() => setMoreOpen(true), []);
     const closeMore = React.useCallback(() => setMoreOpen(false), []);
@@ -56,24 +53,6 @@ export default function AppLayout() {
         setMoreOpen(false);
         router.push(href);
     }, []);
-
-    const trainerTabOptions = React.useMemo(() => {
-        if (isTrainer) {
-            return { title: "Trainer", tabBarIcon: tabIcon("whistle-outline") };
-        }
-        return {
-            href: null,
-        };
-    }, [isTrainer]);
-
-    const adminTabOptions = React.useMemo(() => {
-        if (isAdmin) {
-            return { title: "Admin", tabBarIcon: tabIcon("shield-crown-outline") };
-        }
-        return {
-            href: null,
-        };
-    }, [isAdmin]);
 
     return (
         <>
@@ -88,20 +67,31 @@ export default function AppLayout() {
                 <Tabs.Screen name="movements" options={{ title: "Ejercicios", tabBarIcon: tabIcon("dumbbell") }} />
                 <Tabs.Screen name="sleep" options={{ title: "Sueño", tabBarIcon: tabIcon("bed-clock") }} />
 
-                <Tabs.Screen name="trainer" options={trainerTabOptions as any} />
-                <Tabs.Screen name="admin" options={adminTabOptions as any} />
+                <Tabs.Screen
+                    name="trainer"
+                    options={isTrainer
+                        ? { title: "Trainer", tabBarIcon: tabIcon("whistle-outline") }
+                        : { href: null }}
+                />
+                <Tabs.Screen
+                    name="admin"
+                    options={isAdmin
+                        ? { title: "Admin", tabBarIcon: tabIcon("shield-crown-outline") }
+                        : { href: null }}
+                />
 
                 <Tabs.Screen
                     name="more"
                     options={{ title: "Más", tabBarIcon: tabIcon("dots-horizontal") }}
                     listeners={{
-                        tabPress: (e) => {
-                            e.preventDefault();
+                        tabPress: (event) => {
+                            event.preventDefault();
                             openMore();
                         },
                     }}
                 />
 
+                <Tabs.Screen name="periods" options={{ href: null }} />
                 <Tabs.Screen name="media" options={{ href: null }} />
                 <Tabs.Screen name="trends" options={{ href: null }} />
                 <Tabs.Screen name="progress" options={{ href: null }} />
@@ -158,10 +148,10 @@ export default function AppLayout() {
 
                         <ScrollView>
                             <View style={{ gap: 10 }}>
-                                {moreItems.map((it) => (
+                                {moreItems.map((item) => (
                                     <Pressable
-                                        key={it.key}
-                                        onPress={() => goTo(it.href)}
+                                        key={item.key}
+                                        onPress={() => goTo(item.href)}
                                         style={({ pressed }) => ({
                                             borderWidth: 1,
                                             borderColor: colors.border,
@@ -175,9 +165,9 @@ export default function AppLayout() {
                                             gap: 10,
                                         })}
                                     >
-                                        <MaterialCommunityIcons name={it.icon} size={20} color={colors.text} />
+                                        <MaterialCommunityIcons name={item.icon} size={20} color={colors.text} />
                                         <Text style={{ color: colors.text, fontWeight: "800", flex: 1 }} numberOfLines={1}>
-                                            {it.title}
+                                            {item.title}
                                         </Text>
                                         <Text style={{ color: colors.mutedText, fontWeight: "800" }}>›</Text>
                                     </Pressable>
