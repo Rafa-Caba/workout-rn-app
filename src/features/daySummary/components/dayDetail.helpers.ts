@@ -1,5 +1,13 @@
 // /src/features/daySummary/components/dayDetail.helpers.ts
 
+/**
+ * Shared helpers for the unified WorkoutDay detail UI.
+ *
+ * The helpers keep formatting, session classification, and runtime-safe
+ * normalizers outside the visual components so Gym and Cardio render from the
+ * same strongly typed contracts.
+ */
+
 import type { MediaViewerItem } from "@/src/features/components/media/MediaViewerModal";
 import type {
     WorkoutDay,
@@ -15,6 +23,11 @@ export type DayUiColors = {
     border: string;
     text: string;
     mutedText: string;
+};
+
+export type DaySessionGroups = {
+    gym: WorkoutSession[];
+    cardio: WorkoutSession[];
 };
 
 export function isFiniteNumber(value: unknown): value is number {
@@ -46,6 +59,17 @@ export function maxNullable(values: Array<number | null | undefined>): number | 
     return max;
 }
 
+export function averageNullable(values: Array<number | null | undefined>): number | null {
+    const validValues = values.filter((value): value is number => isFiniteNumber(value));
+
+    if (validValues.length === 0) {
+        return null;
+    }
+
+    const total = validValues.reduce((accumulator, value) => accumulator + value, 0);
+    return Math.round(total / validValues.length);
+}
+
 export function countMedia(sessions: WorkoutSession[]): number {
     let count = 0;
 
@@ -55,6 +79,13 @@ export function countMedia(sessions: WorkoutSession[]): number {
     }
 
     return count;
+}
+
+export function countExerciseSets(session: WorkoutSession): number {
+    return normalizeExercises(session).reduce(
+        (total, exercise) => total + normalizeSets(exercise).length,
+        0
+    );
 }
 
 function looksLikeSimpleTime(value: string): boolean {
@@ -88,8 +119,9 @@ export function safeTime(value: string | null): string {
 export function safePace(secondsPerKm: number | null): string {
     if (!isFiniteNumber(secondsPerKm) || secondsPerKm <= 0) return "—";
 
-    const minutes = Math.floor(secondsPerKm / 60);
-    const seconds = Math.round(secondsPerKm % 60);
+    const roundedSeconds = Math.round(secondsPerKm);
+    const minutes = Math.floor(roundedSeconds / 60);
+    const seconds = roundedSeconds % 60;
 
     return `${minutes}:${String(seconds).padStart(2, "0")} min/km`;
 }
@@ -102,6 +134,46 @@ export function safeNumber(value: number | null): string {
 export function safeDecimal(value: number | null, digits: number = 2): string {
     if (!isFiniteNumber(value)) return "—";
     return value.toFixed(digits);
+}
+
+export function formatDurationSeconds(value: number | null): string {
+    if (!isFiniteNumber(value) || value <= 0) {
+        return "—";
+    }
+
+    const totalSeconds = Math.round(value);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return seconds > 0
+            ? `${hours}h ${minutes}m ${seconds}s`
+            : `${hours}h ${minutes}m`;
+    }
+
+    if (minutes > 0) {
+        return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+    }
+
+    return `${seconds}s`;
+}
+
+export function formatMetaDate(value: string | null | undefined): string {
+    if (!value) return "—";
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat("es-MX", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(parsed);
 }
 
 export function normalizeSessions(day: WorkoutDay | null | undefined): WorkoutSession[] {
@@ -120,6 +192,41 @@ export function normalizeMedia(session: WorkoutSession): WorkoutMediaItem[] {
     return Array.isArray(session.media) ? session.media : [];
 }
 
+/**
+ * A Cardio session is identified by its explicit session kind, activity family,
+ * or Cardio environment. Device-imported walks/runs therefore stay in Cardio
+ * even when their source is HealthKit or Health Connect.
+ */
+export function isCardioSession(session: WorkoutSession): boolean {
+    const sessionKind = session.meta?.sessionKind ?? null;
+
+    return (
+        sessionKind === "manual-cardio" ||
+        sessionKind === "live-cardio" ||
+        session.activityType === "walking" ||
+        session.activityType === "running" ||
+        session.cardioEnvironment === "outdoor" ||
+        session.cardioEnvironment === "indoor"
+    );
+}
+
+export function splitSessionsByKind(sessions: WorkoutSession[]): DaySessionGroups {
+    const groups: DaySessionGroups = {
+        gym: [],
+        cardio: [],
+    };
+
+    for (const session of sessions) {
+        if (isCardioSession(session)) {
+            groups.cardio.push(session);
+        } else {
+            groups.gym.push(session);
+        }
+    }
+
+    return groups;
+}
+
 export function sessionDisplayTitle(session: WorkoutSession): string {
     const base = String(session.type ?? "").trim();
     return base || "Sesión";
@@ -131,14 +238,14 @@ export function sessionDisplayNote(session: WorkoutSession): string {
 }
 
 export function sessionDisplayDevice(session: WorkoutSession): string {
-    const trainingSource = String(session.meta?.trainingSource ?? "").trim();
-    if (trainingSource) {
-        return trainingSource;
-    }
-
     const sourceDevice = String(session.meta?.sourceDevice ?? "").trim();
     if (sourceDevice) {
         return sourceDevice;
+    }
+
+    const trainingSource = String(session.meta?.trainingSource ?? "").trim();
+    if (trainingSource) {
+        return trainingSource;
     }
 
     return "—";
@@ -148,6 +255,11 @@ export function sessionDisplaySource(session: WorkoutSession): string {
     const source = String(session.meta?.source ?? "").trim();
     if (source) {
         return source;
+    }
+
+    const trainingSource = String(session.meta?.trainingSource ?? "").trim();
+    if (trainingSource) {
+        return trainingSource;
     }
 
     const sessionKey = String(session.meta?.sessionKey ?? "").trim();
@@ -161,11 +273,22 @@ export function sessionDisplaySource(session: WorkoutSession): string {
 export function sessionDisplayDayEffort(session: WorkoutSession): string {
     const value = session.meta?.dayEffortRpe;
 
-    if (typeof value === "number" && Number.isFinite(value)) {
+    if (isFiniteNumber(value)) {
         return String(value);
     }
 
     return "—";
+}
+
+export function sessionDisplayKind(session: WorkoutSession): string {
+    const kind = String(session.meta?.sessionKind ?? "").trim();
+    return kind || "sesión";
+}
+
+export function sessionDisplayActivity(session: WorkoutSession): string | null {
+    if (session.activityType === "walking") return "Walking";
+    if (session.activityType === "running") return "Running";
+    return null;
 }
 
 export function exerciseDisplayName(exercise: WorkoutExercise): string {

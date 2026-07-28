@@ -1,5 +1,10 @@
 // /src/features/daySummary/components/DayTrainingBlockSection.tsx
 
+/**
+ * Compatibility wrapper for consumers that still pass a complete WorkoutDay.
+ * The unified session panel only needs the canonical date plus its sessions.
+ */
+
 import React from "react";
 
 import type { MediaViewerItem } from "@/src/features/components/media/MediaViewerModal";
@@ -15,15 +20,10 @@ type Props = {
     onOpenMedia: (item: MediaViewerItem) => void;
 };
 
-export function DayTrainingBlockSection({
-    day,
-    sessions,
-    colors,
-    onOpenMedia,
-}: Props) {
+export function DayTrainingBlockSection({ day, sessions, colors, onOpenMedia }: Props) {
     return (
         <DaySessionsSection
-            day={day}
+            date={day.date}
             sessions={sessions}
             colors={colors}
             onOpenMedia={onOpenMedia}

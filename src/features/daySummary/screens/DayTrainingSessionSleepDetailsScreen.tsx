@@ -1,23 +1,14 @@
 // /src/features/daySummary/screens/DayTrainingSessionSleepDetailsScreen.tsx
 
 /**
- * DayTrainingSessionSleepDetailsScreen
+ * Unified WorkoutDay detail body.
  *
- * Detailed "Día" tab:
- * - date summary header
- * - sleep section
- * - sessions section
- *
- * This screen auto-bootstraps missing health data:
- * - if sleep is missing -> tries sleep bootstrap
- * - if sessions are missing -> tries minimal workout bootstrap
- * - it never overwrites existing data
- *
- * Permission-aware behavior:
- * - if health permissions are still pending, the screen requests them
- *   before attempting the auto-bootstrap
- * - if permissions are missing/denied, it shows a friendly banner
- * - retry also re-requests permissions before importing
+ * This screen replaces the former Resumen / Día split and renders, in order:
+ * - top KPIs
+ * - Health auto-bootstrap status
+ * - typed notes attached to the day
+ * - sleep panel
+ * - separated Gym and Cardio panels
  */
 
 import React from "react";
@@ -25,25 +16,34 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "rea
 
 import type { MediaViewerItem } from "@/src/features/components/media/MediaViewerModal";
 import { MediaViewerModal } from "@/src/features/components/media/MediaViewerModal";
-
+import { DayNotesSection } from "@/src/features/daySummary/components/DayNotesSection";
 import { useDayAutoBootstrap } from "@/src/hooks/health/useDayAutoBootstrap";
 import { useHealthPermissions } from "@/src/hooks/health/useHealthPermissions";
 import { useWorkoutDay } from "@/src/hooks/workout/useWorkoutDay";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { HealthPermissionsStatus } from "@/src/types/health/cardio/health.types";
 import type { WorkoutDay } from "@/src/types/workoutDay.types";
+import { minutesToHhMm } from "@/src/utils/dashboard/format";
 
-import { DayPill } from "../components/DayMetricGrid";
 import { DaySessionsSection } from "../components/DaySessionsSection";
 import { DaySleepSection } from "../components/DaySleepSection";
 import {
     countMedia,
+    formatDurationSeconds,
     normalizeSessions,
+    splitSessionsByKind,
+    sumNullable,
     type DayUiColors,
 } from "../components/dayDetail.helpers";
 
 type Props = {
     date: string;
+};
+
+type KpiCardProps = {
+    label: string;
+    value: string;
+    colors: DayUiColors;
 };
 
 function hasMeaningfulSleep(day: WorkoutDay | null): boolean {
@@ -76,11 +76,6 @@ function hasRelevantHealthReadPermissions(status: HealthPermissionsStatus | null
         return false;
     }
 
-    /**
-     * We care about sleep + workout/fitness-style reads for Day auto-bootstrap.
-     * If provider returns more specific keys, we filter to the health-related reads.
-     * If not, we fall back to all returned permission states.
-     */
     const relevantEntries = entries.filter(([key]) =>
         /(sleep|exercise|workout|distance|steps|heart|calorie|active|total|elevation|speed|pace|cadence)/i.test(
             key
@@ -88,7 +83,6 @@ function hasRelevantHealthReadPermissions(status: HealthPermissionsStatus | null
     );
 
     const targetEntries = relevantEntries.length > 0 ? relevantEntries : entries;
-
     return targetEntries.every(([, value]) => value === "granted");
 }
 
@@ -105,7 +99,20 @@ function isMissingHealthPermissionError(error: unknown): boolean {
         message.includes("HealthConnectException") ||
         message.includes("SecurityException") ||
         message.includes("SleepSessionRecord") ||
-        message.includes("permission")
+        message.toLowerCase().includes("permission")
+    );
+}
+
+function KpiCard({ label, value, colors }: KpiCardProps) {
+    return (
+        <View style={[styles.kpiCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.kpiLabel, { color: colors.mutedText }]} numberOfLines={2}>
+                {label}
+            </Text>
+            <Text style={[styles.kpiValue, { color: colors.text }]} numberOfLines={2}>
+                {value}
+            </Text>
+        </View>
     );
 }
 
@@ -122,10 +129,12 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
 
     const workoutDayQuery = useWorkoutDay(date);
     const day: WorkoutDay | null = workoutDayQuery.data ?? null;
-
     const autoBootstrap = useDayAutoBootstrap();
+
     const [autoBootstrapAttempted, setAutoBootstrapAttempted] = React.useState(false);
     const [permissionWarning, setPermissionWarning] = React.useState<string | null>(null);
+    const [viewerVisible, setViewerVisible] = React.useState(false);
+    const [viewerItem, setViewerItem] = React.useState<MediaViewerItem | null>(null);
 
     const {
         availability,
@@ -135,9 +144,6 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
         isRequestingPermissions,
         requestPermissions,
     } = useHealthPermissions();
-
-    const [viewerVisible, setViewerVisible] = React.useState(false);
-    const [viewerItem, setViewerItem] = React.useState<MediaViewerItem | null>(null);
 
     const openViewer = React.useCallback((item: MediaViewerItem) => {
         setViewerItem(item);
@@ -184,15 +190,12 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
                 const status = await requestPermissions();
 
                 if (!hasRelevantHealthReadPermissions(status)) {
-                    setPermissionWarning(
-                        "Todavía faltan permisos de Salud para importar sueño o sesiones del dispositivo."
-                    );
+                    const message =
+                        "Todavía faltan permisos de Salud para importar sueño o sesiones del dispositivo.";
+                    setPermissionWarning(message);
 
                     if (source === "manual") {
-                        Alert.alert(
-                            "Permisos requeridos",
-                            "Todavía faltan permisos de Salud para importar sueño o sesiones del dispositivo."
-                        );
+                        Alert.alert("Permisos requeridos", message);
                     }
 
                     return;
@@ -209,25 +212,20 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
                         "No se encontraron datos nuevos para importar en este día."
                     );
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 if (isMissingHealthPermissionError(error)) {
-                    setPermissionWarning(
-                        "La app aún no tiene todos los permisos necesarios de Salud para este día."
-                    );
+                    const message =
+                        "La app aún no tiene todos los permisos necesarios de Salud para este día.";
+                    setPermissionWarning(message);
 
                     if (source === "manual") {
-                        Alert.alert(
-                            "Permisos faltantes",
-                            "La app aún no tiene todos los permisos necesarios de Salud para este día."
-                        );
+                        Alert.alert("Permisos faltantes", message);
                     }
 
                     return;
                 }
 
-                const message = safeText(
-                    error instanceof Error ? error.message : error
-                );
+                const message = safeText(error instanceof Error ? error.message : error);
 
                 if (source === "manual") {
                     Alert.alert("Error", message);
@@ -252,7 +250,6 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
         if (!missingSleep && !missingSessions) return;
 
         setAutoBootstrapAttempted(true);
-
         void runPermissionAwareBootstrap("auto");
     }, [
         date,
@@ -269,57 +266,74 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
         return (
             <View style={[styles.center, { backgroundColor: uiColors.background }]}>
                 <ActivityIndicator />
-                <Text style={[styles.centerText, { color: uiColors.mutedText }]}>
-                    Cargando día...
-                </Text>
+                <Text style={[styles.centerText, { color: uiColors.mutedText }]}>Cargando detalle del día...</Text>
             </View>
         );
     }
 
     if (workoutDayQuery.isError) {
         return (
-            <View style={[styles.center, { backgroundColor: uiColors.background }]}>
-                <Text style={[styles.centerText, { color: uiColors.mutedText }]}>
-                    No se pudo cargar el día.
-                </Text>
-            </View>
-        );
-    }
-
-    if (!day) {
-        return (
-            <View style={[styles.center, { backgroundColor: uiColors.background }]}>
-                <Text style={[styles.centerText, { color: uiColors.mutedText }]}>
-                    No hay datos para este día.
-                </Text>
+            <View style={[styles.errorState, { borderColor: uiColors.border, backgroundColor: uiColors.surface }]}>
+                <Text style={[styles.errorTitle, { color: uiColors.text }]}>No se pudo cargar el día</Text>
+                <Text style={[styles.centerText, { color: uiColors.mutedText }]}>Revisa tu conexión e intenta nuevamente.</Text>
+                <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                        void workoutDayQuery.refetch();
+                    }}
+                    style={({ pressed }) => [
+                        styles.retryButton,
+                        {
+                            borderColor: uiColors.border,
+                            backgroundColor: uiColors.background,
+                            opacity: pressed ? 0.72 : 1,
+                        },
+                    ]}
+                >
+                    <Text style={[styles.retryButtonText, { color: uiColors.text }]}>Reintentar</Text>
+                </Pressable>
             </View>
         );
     }
 
     const sessions = normalizeSessions(day);
-    const sessionsCount = sessions.length;
+    const groups = splitSessionsByKind(sessions);
+    const totalDurationSeconds = sumNullable(sessions.map((session) => session.durationSeconds));
+    const totalActiveKcal = sumNullable(sessions.map((session) => session.activeKcal));
+    const sleepMinutes = day?.sleep?.timeAsleepMinutes ?? null;
     const mediaCount = countMedia(sessions);
 
     return (
         <View style={styles.container}>
             <MediaViewerModal visible={viewerVisible} item={viewerItem} onClose={closeViewer} />
 
-            <View
-                style={[
-                    styles.topRow,
-                    { borderColor: uiColors.border, backgroundColor: uiColors.surface },
-                ]}
-            >
-                <View style={styles.topRowLeft}>
-                    <Text style={[styles.topRowTitle, { color: uiColors.text }]}>📅 Fecha</Text>
-                    <Text style={[styles.topRowValue, { color: uiColors.mutedText }]}>
-                        {day.date || "—"}
-                    </Text>
-                </View>
+            <View style={styles.kpiGrid}>
+                <KpiCard
+                    label="Entrenamiento"
+                    value={formatDurationSeconds(totalDurationSeconds)}
+                    colors={uiColors}
+                />
+                <KpiCard
+                    label="Kcal activas"
+                    value={totalActiveKcal > 0 ? String(totalActiveKcal) : "—"}
+                    colors={uiColors}
+                />
+                <KpiCard
+                    label="Sueño"
+                    value={typeof sleepMinutes === "number" ? minutesToHhMm(sleepMinutes) : "—"}
+                    colors={uiColors}
+                />
+            </View>
 
-                <View style={styles.pills}>
-                    <DayPill label={`🏋️ Sesiones: ${sessionsCount}`} colors={uiColors} />
-                    <DayPill label={`🖼️ Media: ${mediaCount}`} colors={uiColors} />
+            <View style={[styles.dayOverview, { borderColor: uiColors.border, backgroundColor: uiColors.surface }]}>
+                <Text style={[styles.dayOverviewTitle, { color: uiColors.text }]}>Resumen de entrenamiento</Text>
+                <View style={styles.overviewValues}>
+                    <Text style={[styles.overviewText, { color: uiColors.mutedText }]}>🏋️ Gym: {groups.gym.length}</Text>
+                    <Text style={[styles.overviewText, { color: uiColors.mutedText }]}>🚶 Cardio: {groups.cardio.length}</Text>
+                    <Text style={[styles.overviewText, { color: uiColors.mutedText }]}>📎 Media: {mediaCount}</Text>
+                    {workoutDayQuery.isFetching ? (
+                        <Text style={[styles.overviewText, { color: uiColors.mutedText }]}>↻ Actualizando</Text>
+                    ) : null}
                 </View>
             </View>
 
@@ -327,60 +341,37 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
                 autoBootstrap.data?.bootstrappedSleep ||
                 autoBootstrap.data?.bootstrappedWorkout ||
                 permissionWarning) ? (
-                <View
-                    style={[
-                        styles.bootstrapBanner,
-                        {
-                            borderColor: uiColors.border,
-                            backgroundColor: uiColors.surface,
-                        },
-                    ]}
-                >
-                    <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={[styles.bootstrapTitle, { color: uiColors.text }]}>
-                            Auto-bootstrap del día
-                        </Text>
+                <View style={[styles.bootstrapBanner, { borderColor: uiColors.border, backgroundColor: uiColors.surface }]}>
+                    <View style={styles.bootstrapTextGroup}>
+                        <Text style={[styles.bootstrapTitle, { color: uiColors.text }]}>Sincronización de Salud</Text>
 
                         {bootstrapBusy ? (
-                            <Text style={[styles.bootstrapText, { color: uiColors.mutedText }]}>
-                                Revisando permisos e intentando importar desde {providerLabel}…
-                            </Text>
+                            <Text style={[styles.bootstrapText, { color: uiColors.mutedText }]}>Revisando permisos e intentando importar desde {providerLabel}…</Text>
                         ) : permissionWarning ? (
-                            <Text style={[styles.bootstrapText, { color: uiColors.mutedText }]}>
-                                {permissionWarning}
-                            </Text>
+                            <Text style={[styles.bootstrapText, { color: uiColors.mutedText }]}>{permissionWarning}</Text>
                         ) : (
-                            <Text style={[styles.bootstrapText, { color: uiColors.mutedText }]}>
-                                {autoBootstrap.data?.bootstrappedSleep ||
-                                    autoBootstrap.data?.bootstrappedWorkout
-                                    ? "Se importó información disponible desde Salud para este día."
-                                    : "No hubo datos nuevos para importar."}
-                            </Text>
+                            <Text style={[styles.bootstrapText, { color: uiColors.mutedText }]}>Se revisó la información disponible desde Salud para este día.</Text>
                         )}
 
-                        <Text style={[styles.permissionLine, { color: uiColors.mutedText }]}>
-                            Provider: {providerLabel} · Disponible: {availability ? "Sí" : "No"} · Permisos:{" "}
-                            {canAttemptBootstrap ? "Concedidos" : "Pendientes"}
-                        </Text>
+                        <Text style={[styles.permissionLine, { color: uiColors.mutedText }]}>Provider: {providerLabel} · Disponible: {availability ? "Sí" : "No"} · Lectura: {canAttemptBootstrap ? "lista para consultar" : "pendiente"}</Text>
                     </View>
 
                     {!bootstrapBusy ? (
                         <Pressable
+                            accessibilityRole="button"
                             onPress={() => {
                                 void runPermissionAwareBootstrap("manual");
                             }}
-                            style={{
-                                paddingHorizontal: 12,
-                                paddingVertical: 10,
-                                borderRadius: 12,
-                                borderWidth: 1,
-                                borderColor: uiColors.border,
-                                backgroundColor: uiColors.background,
-                            }}
+                            style={({ pressed }) => [
+                                styles.retryButton,
+                                {
+                                    borderColor: uiColors.border,
+                                    backgroundColor: uiColors.background,
+                                    opacity: pressed ? 0.72 : 1,
+                                },
+                            ]}
                         >
-                            <Text style={{ color: uiColors.text, fontWeight: "800" }}>
-                                Reintentar
-                            </Text>
+                            <Text style={[styles.retryButtonText, { color: uiColors.text }]}>Reintentar</Text>
                         </Pressable>
                     ) : (
                         <ActivityIndicator />
@@ -388,10 +379,10 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
                 </View>
             ) : null}
 
-            <DaySleepSection sleep={day.sleep} colors={uiColors} />
-
+            <DayNotesSection date={date} />
+            <DaySleepSection sleep={day?.sleep ?? null} colors={uiColors} />
             <DaySessionsSection
-                day={day}
+                date={date}
                 sessions={sessions}
                 colors={uiColors}
                 onOpenMedia={openViewer}
@@ -401,22 +392,80 @@ export function DayTrainingSessionSleepDetailsScreen({ date }: Props) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, gap: 12 },
-    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-    centerText: { fontSize: 13, fontWeight: "600" },
-    topRow: {
+    container: {
+        flex: 1,
+        gap: 12,
+    },
+    center: {
+        minHeight: 220,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+    },
+    centerText: {
+        fontSize: 13,
+        fontWeight: "600",
+        lineHeight: 18,
+        textAlign: "center",
+    },
+    errorState: {
+        minHeight: 220,
         borderWidth: 1,
         borderRadius: 16,
-        padding: 14,
-        flexDirection: "row",
+        padding: 18,
         alignItems: "center",
+        justifyContent: "center",
+        gap: 9,
+    },
+    errorTitle: {
+        fontSize: 16,
+        fontWeight: "800",
+    },
+    kpiGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    kpiCard: {
+        flexGrow: 1,
+        flexBasis: "30%",
+        minWidth: 98,
+        minHeight: 70,
+        borderWidth: 1,
+        borderRadius: 15,
+        padding: 12,
         justifyContent: "space-between",
+        gap: 8,
+    },
+    kpiLabel: {
+        fontSize: 11,
+        fontWeight: "800",
+        lineHeight: 15,
+    },
+    kpiValue: {
+        fontSize: 17,
+        fontWeight: "800",
+        lineHeight: 21,
+    },
+    dayOverview: {
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 13,
+        gap: 9,
+    },
+    dayOverviewTitle: {
+        fontSize: 14,
+        fontWeight: "800",
+    },
+    overviewValues: {
+        flexDirection: "row",
+        flexWrap: "wrap",
         gap: 10,
     },
-    topRowLeft: { flex: 1 },
-    topRowTitle: { fontSize: 12, fontWeight: "900" },
-    topRowValue: { marginTop: 4, fontSize: 13, fontWeight: "700" },
-    pills: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+    overviewText: {
+        fontSize: 12,
+        fontWeight: "800",
+    },
     bootstrapBanner: {
         borderWidth: 1,
         borderRadius: 16,
@@ -425,7 +474,32 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 12,
     },
-    bootstrapTitle: { fontSize: 13, fontWeight: "900" },
-    bootstrapText: { fontSize: 12, fontWeight: "600", lineHeight: 18 },
-    permissionLine: { fontSize: 11, fontWeight: "700", lineHeight: 16 },
+    bootstrapTextGroup: {
+        flex: 1,
+        gap: 4,
+    },
+    bootstrapTitle: {
+        fontSize: 13,
+        fontWeight: "800",
+    },
+    bootstrapText: {
+        fontSize: 12,
+        fontWeight: "600",
+        lineHeight: 18,
+    },
+    permissionLine: {
+        fontSize: 11,
+        fontWeight: "700",
+        lineHeight: 16,
+    },
+    retryButton: {
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    retryButtonText: {
+        fontSize: 12,
+        fontWeight: "800",
+    },
 });

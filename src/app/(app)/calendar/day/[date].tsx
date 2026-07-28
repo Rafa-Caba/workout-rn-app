@@ -1,31 +1,38 @@
 // src/app/(app)/calendar/day/[date].tsx
+
+/**
+ * Route wrapper for the unified day detail.
+ * It validates the ISO route parameter and exposes a Spanish header title.
+ */
+
 import { DayDetailScreen } from "@/src/features/daySummary/screens/DayDetailScreen";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Stack, useLocalSearchParams } from "expo-router";
 import React from "react";
 
 function safeParseIsoDate(isoDate: string): Date | null {
     if (!isoDate) return null;
-    const dt = new Date(`${isoDate}T00:00:00`);
-    if (Number.isNaN(dt.getTime())) return null;
-    return dt;
+
+    const parsed = new Date(`${isoDate}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function formatHeaderTitle(isoDate: string): string {
-    const dt = safeParseIsoDate(isoDate);
-    if (!dt) return "Día";
-    // Example: "Día • Feb 28, 2026"
-    return `${format(dt, "MMM dd, yyyy")}`;
+    const parsed = safeParseIsoDate(isoDate);
+    if (!parsed) return "Día";
+
+    return format(parsed, "d MMM yyyy", { locale: es });
 }
 
 export default function DayDetailRoute() {
     const { date } = useLocalSearchParams<{ date: string }>();
-    const iso = date ?? "";
+    const isoDate = date ?? "";
 
     return (
         <>
-            <Stack.Screen options={{ title: formatHeaderTitle(iso) }} />
-            <DayDetailScreen date={iso} />
+            <Stack.Screen options={{ title: formatHeaderTitle(isoDate) }} />
+            <DayDetailScreen date={isoDate} />
         </>
     );
 }
