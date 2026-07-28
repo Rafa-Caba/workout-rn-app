@@ -10,6 +10,14 @@ const NORMALIZER_PATH = path.join(
     PROJECT_ROOT,
     "src/utils/health/healthSleep.normalizer.ts"
 );
+const HEALTH_INDEX_PATH = path.join(
+    PROJECT_ROOT,
+    "node_modules/react-native-health/index.js"
+);
+const HEALTH_QUERIES_PATH = path.join(
+    PROJECT_ROOT,
+    "node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Queries.m"
+);
 
 function loadNormalizer() {
     const source = fs.readFileSync(NORMALIZER_PATH, "utf8");
@@ -310,4 +318,39 @@ assert.equal(partialDetailedVsCompleteGeneric.sleep?.sourceDevice, "Health");
 assert.equal(partialDetailedVsCompleteGeneric.sleep?.timeAsleepMinutes, 360);
 assert.equal(partialDetailedVsCompleteGeneric.sleep?.coreMinutes, null);
 
-console.log("✓ HealthKit sleep normalizer: 6 escenarios verificados.");
+const unknownStages = normalizeHealthKitSleepSamples(targetDate, [
+    sample({
+        id: "unknown-watch-stage",
+        start: localISO(2026, 6, 27, 0, 0),
+        end: localISO(2026, 6, 27, 1, 0),
+        value: "UNKNOWN",
+        ...watch,
+    }),
+]);
+assert.equal(unknownStages.sleep, null);
+assert.equal(unknownStages.diagnostics.outcome, "no-meaningful-sleep");
+assert.deepEqual(
+    unknownStages.diagnostics.unknownValues,
+    ["UNKNOWN"],
+    "El diagnóstico debe conservar etapas desconocidas aunque no pueda formar una noche."
+);
+
+const healthIndex = fs.readFileSync(HEALTH_INDEX_PATH, "utf8");
+assert.match(
+    healthIndex,
+    /new Proxy\(/,
+    "react-native-health debe obtener AppleHealthKit mediante el Proxy diferido."
+);
+
+const healthQueries = fs.readFileSync(HEALTH_QUERIES_PATH, "utf8");
+for (const nativeStage of ["AWAKE", "CORE", "DEEP", "REM"]) {
+    assert.match(
+        healthQueries,
+        new RegExp(`valueString = @"${nativeStage}"`),
+        `react-native-health debe mapear ${nativeStage}.`
+    );
+}
+
+console.log("✓ HealthKit sleep normalizer: 7 escenarios verificados.");
+console.log("✓ react-native-health 1.19.0: etapas AWAKE, CORE, DEEP y REM verificadas.");
+console.log("✓ react-native-health: Proxy diferido para New Architecture verificado.");

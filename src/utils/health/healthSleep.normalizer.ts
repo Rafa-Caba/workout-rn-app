@@ -729,6 +729,13 @@ export function normalizeHealthKitSleepSamples(
 
     const targetDateSamples = deduped.filter((sample) => sample.nightKey === targetDate);
     diagnostics.targetDateSampleCount = targetDateSamples.length;
+    diagnostics.unknownValues = Array.from(
+        new Set(
+            targetDateSamples
+                .filter((sample) => sample.bucket === "unknown")
+                .map((sample) => sample.value ?? "[sin valor]")
+        )
+    ).sort();
 
     if (targetDateSamples.length === 0) {
         diagnostics.outcome = "no-target-night";
@@ -749,13 +756,6 @@ export function normalizeHealthKitSleepSamples(
     diagnostics.targetNightSampleCount = targetNightSamples.length;
     diagnostics.discardedTargetDateSampleCount =
         targetDateSamples.length - targetNightSamples.length;
-    diagnostics.unknownValues = Array.from(
-        new Set(
-            targetNightSamples
-                .filter((sample) => sample.bucket === "unknown")
-                .map((sample) => sample.value ?? "[sin valor]")
-        )
-    ).sort();
 
     const bySource = new Map<string, NormalizedSleepSample[]>();
     for (const sample of targetNightSamples) {
