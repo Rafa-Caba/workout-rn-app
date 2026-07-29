@@ -104,6 +104,7 @@ export type HealthWorkoutDiagnosticMetrics = {
     elevationGainM: number | null;
     paceSecPerKm: number | null;
     cadenceRpm: number | null;
+    effortRpe: number | null;
 };
 
 export type HealthWorkoutDiagnosticSample = {
@@ -137,6 +138,7 @@ export type HealthCardioDiagnosticMetrics = {
     avgSpeedKmh: number | null;
     maxSpeedKmh: number | null;
     cadenceRpm: number | null;
+    effortRpe: number | null;
     strideLengthM: number | null;
 };
 

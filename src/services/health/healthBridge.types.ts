@@ -1,51 +1,52 @@
-// /src/services/health/healthBridge.types.ts
+// src/services/health/healthBridge.types.ts
+// Shared strongly typed contract implemented by the iOS HealthKit and Android
+// Health Connect bridges.
 
 import type { HealthPermissionKey } from "@/src/services/health/healthPermissionKeys";
 import type {
     HealthImportedSleep,
     HealthImportedWorkoutMetrics,
+    HealthImportedWorkoutRoute,
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
 } from "@/src/types/health/cardio/health.types";
 import type { ISODate, ISODateTime } from "@/src/types/workoutDay.types";
 
-/**
- * Supported native health platforms.
- */
+/** Supported native health platforms. */
 export type NativeHealthPlatform = "ios" | "android";
 
-/**
- * Generic permission request used by bridge adapters.
- */
+/** Generic permission request used by bridge adapters. */
 export type NativeHealthPermissionsRequest = {
     permissions: HealthPermissionKey[];
 };
 
-/**
- * Read sleep by a single canonical app day (YYYY-MM-DD).
- */
+/** Reads sleep by one canonical app day in YYYY-MM-DD format. */
 export type NativeHealthReadSleepByDateInput = {
     date: ISODate;
 };
 
-/**
- * Read workouts by a single canonical app day (YYYY-MM-DD).
- */
+/** Reads workouts by one canonical app day in YYYY-MM-DD format. */
 export type NativeHealthReadWorkoutsByDateInput = {
     date: ISODate;
 };
 
-/**
- * Read aggregate metrics by explicit ISO datetime range.
- */
+/** Reads the native route associated with one workout identifier. */
+export type NativeHealthReadWorkoutRouteByIdInput = {
+    externalId: string;
+};
+
+/** Reads aggregate metrics by an explicit ISO datetime range. */
 export type NativeHealthReadMetricsByRangeInput = {
     from: ISODateTime;
     to: ISODateTime;
 };
 
 /**
- * Unified bridge contract that each platform adapter must satisfy.
- * This is the native-facing contract already normalized to the app-neutral health types.
+ * Native-facing contract already normalized to app-neutral health types.
+ *
+ * Android generally embeds an exercise route inside the exercise-session
+ * record, while HealthKit requires a separate query by workout UUID. Both
+ * bridges still expose the same method so callers do not fake platform safety.
  */
 export interface NativeHealthBridge {
     readonly platform: NativeHealthPlatform;
@@ -63,6 +64,10 @@ export interface NativeHealthBridge {
     readWorkoutsByDate(
         input: NativeHealthReadWorkoutsByDateInput
     ): Promise<HealthImportedWorkoutSessionMinimal[]>;
+
+    readWorkoutRouteById(
+        input: NativeHealthReadWorkoutRouteByIdInput
+    ): Promise<HealthImportedWorkoutRoute | null>;
 
     readMetricsByRange(
         input: NativeHealthReadMetricsByRangeInput

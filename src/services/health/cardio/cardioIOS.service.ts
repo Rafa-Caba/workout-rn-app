@@ -20,6 +20,12 @@ import {
     resolveLocalISODateFromDateTime,
 } from "@/src/utils/dates/localDateTime";
 import { resolveCardioEnvironmentFromMinimalWorkout } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
+import {
+    resolveAverageSpeedKmh,
+    resolveElevationGainMFromRoute,
+    resolveMaximumSpeedKmhFromRoute,
+    resolvePaceSecPerKm,
+} from "@/src/utils/health/cardio/cardioImportedMetrics.utils";
 import { dedupeImportedCardioSessions } from "@/src/utils/health/cardio/importedCardioSession.dedupe";
 
 export type CardioIOSReadSessionsInput = HealthImportedCardioQuery & {
@@ -216,6 +222,33 @@ function mergeMetrics(
     };
 }
 
+async function resolveWorkoutRoute(
+    workout: HealthImportedWorkoutSessionMinimal,
+    includeRoutes: boolean
+): Promise<HealthImportedCardioSession["route"]> {
+    if (!includeRoutes) {
+        return null;
+    }
+
+    const embeddedRoute = mapWorkoutRouteToCardioRoute(workout.route ?? null);
+    if (embeddedRoute) {
+        return embeddedRoute;
+    }
+
+    const externalId = workout.externalId?.trim() ?? "";
+    if (!externalId) {
+        return null;
+    }
+
+    // HealthKit stores HKWorkoutRoute separately from the workout sample, so
+    // query it by UUID. A denied/missing route must not block the session import.
+    const nativeRoute = await healthIOSBridge
+        .readWorkoutRouteById({ externalId })
+        .catch(() => null);
+
+    return mapWorkoutRouteToCardioRoute(nativeRoute);
+}
+
 async function enrichCardioWorkout(
     workout: HealthImportedWorkoutSessionMinimal,
     activityType: CardioActivityType,
@@ -224,13 +257,33 @@ async function enrichCardioWorkout(
 ): Promise<HealthImportedCardioSession> {
     const sessionRange = resolveSessionRange(workout);
 
-    const rangeMetrics = sessionRange
-        ? await healthIOSBridge.readMetricsByRange(sessionRange).catch(() => null)
-        : null;
+    const [rangeMetrics, route] = await Promise.all([
+        sessionRange
+            ? healthIOSBridge.readMetricsByRange(sessionRange).catch(() => null)
+            : Promise.resolve(null),
+        resolveWorkoutRoute(workout, includeRoutes),
+    ]);
 
     const mergedMetrics = mergeMetrics(workout.metrics, rangeMetrics);
-    const route = includeRoutes ? mapWorkoutRouteToCardioRoute(workout.route ?? null) : null;
-    const cardioEnvironment = route ? "outdoor" : detectCardioEnvironmentFromWorkout(workout);
+    const durationSeconds = mergedMetrics.durationSeconds ?? null;
+    const distanceKm = mergedMetrics.distanceKm ?? null;
+    const paceSecPerKm = resolvePaceSecPerKm({
+        paceSecPerKm: mergedMetrics.paceSecPerKm,
+        durationSeconds,
+        distanceKm,
+    });
+    const avgSpeedKmh = resolveAverageSpeedKmh({
+        avgSpeedKmh: null,
+        durationSeconds,
+        distanceKm,
+    });
+    const elevationGainM =
+        mergedMetrics.elevationGainM ??
+        resolveElevationGainMFromRoute(route?.points ?? null);
+    const maxSpeedKmh = resolveMaximumSpeedKmhFromRoute(route?.points ?? null);
+    const cardioEnvironment = route
+        ? "outdoor"
+        : detectCardioEnvironmentFromWorkout(workout);
 
     return {
         externalId: workout.externalId ?? null,
@@ -241,19 +294,20 @@ async function enrichCardioWorkout(
         startAt: workout.startAt ?? null,
         endAt: workout.endAt ?? null,
         metrics: {
-            durationSeconds: mergedMetrics.durationSeconds ?? null,
+            durationSeconds,
             activeKcal: mergedMetrics.activeKcal ?? null,
             totalKcal: mergedMetrics.totalKcal ?? null,
             totalKcalEstimated: mergedMetrics.totalKcalEstimated === true,
             avgHr: mergedMetrics.avgHr ?? null,
             maxHr: mergedMetrics.maxHr ?? null,
-            distanceKm: mergedMetrics.distanceKm ?? null,
+            distanceKm,
             steps: mergedMetrics.steps ?? null,
-            elevationGainM: mergedMetrics.elevationGainM ?? null,
-            paceSecPerKm: mergedMetrics.paceSecPerKm ?? null,
-            avgSpeedKmh: null,
-            maxSpeedKmh: null,
+            elevationGainM,
+            paceSecPerKm,
+            avgSpeedKmh,
+            maxSpeedKmh,
             cadenceRpm: mergedMetrics.cadenceRpm ?? null,
+            effortRpe: mergedMetrics.effortRpe ?? null,
             strideLengthM: null,
         },
         route,
@@ -277,7 +331,6 @@ async function readCardioSessionsByDate(
         .map((workout) => ({
             workout,
             activityType: detectCardioActivityTypeFromWorkout(workout),
-            cardioEnvironment: detectCardioEnvironmentFromWorkout(workout),
         }))
         .filter(
             (
@@ -285,24 +338,34 @@ async function readCardioSessionsByDate(
             ): item is {
                 workout: HealthImportedWorkoutSessionMinimal;
                 activityType: CardioActivityType;
-                cardioEnvironment: WorkoutCardioEnvironment;
             } =>
                 item.activityType !== null &&
-                matchesRequestedActivityTypes(item.activityType, requestedActivityTypes) &&
-                matchesRequestedCardioEnvironments(item.cardioEnvironment, requestedCardioEnvironments)
+                matchesRequestedActivityTypes(
+                    item.activityType,
+                    requestedActivityTypes
+                )
         );
 
     const sessions: HealthImportedCardioSession[] = [];
 
     for (const item of cardioWorkouts) {
-        sessions.push(
-            await enrichCardioWorkout(
-                item.workout,
-                item.activityType,
-                date,
-                includeRoutes
-            )
+        const session = await enrichCardioWorkout(
+            item.workout,
+            item.activityType,
+            date,
+            includeRoutes
         );
+
+        // Apply the environment filter after route enrichment because a route
+        // can be the strongest evidence that an otherwise-generic walk is outdoor.
+        if (
+            matchesRequestedCardioEnvironments(
+                session.cardioEnvironment,
+                requestedCardioEnvironments
+            )
+        ) {
+            sessions.push(session);
+        }
     }
 
     return sessions;

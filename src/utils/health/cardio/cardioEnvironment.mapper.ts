@@ -74,6 +74,7 @@ function detectIndoorFlagFromRecord(record: Record<string, unknown>): boolean | 
         "isIndoorWorkout",
         "inside",
         "treadmill",
+        "HKIndoorWorkout",
         "HKMetadataKeyIndoorWorkout",
         "MetadataKeyIndoorWorkout",
     ];
@@ -87,11 +88,15 @@ function detectIndoorFlagFromRecord(record: Record<string, unknown>): boolean | 
         }
     }
 
-    const metadata = isRecord(record.metadata) ? record.metadata : null;
-    if (metadata) {
-        const metadataResult = detectIndoorFlagFromRecord(metadata);
-        if (metadataResult !== null) {
-            return metadataResult;
+    const nestedRecords = [record.metadata, record.data, record.workout, record.sample];
+    for (const nestedValue of nestedRecords) {
+        if (!isRecord(nestedValue)) {
+            continue;
+        }
+
+        const nestedResult = detectIndoorFlagFromRecord(nestedValue);
+        if (nestedResult !== null) {
+            return nestedResult;
         }
     }
 
@@ -99,7 +104,7 @@ function detectIndoorFlagFromRecord(record: Record<string, unknown>): boolean | 
 }
 
 export function detectCardioEnvironmentFromProviderText(
-    providerWorkoutType: string | null | undefined
+    providerWorkoutType: unknown
 ): WorkoutCardioEnvironment {
     const normalized = normalizeText(providerWorkoutType);
 
@@ -152,7 +157,7 @@ export function detectCardioEnvironmentFromRaw(raw: unknown): WorkoutCardioEnvir
     ];
 
     for (const key of textKeys) {
-        const detected = detectCardioEnvironmentFromProviderText(raw[key] as string | null | undefined);
+        const detected = detectCardioEnvironmentFromProviderText(raw[key]);
         if (detected !== null) {
             return detected;
         }

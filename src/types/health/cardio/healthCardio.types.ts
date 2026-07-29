@@ -102,6 +102,9 @@ export type HealthImportedCardioMetrics = {
 
     cadenceRpm: number | null;
 
+    /** Provider workout effort when the native source exposes it. */
+    effortRpe: number | null;
+
     /**
      * Optional stride length when available from provider/device.
      */

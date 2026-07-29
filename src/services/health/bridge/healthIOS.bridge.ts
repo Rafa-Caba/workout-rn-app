@@ -16,6 +16,7 @@ import type { HealthPermissionKey } from "@/src/services/health/healthPermission
 import type {
     HealthImportedSleep,
     HealthImportedWorkoutMetrics,
+    HealthImportedWorkoutRoute,
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
 } from "@/src/types/health/cardio/health.types";
@@ -35,6 +36,10 @@ type HealthKitWorkoutQueryOptions = {
     startDate: string;
     endDate: string;
     type: "Workout";
+};
+
+type HealthKitWorkoutRouteQueryOptions = {
+    id: string;
 };
 
 type HealthKitArrayQueryOptions = HealthInputOptions | HealthKitWorkoutQueryOptions;
@@ -143,8 +148,17 @@ function getHKReadPermissions(keys: HealthPermissionKey[]): HealthPermission[] {
             read.push(permissionsMap.SleepAnalysis);
         }
 
-        if (key === "workouts" && permissionsMap.Workout) {
-            read.push(permissionsMap.Workout);
+        if (key === "workouts") {
+            if (permissionsMap.Workout) {
+                read.push(permissionsMap.Workout);
+            }
+
+            // A workout route is a separate HealthKit series type. Requesting
+            // it together with workouts lets getWorkoutRouteSamples read the
+            // GPS locations already visible in Apple Fitness.
+            if (permissionsMap.WorkoutRoute) {
+                read.push(permissionsMap.WorkoutRoute);
+            }
         }
 
         if (key === "heart-rate" && permissionsMap.HeartRate) {
@@ -309,6 +323,44 @@ function hkGetWorkoutSamples(options: HealthKitWorkoutQueryOptions): Promise<unk
     return hkGetArraySamples("getSamples", options, "empty");
 }
 
+function isMissingWorkoutRouteError(message: string): boolean {
+    const normalized = message.trim().toLowerCase();
+    return (
+        normalized.includes("does not have a route") ||
+        normalized.includes("activity possibly does not have a route") ||
+        normalized.includes("no workout route") ||
+        normalized.includes("route not found")
+    );
+}
+
+function hkGetWorkoutRouteSamples(
+    options: HealthKitWorkoutRouteQueryOptions
+): Promise<unknown | null> {
+    return new Promise((resolve, reject) => {
+        const method = getHealthKitMethod("getWorkoutRouteSamples");
+
+        if (!method) {
+            resolve(null);
+            return;
+        }
+
+        method.invoke(options, (error: unknown, result: unknown) => {
+            const errorMessage = nativeErrorMessage(error);
+            if (errorMessage) {
+                if (isMissingWorkoutRouteError(errorMessage)) {
+                    resolve(null);
+                    return;
+                }
+
+                reject(new Error(errorMessage));
+                return;
+            }
+
+            resolve(result ?? null);
+        });
+    });
+}
+
 function hkGetHeartRateSamples(options: HealthInputOptions): Promise<unknown[]> {
     return hkGetArraySamples("getHeartRateSamples", options, "empty");
 }
@@ -391,6 +443,7 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
 
     const providerWorkoutType = extractWorkoutType(sample);
     const route = extractImportedWorkoutRoute(sample);
+    const metadata = isRecord(sample.metadata) ? sample.metadata : null;
 
     return {
         externalId:
@@ -410,7 +463,11 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
                 asNullableNumber(sample.activeEnergy) ??
                 asNullableNumber(sample.kcal) ??
                 null,
-            totalKcal: null,
+            totalKcal:
+                asNullableNumber(sample.totalCalories) ??
+                asNullableNumber(sample.totalEnergyBurned) ??
+                asNullableNumber(sample.totalKcal) ??
+                null,
             totalKcalEstimated: false,
             avgHr: null,
             maxHr: null,
@@ -418,10 +475,15 @@ function mapWorkoutSample(sample: unknown): HealthImportedWorkoutSessionMinimal 
                 asNullableNumber(sample.distanceKm) ??
                 milesToKilometers(asNullableNumber(sample.distance)),
             steps: null,
-            elevationGainM: asNullableNumber(sample.elevationAscended),
+            elevationGainM:
+                asNullableNumber(sample.elevationAscended) ??
+                asNullableNumber(sample.elevationGain) ??
+                (metadata ? asNullableNumber(metadata.HKElevationAscended) : null),
             paceSecPerKm: null,
             cadenceRpm: null,
-            effortRpe: null,
+            effortRpe:
+                asNullableNumber(sample.effortRpe) ??
+                (metadata ? asNullableNumber(metadata.HKWorkoutEffortScore) : null),
         },
         route,
         notes: null,
@@ -699,6 +761,16 @@ export const healthIOSBridge: NativeHealthBridge = {
 
             throw error;
         }
+    },
+
+    async readWorkoutRouteById(input): Promise<HealthImportedWorkoutRoute | null> {
+        const externalId = input.externalId.trim();
+        if (!externalId) {
+            return null;
+        }
+
+        const rawRoute = await hkGetWorkoutRouteSamples({ id: externalId });
+        return extractImportedWorkoutRoute(rawRoute);
     },
 
     async readMetricsByRange(input): Promise<HealthImportedWorkoutMetrics | null> {

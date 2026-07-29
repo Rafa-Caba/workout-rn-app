@@ -47,9 +47,9 @@ export const DEFAULT_HEALTH_READ_PERMISSIONS: HealthPermissionKey[] = [
  * - distance: distance-based walking/running metrics
  * - active-energy: active calories
  *
- * Route/location is intentionally NOT represented here because current
- * bridges do not expose route reads yet, and route permissions differ
- * by provider/native implementation.
+ * Workout routes remain grouped under the stable "workouts" app permission.
+ * The iOS bridge expands that key to both Workout and WorkoutRoute reads, while
+ * Android reads routes from the exercise-session record when available.
  */
 export const CARDIO_HEALTH_READ_PERMISSIONS: HealthPermissionKey[] = [
     "workouts",

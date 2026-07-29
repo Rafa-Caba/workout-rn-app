@@ -66,6 +66,7 @@ export function toHealthCardioDiagnosticSession(
             avgSpeedKmh: session.metrics.avgSpeedKmh,
             maxSpeedKmh: session.metrics.maxSpeedKmh,
             cadenceRpm: session.metrics.cadenceRpm,
+            effortRpe: session.metrics.effortRpe,
             strideLengthM: session.metrics.strideLengthM,
         },
         route: toDiagnosticRoute(session),

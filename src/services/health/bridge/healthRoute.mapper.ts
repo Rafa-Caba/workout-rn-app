@@ -1,11 +1,13 @@
 // src/services/health/bridge/healthRoute.mapper.ts
 // Native-health route normalizer shared by HealthKit and Health Connect bridges.
-// It safely inspects unknown provider objects without type assertions to fake safety.
+// It safely inspects unknown provider objects without fake type assertions.
 
 import type {
     HealthImportedWorkoutRoute,
     HealthImportedWorkoutRoutePoint,
 } from "@/src/types/health/cardio/health.types";
+
+const MAX_NESTED_ROUTE_DEPTH = 4;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -79,6 +81,7 @@ function extractRoutePoint(rawPoint: unknown): HealthImportedWorkoutRoutePoint |
             normalizeNullableNonNegativeNumber(rawPoint.accuracy) ??
             normalizeNullableNonNegativeNumber(rawPoint.accuracyM) ??
             normalizeNullableNonNegativeNumber(rawPoint.horizontalAccuracy) ??
+            normalizeNullableNonNegativeNumber(rawPoint.speedAccuracy) ??
             null,
         speedMps:
             normalizeNullableNonNegativeNumber(rawPoint.speed) ??
@@ -99,10 +102,31 @@ function extractRoutePoint(rawPoint: unknown): HealthImportedWorkoutRoutePoint |
     };
 }
 
-function collectCandidateArrays(record: Record<string, unknown>): unknown[][] {
-    const candidates: unknown[][] = [];
+function collectCandidateArrays(
+    value: unknown,
+    depth = 0,
+    visited: Set<object> = new Set<object>()
+): unknown[][] {
+    if (depth > MAX_NESTED_ROUTE_DEPTH) {
+        return [];
+    }
 
-    const directKeys = [
+    if (Array.isArray(value)) {
+        const nestedCandidates: unknown[][] = [value];
+        for (const item of value) {
+            nestedCandidates.push(...collectCandidateArrays(item, depth + 1, visited));
+        }
+        return nestedCandidates;
+    }
+
+    if (!isRecord(value) || visited.has(value)) {
+        return [];
+    }
+
+    visited.add(value);
+
+    const candidates: unknown[][] = [];
+    const directArrayKeys = [
         "locations",
         "locationSamples",
         "routePoints",
@@ -111,52 +135,62 @@ function collectCandidateArrays(record: Record<string, unknown>): unknown[][] {
         "coordinates",
     ];
 
-    for (const key of directKeys) {
-        const value = record[key];
-        if (Array.isArray(value)) {
-            candidates.push(value);
+    for (const key of directArrayKeys) {
+        const candidate = value[key];
+        if (Array.isArray(candidate)) {
+            candidates.push(candidate);
         }
     }
 
-    const route = record.route;
-    if (isRecord(route)) {
-        const routeKeys = ["route", "points", "locations", "samples", "coordinates"];
-        for (const key of routeKeys) {
-            const value = route[key];
-            if (Array.isArray(value)) {
-                candidates.push(value);
-            }
-        }
-    }
+    // HealthKit getWorkoutRouteSamples returns { anchor, data: { locations } }.
+    // Health Connect and future native adapters may use the other wrappers.
+    const nestedContainerKeys = [
+        "data",
+        "route",
+        "exerciseRoute",
+        "workoutRoute",
+        "result",
+        "sample",
+    ];
 
-    const exerciseRoute = record.exerciseRoute;
-    if (isRecord(exerciseRoute)) {
-        const routeKeys = ["route", "points", "locations", "samples", "coordinates"];
-        for (const key of routeKeys) {
-            const value = exerciseRoute[key];
-            if (Array.isArray(value)) {
-                candidates.push(value);
-            }
-        }
+    for (const key of nestedContainerKeys) {
+        candidates.push(...collectCandidateArrays(value[key], depth + 1, visited));
     }
 
     return candidates;
 }
 
-export function extractImportedWorkoutRoute(raw: unknown): HealthImportedWorkoutRoute | null {
-    if (!isRecord(raw)) {
-        return null;
-    }
+function routePointKey(point: HealthImportedWorkoutRoutePoint): string {
+    return [
+        point.latitude.toFixed(7),
+        point.longitude.toFixed(7),
+        point.recordedAt ?? "",
+    ].join("|");
+}
 
+/**
+ * Extracts a normalized route from embedded provider records or from the
+ * HealthKit getWorkoutRouteSamples response shape.
+ */
+export function extractImportedWorkoutRoute(raw: unknown): HealthImportedWorkoutRoute | null {
     const candidates = collectCandidateArrays(raw);
     const points: HealthImportedWorkoutRoutePoint[] = [];
+    const seen = new Set<string>();
 
     for (const candidate of candidates) {
         for (const rawPoint of candidate) {
             const point = extractRoutePoint(rawPoint);
-            if (point) {
-                points.push(point);
+            if (!point) {
+                continue;
             }
+
+            const key = routePointKey(point);
+            if (seen.has(key)) {
+                continue;
+            }
+
+            seen.add(key);
+            points.push(point);
         }
 
         if (points.length > 0) {

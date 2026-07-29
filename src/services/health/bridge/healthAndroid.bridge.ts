@@ -533,6 +533,12 @@ export const healthAndroidBridge: NativeHealthBridge = {
         return mapped;
     },
 
+    async readWorkoutRouteById(_input): Promise<null> {
+        // Health Connect routes are embedded in ExerciseSession records and are
+        // normalized by mapAndroidWorkoutRecord, so no second lookup is needed.
+        return null;
+    },
+
     async readMetricsByRange(input): Promise<HealthImportedWorkoutMetrics | null> {
         const [energyRecords, stepRecords, distanceRecords, heartRateRecords] = await Promise.all([
             hcReadRecords("ActiveCaloriesBurned", input.from, input.to).catch(() => []),

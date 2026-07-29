@@ -27,7 +27,12 @@ type UseCardioPermissionsResult = {
     refreshPermissions: () => Promise<HealthPermissionsStatus>;
 };
 
-const CARDIO_PERMISSIONS_STORAGE_KEY = "health.cardio.permissions.granted";
+/**
+ * Versioned after adding HealthKit WorkoutRoute to the native read scope.
+ * Existing installations request the expanded scope once instead of trusting
+ * the older persisted boolean that did not include route access.
+ */
+const CARDIO_PERMISSIONS_STORAGE_KEY = "health.cardio.permissions.granted.v2";
 
 function arePermissionsGranted(
     status: HealthPermissionsStatus | null,

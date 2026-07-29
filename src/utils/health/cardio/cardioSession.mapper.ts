@@ -13,6 +13,10 @@ import type {
 } from "@/src/types/workoutDay.types";
 import { resolveImportedCardioEnvironment } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
 import {
+    resolveAverageSpeedKmh,
+    resolvePaceSecPerKm,
+} from "@/src/utils/health/cardio/cardioImportedMetrics.utils";
+import {
     mapCardioRouteToSummary,
     mapCardioRouteToWorkoutRoutePoints,
 } from "@/src/utils/health/cardio/cardioRoute.mapper";
@@ -52,25 +56,12 @@ function resolveDurationSeconds(input: {
     return Math.round((endMs - startMs) / 1000);
 }
 
-function resolveAvgSpeedKmh(input: {
-    avgSpeedKmh: number | null | undefined;
-    distanceKm: number | null | undefined;
-    durationSeconds: number | null | undefined;
-}): number | null {
-    if (isFiniteNumber(input.avgSpeedKmh) && input.avgSpeedKmh >= 0) {
-        return input.avgSpeedKmh;
-    }
-
-    if (
-        !isFiniteNumber(input.distanceKm) ||
-        input.distanceKm <= 0 ||
-        !isFiniteNumber(input.durationSeconds) ||
-        input.durationSeconds <= 0
-    ) {
+function resolveEffortRpe(value: number | null | undefined): number | null {
+    if (!isFiniteNumber(value) || value < 0 || value > 10) {
         return null;
     }
 
-    return Math.round((input.distanceKm / (input.durationSeconds / 3600)) * 100) / 100;
+    return Math.round(value * 10) / 10;
 }
 
 function resolveActivityType(
@@ -111,8 +102,12 @@ export function mapImportedCardioMetricsToWorkoutCardioMetrics(
         distanceKm: metrics.distanceKm ?? null,
         steps: metrics.steps ?? null,
         elevationGainM: metrics.elevationGainM ?? null,
-        paceSecPerKm: metrics.paceSecPerKm ?? null,
-        avgSpeedKmh: resolveAvgSpeedKmh({
+        paceSecPerKm: resolvePaceSecPerKm({
+            paceSecPerKm: metrics.paceSecPerKm,
+            distanceKm: metrics.distanceKm,
+            durationSeconds: metrics.durationSeconds,
+        }),
+        avgSpeedKmh: resolveAverageSpeedKmh({
             avgSpeedKmh: metrics.avgSpeedKmh,
             distanceKm: metrics.distanceKm,
             durationSeconds: metrics.durationSeconds,
@@ -152,6 +147,11 @@ export function mapImportedCardioSessionToWorkoutSession(
         startAt: session.startAt,
         endAt: session.endAt,
     });
+    const resolvedPaceSecPerKm = resolvePaceSecPerKm({
+        paceSecPerKm: session.metrics.paceSecPerKm,
+        distanceKm: session.metrics.distanceKm,
+        durationSeconds: resolvedDurationSeconds,
+    });
     const resolvedCardioEnvironment = resolveImportedCardioEnvironment({
         providerWorkoutType: session.providerWorkoutType,
         raw: session.raw,
@@ -186,7 +186,7 @@ export function mapImportedCardioSessionToWorkoutSession(
         steps: session.metrics.steps ?? null,
         elevationGainM: session.metrics.elevationGainM ?? null,
 
-        paceSecPerKm: session.metrics.paceSecPerKm ?? null,
+        paceSecPerKm: resolvedPaceSecPerKm,
         cadenceRpm: session.metrics.cadenceRpm ?? null,
 
         hasRoute: (session.route?.hasRoute ?? false) || resolvedRouteSummary !== null,
@@ -195,9 +195,10 @@ export function mapImportedCardioSessionToWorkoutSession(
         cardioMetrics: mapImportedCardioMetricsToWorkoutCardioMetrics({
             ...session.metrics,
             durationSeconds: resolvedDurationSeconds,
+            paceSecPerKm: resolvedPaceSecPerKm,
         }),
 
-        effortRpe: null,
+        effortRpe: resolveEffortRpe(session.metrics.effortRpe),
 
         notes: session.notes ?? null,
         media: null,

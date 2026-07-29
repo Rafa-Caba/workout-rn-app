@@ -242,6 +242,10 @@ function DiagnosticSessionCard(props: {
                 value={formatNullableNumber(session.metrics.elevationGainM, " m")}
             />
             <MetricLine
+                label="Esfuerzo RPE"
+                value={formatNullableNumber(session.metrics.effortRpe)}
+            />
+            <MetricLine
                 label="Ruta"
                 value={session.route.hasRoute ? "Sí" : "No"}
             />
@@ -252,7 +256,7 @@ function DiagnosticSessionCard(props: {
 
             {!session.route.hasRoute || session.route.pointCount === 0 ? (
                 <Text style={{ color: colors.mutedText, fontSize: 12, lineHeight: 18 }}>
-                    Health no entregó puntos GPS dentro de esta muestra. El mapa visible en Apple Fitness no garantiza que el módulo nativo exponga HKWorkoutRoute.
+                    HealthKit no devolvió puntos GPS para esta sesión. Revisa el permiso de rutas de entrenamiento; el diagnóstico consulta HKWorkoutRoute usando el ID del workout.
                 </Text>
             ) : null}
 
@@ -304,14 +308,31 @@ export default function CardioDiagnosticsScreen() {
         return null;
     }, [cardioEvents, date]);
 
-    const latestError = React.useMemo(() => {
+    const latestTerminalEvent = React.useMemo(() => {
         for (const event of cardioEvents) {
-            if (event.kind === "cardio-sync-error" && event.targetDate === date) {
+            if (event.targetDate !== date) {
+                continue;
+            }
+
+            if (
+                event.kind === "cardio-inspection" ||
+                event.kind === "cardio-sync-completed" ||
+                event.kind === "cardio-sync-error"
+            ) {
                 return event;
             }
         }
+
         return null;
     }, [cardioEvents, date]);
+
+    // Do not keep rendering an older failure after a newer inspection or sync
+    // for the same day completed successfully. The full event history remains
+    // available below for troubleshooting.
+    const latestError =
+        latestTerminalEvent?.kind === "cardio-sync-error"
+            ? latestTerminalEvent
+            : null;
 
     const latestSessions = latestInspectionEvent?.sessions ?? [];
     const busy = runningMode !== null || permissions.isLoading;

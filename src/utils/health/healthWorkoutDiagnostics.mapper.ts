@@ -35,6 +35,7 @@ export function toHealthWorkoutDiagnosticSample(
             elevationGainM: workout.metrics.elevationGainM,
             paceSecPerKm: workout.metrics.paceSecPerKm,
             cadenceRpm: workout.metrics.cadenceRpm,
+            effortRpe: workout.metrics.effortRpe,
         },
         raw: toHealthDiagnosticJson(workout.raw),
     };
