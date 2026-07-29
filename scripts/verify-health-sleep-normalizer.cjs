@@ -91,13 +91,13 @@ const targetDate = "2026-07-27";
 const range = buildHealthKitSleepQueryRange(targetDate);
 assert.equal(
     range.startDate,
-    localISO(2026, 6, 26, 12, 0),
-    "La ventana debe iniciar al mediodía del día anterior."
+    localISO(2026, 6, 26, 20, 0),
+    "La ventana debe iniciar a las 20:00 del día anterior."
 );
 assert.equal(
     range.endDate,
-    localISO(2026, 6, 27, 18, 0),
-    "La ventana debe terminar a las 18:00 del día objetivo."
+    localISO(2026, 6, 27, 20, 0),
+    "La ventana debe terminar a las 20:00 del día objetivo."
 );
 
 const watch = {
@@ -222,6 +222,63 @@ const generic = normalizeHealthKitSleepSamples(targetDate, [
 ]);
 assert.equal(generic.sleep?.timeAsleepMinutes, 365, "Intervalos solapados se unen.");
 assert.equal(generic.sleep?.timeInBedMinutes, 390);
+
+const previousEveningStages = normalizeHealthKitSleepSamples("2026-05-31", [
+    sample({
+        id: "previous-rem",
+        start: localISO(2026, 4, 30, 23, 0),
+        end: localISO(2026, 4, 30, 23, 10),
+        value: "REM",
+        ...watch,
+    }),
+    sample({
+        id: "previous-core",
+        start: localISO(2026, 4, 30, 23, 10),
+        end: localISO(2026, 4, 30, 23, 40),
+        value: "CORE",
+        ...watch,
+    }),
+    sample({
+        id: "previous-awake",
+        start: localISO(2026, 4, 30, 23, 40),
+        end: localISO(2026, 4, 30, 23, 45),
+        value: "AWAKE",
+        ...watch,
+    }),
+    sample({
+        id: "cross-midnight-core",
+        start: localISO(2026, 4, 30, 23, 45),
+        end: localISO(2026, 4, 31, 0, 45),
+        value: "CORE",
+        ...watch,
+    }),
+    sample({
+        id: "target-deep",
+        start: localISO(2026, 4, 31, 0, 45),
+        end: localISO(2026, 4, 31, 1, 0),
+        value: "DEEP",
+        ...watch,
+    }),
+    sample({
+        id: "following-evening-core",
+        start: localISO(2026, 4, 31, 20, 30),
+        end: localISO(2026, 4, 31, 21, 0),
+        value: "CORE",
+        ...watch,
+    }),
+]);
+assert.equal(previousEveningStages.sleep?.timeAsleepMinutes, 115);
+assert.equal(previousEveningStages.sleep?.timeInBedMinutes, 120);
+assert.equal(previousEveningStages.sleep?.awakeMinutes, 5);
+assert.equal(previousEveningStages.sleep?.remMinutes, 10);
+assert.equal(previousEveningStages.sleep?.coreMinutes, 90);
+assert.equal(previousEveningStages.sleep?.deepMinutes, 15);
+assert.equal(previousEveningStages.diagnostics.targetDateSampleCount, 5);
+assert.deepEqual(
+    previousEveningStages.diagnostics.availableNightKeys,
+    ["2026-05-31", "2026-06-01"],
+    "Las etapas previas a medianoche deben pertenecer al día de despertar."
+);
 
 const noTarget = normalizeHealthKitSleepSamples(targetDate, [
     sample({
@@ -351,6 +408,6 @@ for (const nativeStage of ["AWAKE", "CORE", "DEEP", "REM"]) {
     );
 }
 
-console.log("✓ HealthKit sleep normalizer: 7 escenarios verificados.");
+console.log("✓ HealthKit sleep normalizer: 8 escenarios verificados.");
 console.log("✓ react-native-health 1.19.0: etapas AWAKE, CORE, DEEP y REM verificadas.");
 console.log("✓ react-native-health: Proxy diferido para New Architecture verificado.");

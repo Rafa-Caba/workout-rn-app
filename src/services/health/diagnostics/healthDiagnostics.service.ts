@@ -38,7 +38,8 @@ function isSleepQueryRange(value: unknown): boolean {
         typeof value.targetDate === "string" &&
         typeof value.startDate === "string" &&
         typeof value.endDate === "string" &&
-        value.strategy === "previous-noon-to-target-evening"
+        (value.strategy === "previous-noon-to-target-evening" ||
+            value.strategy === "previous-evening-to-target-evening")
     );
 }
 

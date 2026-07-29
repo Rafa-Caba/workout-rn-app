@@ -16,6 +16,7 @@ const MS_PER_MINUTE = 60_000;
 const NIGHT_CLUSTER_MAX_GAP_MS = 60 * MS_PER_MINUTE;
 const SOURCE_COMPLETENESS_RATIO = 0.8;
 const DIAGNOSTIC_SAMPLE_LIMIT = 30;
+const SLEEP_DAY_BOUNDARY_HOUR = 20;
 
 type DateParts = {
     year: number;
@@ -124,9 +125,12 @@ function formatLocalISODate(date: Date): ISODate {
 }
 
 /**
- * Queries from noon on the previous local day through 18:00 on the target day.
- * The extended end protects late wake-ups while the normalizer still assigns
- * samples to the target day using each interval's local end date.
+ * Builds the app sleep-day window as a half-open local range:
+ * [20:00 on the previous day, 20:00 on the target day).
+ *
+ * A sleep session is assigned to the date on which the user wakes up. This
+ * keeps pre-midnight stages from the previous evening together with the same
+ * overnight session while leaving late-evening sleep for the following day.
  */
 export function buildHealthKitSleepQueryRange(targetDate: ISODate): HealthSleepQueryRange {
     const parts = parseDateParts(targetDate);
@@ -134,15 +138,49 @@ export function buildHealthKitSleepQueryRange(targetDate: ISODate): HealthSleepQ
         throw new Error(`Invalid sleep target date: ${targetDate}`);
     }
 
-    const start = new Date(parts.year, parts.monthIndex, parts.day - 1, 12, 0, 0, 0);
-    const end = new Date(parts.year, parts.monthIndex, parts.day, 18, 0, 0, 0);
+    const start = new Date(
+        parts.year,
+        parts.monthIndex,
+        parts.day - 1,
+        SLEEP_DAY_BOUNDARY_HOUR,
+        0,
+        0,
+        0
+    );
+    const end = new Date(
+        parts.year,
+        parts.monthIndex,
+        parts.day,
+        SLEEP_DAY_BOUNDARY_HOUR,
+        0,
+        0,
+        0
+    );
 
     return {
         targetDate,
         startDate: start.toISOString(),
         endDate: end.toISOString(),
-        strategy: "previous-noon-to-target-evening",
+        strategy: "previous-evening-to-target-evening",
     };
+}
+
+
+/**
+ * Resolves the app date that owns a sleep interval.
+ *
+ * Intervals ending from 20:00 onward belong to the following date; intervals
+ * ending before 20:00 belong to their local calendar date. For example,
+ * 2026-05-30 23:30 is part of the sleep day 2026-05-31.
+ */
+function resolveSleepDayKey(timestampMs: number): ISODate {
+    const localDate = new Date(timestampMs);
+
+    if (localDate.getHours() >= SLEEP_DAY_BOUNDARY_HOUR) {
+        localDate.setDate(localDate.getDate() + 1);
+    }
+
+    return formatLocalISODate(localDate);
 }
 
 function readNonEmptyString(record: Record<string, unknown>, keys: string[]): string | null {
@@ -252,7 +290,7 @@ function parseSleepSample(value: unknown): NormalizedSleepSample | null {
     const sourceName = readNonEmptyString(value, ["sourceName", "source", "device"]);
     const sourceKey = createSourceKey(sourceId, sourceName);
     const id = readNonEmptyString(value, ["id", "uuid"]);
-    const nightKey = formatLocalISODate(new Date(endMs));
+    const nightKey = resolveSleepDayKey(endMs);
     const stageValue =
         typeof rawStageValue === "string" || typeof rawStageValue === "number"
             ? String(rawStageValue)
@@ -638,7 +676,7 @@ function buildRawDiagnosticSample(value: unknown): HealthSleepDiagnosticSample {
             Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
                 ? roundMinutes(endMs - startMs)
                 : null,
-        nightKey: Number.isFinite(endMs) ? formatLocalISODate(new Date(endMs)) : null,
+        nightKey: Number.isFinite(endMs) ? resolveSleepDayKey(endMs) : null,
         raw: toHealthDiagnosticJson(value),
     };
 }
@@ -685,7 +723,7 @@ function createBaseDiagnostics(
  * Strategy:
  * 1. Parse and reject invalid intervals.
  * 2. Deduplicate by provider id or a stable interval/source key.
- * 3. Assign intervals to a night using their local end date.
+ * 3. Assign intervals to a sleep day using the 20:00 local boundary.
  * 4. Group by source and select the strongest detailed-stage source.
  * 5. Union overlapping intervals before calculating totals.
  * 6. Prefer REM/Core/Deep totals over generic Asleep to avoid double counting.

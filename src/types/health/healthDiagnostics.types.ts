@@ -48,11 +48,19 @@ export type HealthSleepDiagnosticSample = {
     raw: HealthDiagnosticJsonValue | null;
 };
 
+/**
+ * Sleep query strategy kept as a union so diagnostics created before the
+ * 20:00 boundary migration remain readable from local storage.
+ */
+export type HealthSleepQueryStrategy =
+    | "previous-noon-to-target-evening"
+    | "previous-evening-to-target-evening";
+
 export type HealthSleepQueryRange = {
     targetDate: ISODate;
     startDate: ISODateTime;
     endDate: ISODateTime;
-    strategy: "previous-noon-to-target-evening";
+    strategy: HealthSleepQueryStrategy;
 };
 
 export type HealthSleepSourceSummary = {
