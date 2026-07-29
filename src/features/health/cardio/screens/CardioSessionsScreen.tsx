@@ -453,14 +453,14 @@ export function CardioSessionsScreen() {
                     </Text>
                 </View>
 
-                <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 4 }}>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10 }}>
                     <ActionButton
-                        label="Iniciar caminata outdoor"
+                        label="Iniciar caminata"
                         onPress={() => openLiveCardio("walking")}
                         primary
                     />
                     <ActionButton
-                        label="Iniciar carrera outdoor"
+                        label="Iniciar carrera"
                         onPress={() => openLiveCardio("running")}
                         primary
                     />
