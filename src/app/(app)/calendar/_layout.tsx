@@ -19,6 +19,7 @@ export default function CalendarLayout() {
             <Stack.Screen name="cardio/live" options={{ title: "Live Cardio" }} />
             <Stack.Screen name="cardio/live-summary" options={{ title: "Resumen Live" }} />
             <Stack.Screen name="cardio/manual" options={{ title: "Captura Cardio" }} />
+            <Stack.Screen name="cardio/diagnostics" options={{ headerShown: false }} />
             <Stack.Screen
                 name="cardio/edit/[date]/[sessionId]"
                 options={{ title: "Editar Cardio" }}

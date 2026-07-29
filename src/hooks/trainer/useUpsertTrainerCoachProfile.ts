@@ -1,4 +1,8 @@
+// /src/hooks/trainer/useUpsertTrainerCoachProfile.ts
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { queryKeys } from "@/src/query/queryKeys";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { upsertTraineeCoachProfile } from "@/src/services/workout/trainer.service";
@@ -17,7 +21,7 @@ export function useUpsertTrainerCoachProfile() {
     >({
         mutationFn: ({ traineeId, body }) => upsertTraineeCoachProfile(traineeId, body),
         onSuccess: (_data, vars) => {
-            qc.invalidateQueries({ queryKey: ["trainer", "coachProfile", vars.traineeId] });
+            qc.invalidateQueries({ queryKey: queryKeys.trainer.coachProfile(vars.traineeId) });
         },
     });
 }

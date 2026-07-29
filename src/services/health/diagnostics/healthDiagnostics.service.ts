@@ -209,6 +209,73 @@ function isHealthDiagnosticEvent(value: unknown): value is HealthDiagnosticEvent
         );
     }
 
+    if (value.kind === "cardio-inspection") {
+        return (
+            typeof value.targetDate === "string" &&
+            typeof value.includeRoutes === "boolean" &&
+            isFiniteNumber(value.existingSessionCount) &&
+            isFiniteNumber(value.importedSessionCount) &&
+            isFiniteNumber(value.mappedSessionCount) &&
+            isFiniteNumber(value.routeSessionCount) &&
+            isFiniteNumber(value.routePointCount) &&
+            isFiniteNumber(value.sessionsStored) &&
+            typeof value.sessionsTruncated === "boolean" &&
+            Array.isArray(value.sessions)
+        );
+    }
+
+    if (value.kind === "cardio-merge") {
+        return (
+            typeof value.targetDate === "string" &&
+            isFiniteNumber(value.existingSessionCount) &&
+            isFiniteNumber(value.mergedSessionCount) &&
+            isFiniteNumber(value.insertedCount) &&
+            isFiniteNumber(value.updatedCount) &&
+            isFiniteNumber(value.unchangedCount) &&
+            Array.isArray(value.operations)
+        );
+    }
+
+    if (value.kind === "cardio-persistence") {
+        return (
+            typeof value.targetDate === "string" &&
+            (value.operation === "create" || value.operation === "patch") &&
+            (typeof value.sessionId === "string" || value.sessionId === null) &&
+            (typeof value.externalId === "string" || value.externalId === null) &&
+            typeof value.saved === "boolean" &&
+            (isFiniteNumber(value.httpStatus) || value.httpStatus === null) &&
+            (typeof value.apiCode === "string" || value.apiCode === null) &&
+            typeof value.message === "string"
+        );
+    }
+
+    if (value.kind === "cardio-sync-completed") {
+        return (
+            typeof value.targetDate === "string" &&
+            isFiniteNumber(value.importedCount) &&
+            isFiniteNumber(value.insertedCount) &&
+            isFiniteNumber(value.updatedCount) &&
+            isFiniteNumber(value.unchangedCount) &&
+            isFiniteNumber(value.persistedCount) &&
+            isFiniteNumber(value.routeSessionCount) &&
+            isFiniteNumber(value.routePointCount)
+        );
+    }
+
+    if (value.kind === "cardio-sync-error") {
+        return (
+            typeof value.targetDate === "string" &&
+            (value.stage === "provider" ||
+                value.stage === "inspection" ||
+                value.stage === "merge" ||
+                value.stage === "persistence" ||
+                value.stage === "refresh") &&
+            (isFiniteNumber(value.httpStatus) || value.httpStatus === null) &&
+            (typeof value.apiCode === "string" || value.apiCode === null) &&
+            typeof value.message === "string"
+        );
+    }
+
     return false;
 }
 

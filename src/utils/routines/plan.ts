@@ -1,30 +1,39 @@
-// src/utils/routines/plan.ts
-import type { DayKey as CanonDayKey, WorkoutRoutineDay, WorkoutRoutineExercise } from "@/src/types/workoutRoutine.types";
-import { weekKeyToStartDate } from "@/src/utils/weekKey";
+// /src/utils/routines/plan.ts
+// Strongly typed normalizers for editable and canonical workout routine plans.
+
 import { addDays, format } from "date-fns";
+
+import type {
+    DayKey as CanonDayKey,
+    WorkoutRoutineDay,
+    WorkoutRoutineExercise,
+} from "@/src/types/workoutRoutine.types";
+import { weekKeyToStartDate } from "@/src/utils/weekKey";
 
 export const DAY_KEYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 export type DayKey = (typeof DAY_KEYS)[number];
 
-// ✅ Ensure compatibility: your UI DayKey matches canonical DayKey
-type _AssertDayKey = CanonDayKey extends DayKey ? true : false;
+// Compile-time compatibility check between the UI and canonical routine type.
+type AssertDayKeyCompatibility =
+    CanonDayKey extends DayKey
+    ? DayKey extends CanonDayKey
+    ? true
+    : never
+    : never;
+const DAY_KEY_TYPES_ARE_COMPATIBLE: AssertDayKeyCompatibility = true;
+void DAY_KEY_TYPES_ARE_COMPATIBLE;
+
+const DAY_KEY_SET: ReadonlySet<string> = new Set(DAY_KEYS);
 
 export type ExerciseItem = {
     id: string;
     name: string;
-
     sets?: string;
     reps?: string;
-
-    // (planned)
     rpe?: string;
-
     load?: string;
     notes?: string;
-
     attachmentPublicIds?: string[];
-
-    // Movement catalog link + snapshot (UI)
     movementId?: string;
     movementName?: string;
 };
@@ -38,234 +47,227 @@ export type DayPlan = {
     exercises?: ExerciseItem[];
 };
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-    return typeof v === "object" && v !== null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Important: arrays are objects too, so we must exclude them. */
-function isPlainRecord(v: unknown): v is Record<string, unknown> {
-    return isRecord(v) && !Array.isArray(v);
+export function isDayKey(value: unknown): value is DayKey {
+    return typeof value === "string" && DAY_KEY_SET.has(value);
 }
 
-function notNull<T>(v: T | null | undefined): v is T {
-    return v != null;
+function notNull<T>(value: T | null | undefined): value is T {
+    return value !== null && value !== undefined;
+}
+
+function readOptionalString(value: unknown): string | undefined {
+    return typeof value === "string" ? value : undefined;
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    return value.filter((item): item is string => typeof item === "string");
 }
 
 function makeId(): string {
-    // Browser-safe UUID (RN-safe if crypto.randomUUID exists; otherwise fallback)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const g: any = globalThis as any;
-    if (g?.crypto?.randomUUID) return g.crypto.randomUUID();
+    const cryptoValue: unknown = Reflect.get(globalThis, "crypto");
+    if (isRecord(cryptoValue)) {
+        const randomUUID: unknown = cryptoValue.randomUUID;
+        if (typeof randomUUID === "function") {
+            const result: unknown = Reflect.apply(randomUUID, cryptoValue, []);
+            if (typeof result === "string" && result.trim()) return result;
+        }
+    }
+
     return `ex_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
-function cleanUiStrOrUndef(v: unknown): string | undefined {
-    if (typeof v !== "string") return undefined;
-    const s = v.trim();
-    return s.length ? s : undefined;
+function cleanUiStrOrUndef(value: unknown): string | undefined {
+    if (typeof value !== "string") return undefined;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
 }
 
 export function normalizePlans(plans: DayPlan[]): DayPlan[] {
-    const map = new Map<DayKey, DayPlan>();
-    for (const p of plans) map.set(p.dayKey, p);
-    return DAY_KEYS.map((k) => map.get(k) ?? ({ dayKey: k } as DayPlan));
+    const planByDay = new Map<DayKey, DayPlan>();
+    for (const plan of plans) planByDay.set(plan.dayKey, plan);
+
+    return DAY_KEYS.map((dayKey): DayPlan => planByDay.get(dayKey) ?? { dayKey });
 }
 
-function normalizeExerciseItem(e: unknown): ExerciseItem | null {
-    if (!isPlainRecord(e)) return null;
+function normalizeExerciseItem(value: unknown): ExerciseItem | null {
+    if (!isRecord(value)) return null;
 
-    const idRaw = (e as any).id;
-    const id = typeof idRaw === "string" && idRaw.trim() ? idRaw.trim() : makeId();
-
-    const attachmentPublicIds = Array.isArray((e as any).attachmentPublicIds)
-        ? (e as any).attachmentPublicIds.filter((x: unknown) => typeof x === "string")
-        : undefined;
+    const rawId = value.id;
+    const id = typeof rawId === "string" && rawId.trim() ? rawId.trim() : makeId();
 
     return {
         id,
-        name: typeof (e as any).name === "string" ? ((e as any).name as string) : "",
-
-        sets: typeof (e as any).sets === "string" ? ((e as any).sets as string) : undefined,
-        reps: typeof (e as any).reps === "string" ? ((e as any).reps as string) : undefined,
-        rpe: typeof (e as any).rpe === "string" ? ((e as any).rpe as string) : undefined,
-
-        load: typeof (e as any).load === "string" ? ((e as any).load as string) : undefined,
-        notes: typeof (e as any).notes === "string" ? ((e as any).notes as string) : undefined,
-
-        attachmentPublicIds,
-
-        movementId: cleanUiStrOrUndef((e as any).movementId),
-        movementName: cleanUiStrOrUndef((e as any).movementName),
+        name: readOptionalString(value.name) ?? "",
+        sets: readOptionalString(value.sets),
+        reps: readOptionalString(value.reps),
+        rpe: readOptionalString(value.rpe),
+        load: readOptionalString(value.load),
+        notes: readOptionalString(value.notes),
+        attachmentPublicIds: readStringArray(value.attachmentPublicIds),
+        movementId: cleanUiStrOrUndef(value.movementId),
+        movementName: cleanUiStrOrUndef(value.movementName),
     };
 }
 
-function normalizeDayPlanFromRecord(dayKey: DayKey, raw: Record<string, unknown>): DayPlan {
-    const tags = Array.isArray((raw as any).tags)
-        ? (raw as any).tags.filter((t: unknown) => typeof t === "string")
+function normalizeDayPlanFromRecord(
+    dayKey: DayKey,
+    value: Record<string, unknown>,
+): DayPlan {
+    const exercises = Array.isArray(value.exercises)
+        ? value.exercises.map(normalizeExerciseItem).filter(notNull)
         : undefined;
 
-    const exercises: ExerciseItem[] | undefined = Array.isArray((raw as any).exercises)
-        ? (raw as any).exercises.map(normalizeExerciseItem).filter(notNull)
-        : undefined;
-
-    const ensuredExercises =
-        exercises && exercises.length
-            ? exercises.map((ex) => ({
-                ...ex,
-                id: typeof ex.id === "string" && ex.id.trim() ? ex.id : makeId(),
-            }))
-            : exercises;
+    const ensuredExercises = exercises?.map((exercise): ExerciseItem => ({
+        ...exercise,
+        id: exercise.id.trim() ? exercise.id : makeId(),
+    }));
 
     return {
         dayKey,
-        sessionType: typeof (raw as any).sessionType === "string" ? ((raw as any).sessionType as string) : undefined,
-        focus: typeof (raw as any).focus === "string" ? ((raw as any).focus as string) : undefined,
-        tags,
-        notes: typeof (raw as any).notes === "string" ? ((raw as any).notes as string) : undefined,
+        sessionType: readOptionalString(value.sessionType),
+        focus: readOptionalString(value.focus),
+        tags: readStringArray(value.tags),
+        notes: readOptionalString(value.notes),
         exercises: ensuredExercises,
     };
 }
 
 /**
- * Accepts BOTH shapes:
+ * Accepts both persisted shapes:
  * - meta.plan = { Mon: {...}, Tue: {...} }
- * - meta.plan = [ { dayKey: "Mon", ... }, ... ]
+ * - meta.plan = [{ dayKey: "Mon", ... }, ...]
  */
 export function getPlanFromMeta(meta: unknown): DayPlan[] {
-    if (!isPlainRecord(meta)) return normalizePlans([]);
+    if (!isRecord(meta)) return normalizePlans([]);
 
-    const planRaw = (meta as any).plan;
+    const planRaw = meta.plan;
 
-    // 1) Array form
     if (Array.isArray(planRaw)) {
-        const safe = planRaw
-            .map((p) => {
-                if (!isPlainRecord(p)) return null;
-                const dayKey = typeof (p as any).dayKey === "string" ? ((p as any).dayKey as string) : "";
-                if (!DAY_KEYS.includes(dayKey as any)) return null;
-                return normalizeDayPlanFromRecord(dayKey as DayKey, p);
+        const safePlans = planRaw
+            .map((value): DayPlan | null => {
+                if (!isRecord(value) || !isDayKey(value.dayKey)) return null;
+                return normalizeDayPlanFromRecord(value.dayKey, value);
             })
             .filter(notNull);
 
-        return normalizePlans(safe);
+        return normalizePlans(safePlans);
     }
 
-    // 2) Object form
-    if (isPlainRecord(planRaw)) {
-        const safe = DAY_KEYS.map((dayKey) => {
-            const raw = (planRaw as any)[dayKey];
-            if (!isPlainRecord(raw)) return { dayKey } as DayPlan;
-            return normalizeDayPlanFromRecord(dayKey, raw);
+    if (isRecord(planRaw)) {
+        const safePlans = DAY_KEYS.map((dayKey): DayPlan => {
+            const value = planRaw[dayKey];
+            return isRecord(value)
+                ? normalizeDayPlanFromRecord(dayKey, value)
+                : { dayKey };
         });
 
-        return normalizePlans(safe);
+        return normalizePlans(safePlans);
     }
 
     return normalizePlans([]);
 }
 
-/**
- * WRITE array-form meta.plan for frontend editing + stable normalization
- */
-export function setPlanIntoMeta(meta: Record<string, unknown> | null | undefined, plans: DayPlan[]): Record<string, unknown> {
+/** Writes the normalized array-form meta.plan used by the editor. */
+export function setPlanIntoMeta(
+    meta: Record<string, unknown> | null | undefined,
+    plans: DayPlan[],
+): Record<string, unknown> {
     const nextMeta: Record<string, unknown> = { ...(meta ?? {}) };
     const normalized = normalizePlans(plans);
 
-    nextMeta.plan = normalized.map((p) => ({
-        dayKey: p.dayKey,
-        sessionType: p.sessionType ?? null,
-        focus: p.focus ?? null,
-        tags: p.tags ?? null,
-        notes: p.notes ?? null,
+    nextMeta.plan = normalized.map((plan) => ({
+        dayKey: plan.dayKey,
+        sessionType: plan.sessionType ?? null,
+        focus: plan.focus ?? null,
+        tags: plan.tags ?? null,
+        notes: plan.notes ?? null,
         exercises:
-            p.exercises?.map((e) => ({
-                id: e.id || makeId(),
-                name: e.name,
-                sets: e.sets ?? null,
-                reps: e.reps ?? null,
-                rpe: e.rpe ?? null,
-                load: e.load ?? null,
-                notes: e.notes ?? null,
-                attachmentPublicIds: e.attachmentPublicIds ?? null,
-
-                movementId: e.movementId ?? null,
-                movementName: e.movementName ?? null,
+            plan.exercises?.map((exercise) => ({
+                id: exercise.id || makeId(),
+                name: exercise.name,
+                sets: exercise.sets ?? null,
+                reps: exercise.reps ?? null,
+                rpe: exercise.rpe ?? null,
+                load: exercise.load ?? null,
+                notes: exercise.notes ?? null,
+                attachmentPublicIds: exercise.attachmentPublicIds ?? null,
+                movementId: exercise.movementId ?? null,
+                movementName: exercise.movementName ?? null,
             })) ?? null,
     }));
 
     return nextMeta;
 }
 
-/**
- * =========================================================
- * CANONICAL planned routine storage: routine.days[]
- * =========================================================
- */
-
-function parseSetsMaybe(v?: string): number | null {
-    if (!v) return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+function parseSetsMaybe(value?: string): number | null {
+    if (!value) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
-function parseRpeMaybe(v?: string): number | null {
-    if (!v) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    // keep within 0..10 (model bounds)
-    if (n < 0) return 0;
-    if (n > 10) return 10;
-    return n;
+function parseRpeMaybe(value?: string): number | null {
+    if (!value) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    if (parsed < 0) return 0;
+    if (parsed > 10) return 10;
+    return parsed;
 }
 
-function cleanStrOrNull(v?: string): string | null {
-    const s = (v ?? "").trim();
-    return s.length ? s : null;
+function cleanStrOrNull(value?: string): string | null {
+    const normalized = (value ?? "").trim();
+    return normalized.length > 0 ? normalized : null;
 }
 
 function cleanIdsOrNull(ids?: string[]): string[] | null {
-    if (!ids || !Array.isArray(ids)) return null;
-    const cleaned = ids.map((x) => String(x).trim()).filter(Boolean);
-    return cleaned.length ? cleaned : null;
+    if (!ids) return null;
+    const cleaned = ids.map((id) => id.trim()).filter(Boolean);
+    return cleaned.length > 0 ? cleaned : null;
 }
 
-export function plansToRoutineDays(weekKey: string, plans: DayPlan[]): WorkoutRoutineDay[] {
+/** Converts editable plans into the canonical routine.days[] backend contract. */
+export function plansToRoutineDays(
+    weekKey: string,
+    plans: DayPlan[],
+): WorkoutRoutineDay[] {
     const start = weekKeyToStartDate(weekKey);
     const normalized = normalizePlans(plans);
 
-    return DAY_KEYS.map((dayKey, idx) => {
-        const p = normalized.find((x) => x.dayKey === dayKey) ?? ({ dayKey } as DayPlan);
-
-        const dateStr = start ? format(addDays(start, idx), "yyyy-MM-dd") : "";
+    return DAY_KEYS.map((dayKey, index): WorkoutRoutineDay => {
+        const plan = normalized.find((item) => item.dayKey === dayKey) ?? { dayKey };
+        const date = start ? format(addDays(start, index), "yyyy-MM-dd") : "";
 
         const exercises: WorkoutRoutineExercise[] | null =
-            p.exercises && p.exercises.length > 0
-                ? p.exercises
-                    .filter((e) => (e.name ?? "").trim().length > 0)
-                    .map((e) => ({
-                        id: e.id || makeId(),
-                        name: (e.name ?? "").trim(),
-
-                        movementId: cleanStrOrNull(e.movementId),
-                        movementName: cleanStrOrNull(e.movementName),
-
-                        sets: parseSetsMaybe(e.sets),
-                        reps: cleanStrOrNull(e.reps),
-                        rpe: parseRpeMaybe(e.rpe),
-                        load: cleanStrOrNull(e.load),
-                        notes: cleanStrOrNull(e.notes),
-                        attachmentPublicIds: cleanIdsOrNull(e.attachmentPublicIds),
+            plan.exercises && plan.exercises.length > 0
+                ? plan.exercises
+                    .filter((exercise) => exercise.name.trim().length > 0)
+                    .map((exercise): WorkoutRoutineExercise => ({
+                        id: exercise.id || makeId(),
+                        name: exercise.name.trim(),
+                        movementId: cleanStrOrNull(exercise.movementId),
+                        movementName: cleanStrOrNull(exercise.movementName),
+                        sets: parseSetsMaybe(exercise.sets),
+                        reps: cleanStrOrNull(exercise.reps),
+                        rpe: parseRpeMaybe(exercise.rpe),
+                        load: cleanStrOrNull(exercise.load),
+                        notes: cleanStrOrNull(exercise.notes),
+                        attachmentPublicIds: cleanIdsOrNull(exercise.attachmentPublicIds),
                     }))
                 : null;
 
         return {
-            date: dateStr,
+            date,
             dayKey,
-            sessionType: cleanStrOrNull(p.sessionType),
-            focus: cleanStrOrNull(p.focus),
+            sessionType: cleanStrOrNull(plan.sessionType),
+            focus: cleanStrOrNull(plan.focus),
             exercises,
-            notes: cleanStrOrNull(p.notes),
-            tags: p.tags && p.tags.length > 0 ? p.tags : null,
+            notes: cleanStrOrNull(plan.notes),
+            tags: plan.tags && plan.tags.length > 0 ? plan.tags : null,
         };
     });
 }

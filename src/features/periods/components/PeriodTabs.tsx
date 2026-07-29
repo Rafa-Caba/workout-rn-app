@@ -4,8 +4,8 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useTheme } from "@/src/theme/ThemeProvider";
 import type { PeriodTab } from "@/src/features/periods/utils/periods.helpers";
+import { useTheme } from "@/src/theme/ThemeProvider";
 
 const TABS: ReadonlyArray<{ value: PeriodTab; label: string }> = [
     { value: "month", label: "Meses" },
@@ -30,6 +30,7 @@ export function PeriodTabs({ value, onChange }: Props) {
                     <Pressable
                         key={tab.value}
                         accessibilityRole="tab"
+                        accessibilityLabel={tab.label}
                         accessibilityState={{ selected: active }}
                         onPress={() => onChange(tab.value)}
                         style={({ pressed }) => [
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
     },
     tab: {
         flex: 1,
-        minHeight: 42,
+        minHeight: 44,
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 12,

@@ -84,6 +84,8 @@ export function DaySessionCard({ session, date, colors, onOpenMedia }: Props) {
             <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={open ? "Colapsar sesión" : "Expandir sesión"}
+                accessibilityHint={`Sesión ${sessionDisplayTitle(session)}`}
+                accessibilityState={{ expanded: open }}
                 onPress={() => setOpen((current) => !current)}
                 style={({ pressed }) => [styles.sessionHeader, { opacity: pressed ? 0.74 : 1 }]}
             >
@@ -272,6 +274,8 @@ export function DaySessionCard({ session, date, colors, onOpenMedia }: Props) {
                                 {exercises.length > 0 ? (
                                     <Pressable
                                         accessibilityRole="button"
+                                        accessibilityLabel={showExercises ? "Ocultar ejercicios" : "Mostrar ejercicios"}
+                                        accessibilityState={{ expanded: showExercises }}
                                         onPress={() => setShowExercises((current) => !current)}
                                         style={({ pressed }) => [
                                             styles.outlineButton,
@@ -337,6 +341,7 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
     sessionHeader: {
+        minHeight: 56,
         flexDirection: "row",
         alignItems: "flex-start",
         gap: 10,
@@ -402,6 +407,7 @@ const styles = StyleSheet.create({
         fontWeight: "900",
     },
     outlineButton: {
+        minHeight: 44,
         borderWidth: 1,
         borderRadius: 10,
         paddingHorizontal: 11,

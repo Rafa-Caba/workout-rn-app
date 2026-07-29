@@ -1,4 +1,8 @@
+// /src/hooks/trainer/usePatchTraineePlannedRoutine.ts
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { queryKeys } from "@/src/query/queryKeys";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { patchTraineePlannedRoutine } from "@/src/services/workout/trainer.service";
@@ -16,14 +20,11 @@ export function usePatchTraineePlannedRoutine() {
         mutationFn: ({ traineeId, date, body }) => patchTraineePlannedRoutine(traineeId, date, body),
         onSuccess: (_data, vars) => {
             // Refresh day + recovery; week summary may also change depending on BE rollups.
-            qc.invalidateQueries({ queryKey: ["trainer", "day", vars.traineeId, vars.date] });
-            qc.invalidateQueries({ queryKey: ["trainer", "recovery", vars.traineeId] });
+            qc.invalidateQueries({ queryKey: queryKeys.trainer.traineeDay(vars.traineeId, vars.date) });
+            qc.invalidateQueries({ queryKey: queryKeys.trainer.recoveryRoot(vars.traineeId) });
 
-            if (vars.weekKey) {
-                qc.invalidateQueries({ queryKey: ["trainer", "weekSummary", vars.traineeId, vars.weekKey] });
-            } else {
-                qc.invalidateQueries({ queryKey: ["trainer", "weekSummary", vars.traineeId] });
-            }
+            // The weekly rollup can change regardless of whether the caller already knows its week key.
+            qc.invalidateQueries({ queryKey: queryKeys.trainer.traineeWeekRoot(vars.traineeId) });
         },
     });
 }

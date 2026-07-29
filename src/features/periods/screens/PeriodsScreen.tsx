@@ -24,21 +24,20 @@ import {
     View,
 } from "react-native";
 
+import type { PeriodTab } from "@/src/features/periods/utils/periods.helpers";
 import { useRangeSummary } from "@/src/hooks/summary/useRangeSummary";
 import { useWeekSummary } from "@/src/hooks/summary/useWeekSummary";
 import { useWorkoutCalendar } from "@/src/hooks/workout/useWorkoutCalendar";
+import { useWorkoutWeekView } from "@/src/hooks/workout/useWorkoutWeekView";
 import type { GetWorkoutCalendarArgs } from "@/src/services/workout/calendar.service";
 import type { GetWorkoutWeekArgs } from "@/src/services/workout/workoutWeek.service";
-import { useWorkoutWeekView } from "@/src/hooks/workout/useWorkoutWeekView";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import type { CalendarDayFull } from "@/src/types/workoutDay.types";
 import {
     formatMonthLabel,
     getMonthRange,
 } from "@/src/utils/summaryPeriods/monthlySummary";
 import { extractWeekKpis } from "@/src/utils/summaryPeriods/weeksExplorer";
 import { toWeekKey } from "@/src/utils/weekKey";
-import type { PeriodTab } from "@/src/features/periods/utils/periods.helpers";
 
 import { MonthComparisonSection } from "../components/MonthComparisonSection";
 import { MonthWeekBreakdownSection } from "../components/MonthWeekBreakdownSection";
@@ -130,6 +129,8 @@ function PeriodButton({ label, icon, onPress, disabled = false }: PeriodButtonPr
     return (
         <Pressable
             accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ disabled }}
             disabled={disabled}
             onPress={onPress}
             style={({ pressed }) => [
@@ -571,7 +572,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     controlButton: {
-        minHeight: 42,
+        minHeight: 44,
         borderWidth: 1,
         borderRadius: 12,
         paddingHorizontal: 12,

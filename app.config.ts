@@ -1,8 +1,8 @@
 // /app.config.ts
 // Expo app configuration for Workout RN.
 // Configures EAS updates, HealthKit / Health Connect, Android Google Maps,
-// location permissions, encryption declaration, and a consistent
-// transparent-logo splash screen.
+// location permissions, encryption declaration, fonts, web browser,
+// and a consistent transparent-logo splash screen.
 
 import "dotenv/config";
 
@@ -183,6 +183,8 @@ const locationWhenInUsePermission =
 const plugins: PluginEntry[] = [
     "expo-router",
     "expo-secure-store",
+    "expo-font",
+    "expo-web-browser",
     "@react-native-community/datetimepicker",
     createPluginTuple("expo-splash-screen", {
         image: splashImage,

@@ -15,6 +15,7 @@ import type {
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
 } from "@/src/types/health/cardio/health.types";
+import { buildLocalDayRangeISO } from "@/src/utils/dates/localDateTime";
 
 /**
  * Supported Health Connect record types used by this app.
@@ -62,13 +63,11 @@ function toIsoNow(): string {
 }
 
 function buildDayRange(date: string): { startTime: string; endTime: string } {
-    const start = new Date(`${date}T00:00:00`);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const range = buildLocalDayRangeISO(date);
 
     return {
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
+        startTime: range.startAt,
+        endTime: range.endAtExclusive,
     };
 }
 

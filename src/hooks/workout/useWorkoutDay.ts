@@ -2,6 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { queryKeys } from "@/src/query/queryKeys";
+
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
 import type { WorkoutDay } from "@/src/types/workoutDay.types";
@@ -37,7 +39,7 @@ export function useWorkoutDay(date: string | null, enabled: boolean = true) {
     const isEnabled = enabled && Boolean(date);
 
     return useQuery<WorkoutDay | null, ApiAxiosError>({
-        queryKey: ["workoutDay", date ?? null],
+        queryKey: queryKeys.workout.day(date),
         queryFn: async () => {
             if (!date) return null;
 

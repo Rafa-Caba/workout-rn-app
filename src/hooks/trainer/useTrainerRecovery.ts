@@ -1,4 +1,8 @@
+// /src/hooks/trainer/useTrainerRecovery.ts
+
 import { useQuery } from "@tanstack/react-query";
+
+import { queryKeys } from "@/src/query/queryKeys";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { getTraineeRecovery } from "@/src/services/workout/trainer.service";
@@ -9,7 +13,7 @@ export function useTrainerRecovery(args: { traineeId: string; from: ISODate; to:
     const enabled = Boolean(args?.traineeId) && Boolean(args?.from) && Boolean(args?.to);
 
     return useQuery<GetTraineeRecoveryResponse, ApiAxiosError>({
-        queryKey: ["trainer", "recovery", args.traineeId, args.from, args.to],
+        queryKey: queryKeys.trainer.recovery(args.traineeId, args.from, args.to),
         queryFn: () => getTraineeRecovery(args.traineeId, args.from, args.to),
         enabled,
         staleTime: 30_000,

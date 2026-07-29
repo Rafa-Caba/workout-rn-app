@@ -137,6 +137,7 @@ export function mapImportedCardioSessionToWorkoutSessionMeta(
         originalType: session.providerWorkoutType ?? null,
         provider: session.source === "healthkit" ? "healthkit" : "health-connect",
         healthExternalId: session.externalId ?? null,
+        totalKcalEstimated: session.metrics.totalKcalEstimated === true,
     };
 }
 

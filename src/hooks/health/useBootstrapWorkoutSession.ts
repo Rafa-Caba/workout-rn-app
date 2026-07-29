@@ -3,6 +3,9 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { invalidateWorkoutDayRelatedQueries } from "@/src/query/invalidateWorkoutDayQueries";
+import { queryKeys } from "@/src/query/queryKeys";
+
 import {
     appendHealthDiagnosticEvent,
     createHealthDiagnosticId,
@@ -257,12 +260,11 @@ export function useBootstrapWorkoutSession() {
                 mode: "created-minimal-session",
             };
         },
-        onSuccess: (result, variables) => {
-            if (!result.day) {
-                return;
-            }
+        onSuccess: async (result, variables) => {
+            if (!result.day) return;
 
-            qc.setQueryData(["workoutDay", variables.date], result.day);
+            qc.setQueryData(queryKeys.workout.day(variables.date), result.day);
+            await invalidateWorkoutDayRelatedQueries(qc, { date: variables.date });
         },
         onError: async (error, variables) => {
             await logWorkoutPersistence({

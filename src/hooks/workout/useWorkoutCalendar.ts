@@ -6,6 +6,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { queryKeys } from "@/src/query/queryKeys";
+
 import type { ApiAxiosError } from "@/src/services/http.client";
 import {
     getWorkoutCalendar,
@@ -15,7 +17,7 @@ import type { CalendarViewResponse } from "@/src/types/workoutDay.types";
 
 export function useWorkoutCalendar(args: GetWorkoutCalendarArgs) {
     return useQuery<CalendarViewResponse, ApiAxiosError>({
-        queryKey: ["workoutCalendar", args],
+        queryKey: queryKeys.workout.calendar(args),
         queryFn: () => getWorkoutCalendar(args),
         enabled: Boolean(args.from && args.to),
         staleTime: 30_000,

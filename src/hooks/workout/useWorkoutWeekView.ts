@@ -3,6 +3,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { queryKeys } from "@/src/query/queryKeys";
+
 import type { ApiAxiosError } from "@/src/services/http.client";
 import {
     defaultTraineeWeekViewParams,
@@ -16,7 +18,7 @@ export function useWorkoutWeekView(
     args?: Partial<GetWorkoutWeekArgs>,
 ) {
     return useQuery<WeekViewResponse, ApiAxiosError>({
-        queryKey: ["workoutWeekView", weekKey, args ?? null],
+        queryKey: queryKeys.workout.weekView(weekKey ?? null, args ?? null),
         queryFn: () => {
             if (!weekKey) {
                 throw new Error("A week key is required to load the WorkoutDay week view.");

@@ -100,6 +100,7 @@ export function CalendarActionsSheet({
                 />
 
                 <View
+                    accessibilityViewIsModal
                     style={[
                         styles.sheet,
                         {
@@ -124,7 +125,8 @@ export function CalendarActionsSheet({
 
                         <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel="Cerrar"
+                            accessibilityLabel="Cerrar acciones"
+                            hitSlop={8}
                             onPress={onClose}
                             style={({ pressed }) => [
                                 styles.closeButton,
@@ -144,6 +146,8 @@ export function CalendarActionsSheet({
                             <Pressable
                                 key={action.id}
                                 accessibilityRole="button"
+                                accessibilityLabel={action.title}
+                                accessibilityHint={action.subtitle}
                                 onPress={() => runAction(action)}
                                 style={({ pressed }) => [
                                     styles.actionRow,
@@ -216,8 +220,8 @@ const styles = StyleSheet.create({
     title: { fontSize: 21, fontWeight: "900" },
     subtitle: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
     closeButton: {
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         borderRadius: 12,
         borderWidth: 1,
         alignItems: "center",
@@ -225,6 +229,7 @@ const styles = StyleSheet.create({
     },
     actionList: { gap: 9 },
     actionRow: {
+        minHeight: 56,
         borderWidth: 1,
         borderRadius: 15,
         paddingHorizontal: 12,

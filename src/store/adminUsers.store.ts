@@ -6,11 +6,13 @@ import type {
     AdminUserActiveFilter,
     AdminUserCreatePayload,
     AdminUserListResponse,
+    AdminUserQuery,
     AdminUserRoleFilter,
     AdminUserUpdatePayload,
 } from "@/src/types/adminUser.types";
 
 import { queryClient } from "@/src/query/queryClient";
+import { queryKeys } from "@/src/query/queryKeys";
 import {
     createAdminUser,
     deleteAdminUser,
@@ -20,24 +22,6 @@ import {
 } from "@/src/services/admin/adminUsers.service";
 
 type CoachModeFilter = "all" | "NONE" | "TRAINER" | "TRAINEE";
-
-/**
- * Backend expects:
- * - page (number)
- * - limit (number)
- * - q (string)
- * - role ("admin" | "user")
- * - isActive (boolean)
- * - coachMode ("NONE" | "TRAINER" | "TRAINEE")
- */
-type AdminUsersQuery = {
-    page: number;
-    limit: number;
-    q?: string;
-    role?: "admin" | "user";
-    isActive?: boolean;
-    coachMode?: "NONE" | "TRAINER" | "TRAINEE";
-};
 
 export type AdminUserPurgeResponse = {
     id: string;
@@ -83,12 +67,28 @@ type AdminUsersState = {
     purgeUser: (id: string) => Promise<AdminUserPurgeResponse>;
 };
 
-function getErrorMessage(e: unknown, fallback: string): string {
-    if (typeof e === "object" && e !== null) {
-        const anyErr = e as any;
-        return anyErr?.response?.data?.error?.message ?? anyErr?.response?.data?.message ?? anyErr?.message ?? fallback;
-    }
-    return fallback;
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readMessage(value: unknown): string | null {
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+    if (!isRecord(error)) return fallback;
+
+    const directMessage = readMessage(error.message);
+    const response = isRecord(error.response) ? error.response : null;
+    const data = response && isRecord(response.data) ? response.data : null;
+    const apiError = data && isRecord(data.error) ? data.error : null;
+
+    return (
+        readMessage(apiError?.message) ??
+        readMessage(data?.message) ??
+        directMessage ??
+        fallback
+    );
 }
 
 function maybeInvalidateTrainerTrainees(user?: AdminUser | null) {
@@ -100,8 +100,8 @@ function maybeInvalidateTrainerTrainees(user?: AdminUser | null) {
     const coachMode = user?.coachMode ?? null;
 
     if (coachMode === "TRAINEE" || coachMode === "TRAINER") {
-        queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
-        queryClient.refetchQueries({ queryKey: ["trainer", "trainees"] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.trainer.trainees });
+        queryClient.refetchQueries({ queryKey: queryKeys.trainer.trainees });
     }
 }
 
@@ -146,7 +146,7 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
         set({ loading: true, error: null });
 
         try {
-            const query: AdminUsersQuery = {
+            const query: AdminUserQuery = {
                 page,
                 limit: pageSize,
             };
@@ -164,9 +164,9 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
                 query.coachMode = coachModeFilter;
             }
 
-            const data: AdminUserListResponse = await fetchAdminUsers(query as any);
+            const data: AdminUserListResponse = await fetchAdminUsers(query);
 
-            const nextPageSize = (data as any).pageSize ?? (data as any).limit ?? pageSize;
+            const nextPageSize = data.pageSize ?? data.limit ?? pageSize;
 
             set({
                 items: data.items,
@@ -210,11 +210,11 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
 
             // ✅ If admin changed coachMode/assignedTrainer, trainer dashboard can change.
             // We don't try to diff fields (payload types may vary); just invalidate when relevant fields exist.
-            const touchedCoachMode = (payload as any)?.coachMode !== undefined;
-            const touchedAssignedTrainer = (payload as any)?.assignedTrainer !== undefined;
+            const touchedCoachMode = payload.coachMode !== undefined;
+            const touchedAssignedTrainer = payload.assignedTrainer !== undefined;
 
             if (touchedCoachMode || touchedAssignedTrainer) {
-                queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
+                queryClient.invalidateQueries({ queryKey: queryKeys.trainer.trainees });
             } else {
                 // Still safe: if the returned user is TRAINEE/TRAINER, it can matter
                 maybeInvalidateTrainerTrainees(user);
@@ -238,7 +238,7 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
             }));
 
             // ✅ A removed/disabled user can affect trainer trainees list
-            queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
+            queryClient.invalidateQueries({ queryKey: queryKeys.trainer.trainees });
 
             return true;
         } catch (e: unknown) {
@@ -258,7 +258,7 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
             }));
 
             // ✅ Purge affects everything; refresh trainer trainees
-            queryClient.invalidateQueries({ queryKey: ["trainer", "trainees"] });
+            queryClient.invalidateQueries({ queryKey: queryKeys.trainer.trainees });
 
             return result;
         } catch (e: unknown) {

@@ -13,6 +13,7 @@ import { useCardioPermissions } from "@/src/hooks/health/cardio/useCardioPermiss
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { CardioActivityType } from "@/src/types/health/healthCardio.types";
 import type { ISODate, WorkoutSession } from "@/src/types/workoutDay.types";
+import { normalizeApiError } from "@/src/utils/api/apiErrorMessage";
 import {
     formatFlexibleDateLabel,
     getLocalTodayIsoDate,
@@ -44,9 +45,13 @@ function formatDuration(durationSeconds: number): string {
     return `${minutes} min`;
 }
 
+function isISODate(value: string): value is ISODate {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 function resolveDateParam(value: string | string[] | undefined): ISODate {
-    if (typeof value === "string" && value.trim().length > 0) {
-        return value as ISODate;
+    if (typeof value === "string" && isISODate(value)) {
+        return value;
     }
 
     return getLocalTodayIsoDate();
@@ -86,6 +91,8 @@ function ActionButton(props: {
         <Pressable
             onPress={props.onPress}
             style={({ pressed }) => ({
+                minHeight: 44,
+                justifyContent: "center",
                 paddingHorizontal: 14,
                 paddingVertical: 10,
                 borderRadius: 12,
@@ -249,7 +256,7 @@ export function CardioSessionsScreen() {
 
     const cardio = useCardioBootstrap({
         date,
-        includeRoutes: false,
+        includeRoutes: true,
         autoBootstrap: true,
     });
 
@@ -311,6 +318,13 @@ export function CardioSessionsScreen() {
         });
     }
 
+    function openDiagnostics() {
+        router.push({
+            pathname: "/(app)/calendar/cardio/diagnostics",
+            params: { date },
+        });
+    }
+
     function openSessionDetails(session: WorkoutSession) {
         router.push({
             pathname: "/(app)/calendar/cardio/session/[date]/[sessionId]",
@@ -327,14 +341,21 @@ export function CardioSessionsScreen() {
                 await permissions.requestPermissions();
             }
 
-            await cardio.resync();
+            const result = await cardio.resync();
+            Alert.alert(
+                "Cardio sincronizado",
+                `${result.insertedCount} creada(s) · ${result.updatedCount} actualizada(s) · ${result.unchangedCount} sin cambios.`
+            );
         } catch (err: unknown) {
             if (isCardioHealthPermissionError(err)) {
                 Alert.alert(
                     "Permisos de Cardio",
                     CARDIO_HEALTH_PERMISSION_MESSAGE
                 );
+                return;
             }
+
+            Alert.alert("Error al sincronizar", normalizeApiError(err).message);
         }
     }
 
@@ -392,7 +413,7 @@ export function CardioSessionsScreen() {
                         label="Día a consultar"
                         value={date}
                         onChange={handleDateChange}
-                        displayFormat="MMM dd, yyyy"
+                        displayFormat="dd/MM/yyyy"
                     />
 
                     <View
@@ -434,12 +455,12 @@ export function CardioSessionsScreen() {
 
                 <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 4 }}>
                     <ActionButton
-                        label="Start Outdoor Walk"
+                        label="Iniciar caminata outdoor"
                         onPress={() => openLiveCardio("walking")}
                         primary
                     />
                     <ActionButton
-                        label="Start Outdoor Run"
+                        label="Iniciar carrera outdoor"
                         onPress={() => openLiveCardio("running")}
                         primary
                     />
@@ -520,7 +541,10 @@ export function CardioSessionsScreen() {
                         </Text>
                     </View>
 
-                    <ActionButton label="Resync" onPress={() => { void resync(); }} />
+                    <View style={{ gap: 8 }}>
+                        <ActionButton label="Diagnóstico" onPress={openDiagnostics} />
+                        <ActionButton label="Re-sincronizar" onPress={() => { void resync(); }} />
+                    </View>
                 </View>
 
                 {cardio.loading ? (

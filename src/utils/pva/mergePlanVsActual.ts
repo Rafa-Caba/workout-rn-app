@@ -1,137 +1,176 @@
-import { DAY_KEYS, getPlanFromMeta, type DayKey, type DayPlan, type ExerciseItem } from "@/src/utils/routines/plan";
+// /src/utils/pva/mergePlanVsActual.ts
+// Runtime-safe merge of API plan-vs-actual data with routine plan and Gym Check metadata.
 
-type Planned = { sessionType: string | null; focus: string | null; tags: string[] | null };
+import {
+    getPlanFromMeta,
+    isDayKey,
+    type DayKey,
+    type DayPlan,
+    type ExerciseItem,
+} from "@/src/utils/routines/plan";
+
+export type PlannedSummary = {
+    sessionType: string | null;
+    focus: string | null;
+    tags: string[] | null;
+};
 
 export type GymCheckSummary = {
     durationMin: number | null;
     notes: string | null;
-
-    // completion vs planned exercises (by id)
     totalPlannedExercises: number;
     doneExercises: number;
-
-    // convenience
     hasAnyCheck: boolean;
 };
 
-function isRecord(v: unknown): v is Record<string, any> {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
+export type MergedPlanVsActualSession = {
+    id: string;
+    type: string;
+};
+
+export type MergedPlanVsActualDay = {
+    date: string;
+    dayKey: DayKey;
+    planned: PlannedSummary | null;
+    actual: { sessions: MergedPlanVsActualSession[] };
+    status: string;
+    gymCheck: GymCheckSummary;
+};
+
+export type MergedPlanVsActualWeek = {
+    weekKey: string;
+    range: { from: string; to: string };
+    hasRoutineTemplate: boolean;
+    days: MergedPlanVsActualDay[];
+};
+
+type GymCheckDayRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function cleanStrOrNull(v: unknown): string | null {
-    if (typeof v !== "string") return null;
-    const s = v.trim();
-    return s.length ? s : null;
+function cleanStrOrNull(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
 }
 
-function parseIntOrNull(v: unknown): number | null {
-    if (v === null || v === undefined) return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? Math.trunc(n) : null;
+function parseIntOrNull(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
 }
 
-function buildPlannedMapFromRoutine(routine: unknown): Map<DayKey, Planned> {
-    const out = new Map<DayKey, Planned>();
-    if (!isRecord(routine)) return out;
+function readStringArrayOrNull(value: unknown): string[] | null {
+    if (!Array.isArray(value)) return null;
+    const strings = value.filter((item): item is string => typeof item === "string");
+    return strings.length > 0 ? strings : null;
+}
 
-    const meta = isRecord(routine.meta) ? routine.meta : null;
-    const plans: DayPlan[] = getPlanFromMeta(meta);
+function normalizePlanned(value: unknown): PlannedSummary | null {
+    if (!isRecord(value)) return null;
 
-    for (const p of plans) {
-        if (!DAY_KEYS.includes(p.dayKey as any)) continue;
+    const planned: PlannedSummary = {
+        sessionType: cleanStrOrNull(value.sessionType),
+        focus: cleanStrOrNull(value.focus),
+        tags: readStringArrayOrNull(value.tags),
+    };
 
-        out.set(p.dayKey, {
-            sessionType: p.sessionType?.trim() ? p.sessionType : null,
-            focus: p.focus?.trim() ? p.focus : null,
-            tags: p.tags && p.tags.length ? p.tags : null,
+    return planned.sessionType || planned.focus || planned.tags ? planned : null;
+}
+
+function normalizeActualSessions(value: unknown): MergedPlanVsActualSession[] {
+    if (!isRecord(value) || !Array.isArray(value.sessions)) return [];
+
+    return value.sessions.flatMap((session): MergedPlanVsActualSession[] => {
+        if (!isRecord(session)) return [];
+        const id = cleanStrOrNull(session.id);
+        const type = cleanStrOrNull(session.type);
+        return id && type ? [{ id, type }] : [];
+    });
+}
+
+function buildPlannedMapFromRoutine(routine: unknown): Map<DayKey, PlannedSummary> {
+    const output = new Map<DayKey, PlannedSummary>();
+    if (!isRecord(routine)) return output;
+
+    const plans: DayPlan[] = getPlanFromMeta(routine.meta);
+    for (const plan of plans) {
+        output.set(plan.dayKey, {
+            sessionType: cleanStrOrNull(plan.sessionType),
+            focus: cleanStrOrNull(plan.focus),
+            tags: plan.tags && plan.tags.length > 0 ? [...plan.tags] : null,
         });
     }
 
-    return out;
+    return output;
 }
 
-function buildPlanExercisesMapFromRoutine(routine: unknown): Map<DayKey, ExerciseItem[]> {
-    const out = new Map<DayKey, ExerciseItem[]>();
-    if (!isRecord(routine)) return out;
+function buildPlanExercisesMapFromRoutine(
+    routine: unknown,
+): Map<DayKey, ExerciseItem[]> {
+    const output = new Map<DayKey, ExerciseItem[]>();
+    if (!isRecord(routine)) return output;
 
-    const meta = isRecord(routine.meta) ? routine.meta : null;
-    const plans: DayPlan[] = getPlanFromMeta(meta);
-
-    for (const p of plans) {
-        if (!DAY_KEYS.includes(p.dayKey as any)) continue;
-        const list = Array.isArray(p.exercises) ? p.exercises : [];
-        out.set(p.dayKey, list);
+    const plans: DayPlan[] = getPlanFromMeta(routine.meta);
+    for (const plan of plans) {
+        output.set(plan.dayKey, plan.exercises ? [...plan.exercises] : []);
     }
 
-    return out;
+    return output;
 }
 
-/**
- * Reads routine.meta.gymCheck and returns per-day summary.
- * Expected backend shape (example):
- *   meta.gymCheck.Mon = { durationMin, notes, exercises: { [exerciseId]: { done, ... } } }
- */
-function buildGymCheckMapFromRoutine(routine: unknown): Map<DayKey, any> {
-    const out = new Map<DayKey, any>();
-    if (!isRecord(routine)) return out;
+function buildGymCheckMapFromRoutine(
+    routine: unknown,
+): Map<DayKey, GymCheckDayRecord> {
+    const output = new Map<DayKey, GymCheckDayRecord>();
+    if (!isRecord(routine) || !isRecord(routine.meta)) return output;
 
-    const meta = isRecord(routine.meta) ? routine.meta : null;
-    if (!meta) return out;
+    const gymCheck = routine.meta.gymCheck;
+    if (!isRecord(gymCheck)) return output;
 
-    const gymCheckRaw = (meta as any).gymCheck;
-    if (!isRecord(gymCheckRaw)) return out;
-
-    for (const k of DAY_KEYS) {
-        const v = gymCheckRaw[k];
-        if (isRecord(v)) out.set(k, v);
+    for (const [dayKey, value] of Object.entries(gymCheck)) {
+        if (isDayKey(dayKey) && isRecord(value)) output.set(dayKey, value);
     }
 
-    return out;
+    return output;
 }
 
 function computeGymCheckSummary(args: {
-    dayKey: DayKey;
     plannedExercises: ExerciseItem[];
-    gymCheckDay: any | null;
+    gymCheckDay: GymCheckDayRecord | null;
 }): GymCheckSummary {
     const { plannedExercises, gymCheckDay } = args;
-
-    const totalPlannedExercises = plannedExercises.length;
-
     const durationMin = parseIntOrNull(gymCheckDay?.durationMin);
     const notes = cleanStrOrNull(gymCheckDay?.notes);
-
-    const exercisesRec = isRecord(gymCheckDay?.exercises) ? (gymCheckDay.exercises as Record<string, any>) : null;
+    const exercises = isRecord(gymCheckDay?.exercises)
+        ? gymCheckDay.exercises
+        : null;
 
     let doneExercises = 0;
     let hasAnyCheck = false;
 
-    if (exercisesRec) {
-        // We only count completion against planned exercise ids.
-        for (const ex of plannedExercises) {
-            const id = typeof ex?.id === "string" ? ex.id : "";
-            if (!id) continue;
-            const st = exercisesRec[id];
-            if (!isRecord(st)) continue;
+    if (exercises) {
+        for (const exercise of plannedExercises) {
+            const state = exercises[exercise.id];
+            if (!isRecord(state)) continue;
 
             hasAnyCheck = true;
-            if (st.done === true) doneExercises += 1;
+            if (state.done === true) doneExercises += 1;
         }
 
-        // If user checked anything that doesn't exist in plan (rare), still flag hasAnyCheck
-        if (!hasAnyCheck) {
-            const anyKeys = Object.keys(exercisesRec);
-            hasAnyCheck = anyKeys.length > 0;
-        }
+        if (!hasAnyCheck) hasAnyCheck = Object.keys(exercises).length > 0;
     }
 
-    // Also treat duration/notes as "hasAnyCheck" if they exist
-    if (!hasAnyCheck && (durationMin !== null || notes !== null)) hasAnyCheck = true;
+    if (!hasAnyCheck && (durationMin !== null || notes !== null)) {
+        hasAnyCheck = true;
+    }
 
     return {
         durationMin,
         notes,
-        totalPlannedExercises,
+        totalPlannedExercises: plannedExercises.length,
         doneExercises,
         hasAnyCheck,
     };
@@ -141,99 +180,122 @@ function deriveStatusWithGymCheck(args: {
     backendStatus: string;
     hasPlanned: boolean;
     plannedExercisesCount: number;
-    gym: GymCheckSummary | null;
+    gym: GymCheckSummary;
     actualSessionsCount: number;
 }): string {
-    const { backendStatus, hasPlanned, plannedExercisesCount, gym, actualSessionsCount } = args;
+    const {
+        backendStatus,
+        hasPlanned,
+        plannedExercisesCount,
+        gym,
+        actualSessionsCount,
+    } = args;
 
-    // If we have gymCheck activity, prefer it as the driver of status
-    if (gym && gym.hasAnyCheck) {
+    if (gym.hasAnyCheck) {
         if (plannedExercisesCount > 0) {
-            if (gym.doneExercises >= plannedExercisesCount) return "done";
-            if (gym.doneExercises > 0) return "done"; // treat partial as done for now (no "partial" i18n key yet)
+            if (gym.doneExercises > 0) return "done";
             return hasPlanned ? "missed" : "unknown";
         }
-
-        // No planned exercises: gym check implies "extra" (you did something not planned)
         return hasPlanned ? "done" : "extra";
     }
 
-    // No gym check: fall back to backend status, but slightly normalize
-    if (typeof backendStatus === "string" && backendStatus.trim()) return backendStatus;
-
-    // If there are actual sessions but no plan, it's extra
+    if (backendStatus.trim()) return backendStatus;
     if (!hasPlanned && actualSessionsCount > 0) return "extra";
-
     return "unknown";
 }
 
+function resolvePvaRecord(value: unknown): Record<string, unknown> | null {
+    if (!isRecord(value)) return null;
+    return isRecord(value.pva) ? value.pva : value;
+}
+
+function resolvePvaDays(
+    original: unknown,
+    pvaRecord: Record<string, unknown>,
+): unknown[] {
+    if (isRecord(original) && Array.isArray(original.nextDays)) {
+        return original.nextDays;
+    }
+    return Array.isArray(pvaRecord.days) ? pvaRecord.days : [];
+}
+
 /**
- * Merge routine planned + gymCheck into PVA response.
- * - planned overlay: routine.meta.plan
- * - gymCheck overlay: routine.meta.gymCheck
- * - status: prefer gymCheck when present
+ * Merges routine plan and Gym Check metadata into a normalized PVA response.
+ * Invalid external fields are discarded instead of being forced through casts.
  */
-export function mergePlanVsActualPlanned(pva: any, routine: unknown): any {
-    if (!pva || !Array.isArray(pva.days)) return pva;
+export function mergePlanVsActualPlanned(
+    pva: unknown,
+    routine: unknown,
+): MergedPlanVsActualWeek | null {
+    const pvaRecord = resolvePvaRecord(pva);
+    if (!pvaRecord) return null;
 
     const plannedMap = buildPlannedMapFromRoutine(routine);
     const planExercisesMap = buildPlanExercisesMapFromRoutine(routine);
     const gymMap = buildGymCheckMapFromRoutine(routine);
 
-    const nextDays = pva.days.map((d: any) => {
-        const dayKey = d?.dayKey;
-        if (!dayKey || typeof dayKey !== "string" || !DAY_KEYS.includes(dayKey as any)) return d;
+    const days = resolvePvaDays(pva, pvaRecord).flatMap(
+        (value): MergedPlanVsActualDay[] => {
+            if (!isRecord(value) || !isDayKey(value.dayKey)) return [];
 
-        const k = dayKey as DayKey;
+            const date = cleanStrOrNull(value.date);
+            if (!date) return [];
 
-        // planned overlay
-        const fallbackPlanned = plannedMap.get(k) ?? null;
+            const dayKey = value.dayKey;
+            const backendPlanned = normalizePlanned(value.planned);
+            const fallbackPlanned = plannedMap.get(dayKey) ?? null;
+            const planned: PlannedSummary | null = fallbackPlanned
+                ? {
+                    sessionType:
+                        backendPlanned?.sessionType ?? fallbackPlanned.sessionType,
+                    focus: backendPlanned?.focus ?? fallbackPlanned.focus,
+                    tags: backendPlanned?.tags ?? fallbackPlanned.tags,
+                }
+                : backendPlanned;
 
-        const planned = isRecord(d.planned) ? d.planned : {};
-        const plannedSessionType = (planned as any).sessionType ?? null;
-        const plannedFocus = (planned as any).focus ?? null;
-        const plannedTags = (planned as any).tags ?? null;
+            const plannedExercises = planExercisesMap.get(dayKey) ?? [];
+            const gymCheck = computeGymCheckSummary({
+                plannedExercises,
+                gymCheckDay: gymMap.get(dayKey) ?? null,
+            });
+            const actualSessions = normalizeActualSessions(value.actual);
 
-        const filledPlanned = fallbackPlanned
-            ? {
-                sessionType: plannedSessionType ?? fallbackPlanned.sessionType,
-                focus: plannedFocus ?? fallbackPlanned.focus,
-                tags: plannedTags ?? fallbackPlanned.tags,
-            }
-            : d.planned ?? null;
+            const hasPlanned =
+                Boolean(planned?.sessionType) ||
+                Boolean(planned?.focus) ||
+                Boolean(planned?.tags?.length) ||
+                plannedExercises.length > 0;
 
-        const plannedExercises = planExercisesMap.get(k) ?? [];
-        const gymRaw = gymMap.get(k) ?? null;
+            const status = deriveStatusWithGymCheck({
+                backendStatus: cleanStrOrNull(value.status) ?? "",
+                hasPlanned,
+                plannedExercisesCount: plannedExercises.length,
+                gym: gymCheck,
+                actualSessionsCount: actualSessions.length,
+            });
 
-        const gym = computeGymCheckSummary({
-            dayKey: k,
-            plannedExercises,
-            gymCheckDay: gymRaw,
-        });
+            return [{
+                date,
+                dayKey,
+                planned,
+                actual: { sessions: actualSessions },
+                status,
+                gymCheck,
+            }];
+        },
+    );
 
-        const hasPlanned =
-            Boolean(filledPlanned?.sessionType) ||
-            Boolean(filledPlanned?.focus) ||
-            Boolean((filledPlanned?.tags?.length ?? 0) > 0) ||
-            plannedExercises.length > 0;
+    const range = isRecord(pvaRecord.range)
+        ? {
+            from: cleanStrOrNull(pvaRecord.range.from) ?? "",
+            to: cleanStrOrNull(pvaRecord.range.to) ?? "",
+        }
+        : { from: "", to: "" };
 
-        const actualSessionsCount = Array.isArray(d?.actual?.sessions) ? d.actual.sessions.length : 0;
-
-        const status = deriveStatusWithGymCheck({
-            backendStatus: typeof d.status === "string" ? d.status : "",
-            hasPlanned,
-            plannedExercisesCount: plannedExercises.length,
-            gym,
-            actualSessionsCount,
-        });
-
-        return {
-            ...d,
-            planned: filledPlanned,
-            gymCheck: gym, // ✅ new field for UI
-            status,
-        };
-    });
-
-    return { ...pva, days: nextDays };
+    return {
+        weekKey: cleanStrOrNull(pvaRecord.weekKey) ?? "",
+        range,
+        hasRoutineTemplate: pvaRecord.hasRoutineTemplate === true,
+        days,
+    };
 }

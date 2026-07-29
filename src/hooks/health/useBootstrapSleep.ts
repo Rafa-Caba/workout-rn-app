@@ -1,8 +1,12 @@
 // /src/hooks/health/useBootstrapSleep.ts
+// Imports normalized sleep from the current platform and keeps all day-related
+// caches aligned after persistence.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Platform } from "react-native";
 
+import { invalidateWorkoutDayRelatedQueries } from "@/src/query/invalidateWorkoutDayQueries";
+import { queryKeys } from "@/src/query/queryKeys";
 import {
     appendHealthDiagnosticEvent,
     createHealthDiagnosticId,
@@ -22,7 +26,7 @@ function currentProvider(): HealthProvider {
 }
 
 export function useBootstrapSleep() {
-    const qc = useQueryClient();
+    const queryClient = useQueryClient();
 
     return useMutation<WorkoutDay | null, Error, BootstrapSleepArgs>({
         mutationFn: async ({ date }) => {
@@ -50,13 +54,15 @@ export function useBootstrapSleep() {
                         date,
                         raw: null,
                     },
-                    "merge"
+                    "merge",
                 );
 
                 await appendHealthDiagnosticEvent({
                     id: createHealthDiagnosticId("sleep-persistence"),
                     createdAt: new Date().toISOString(),
-                    provider: importedSleep.source === "health-connect" ? "health-connect" : "healthkit",
+                    provider: importedSleep.source === "health-connect"
+                        ? "health-connect"
+                        : "healthkit",
                     level: "info",
                     kind: "sleep-persistence",
                     targetDate: date,
@@ -84,12 +90,13 @@ export function useBootstrapSleep() {
                 throw error;
             }
         },
-        onSuccess: (day, vars) => {
-            if (!day) {
-                return;
-            }
+        onSuccess: async (day, variables) => {
+            if (!day) return;
 
-            qc.setQueryData(["workoutDay", vars.date], day);
+            queryClient.setQueryData(queryKeys.workout.day(variables.date), day);
+            await invalidateWorkoutDayRelatedQueries(queryClient, {
+                date: variables.date,
+            });
         },
     });
 }

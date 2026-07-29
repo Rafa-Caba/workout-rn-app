@@ -1,6 +1,5 @@
-// src/utils/api/apiErrorMessage.ts
-// Normaliza errores HTTP/Axios desconocidos hacia mensajes claros para UI.
-// Mantiene tipado fuerte usando unknown y type guards.
+// /src/utils/api/apiErrorMessage.ts
+// Normalizes unknown HTTP, Axios, and local domain errors into typed UI errors.
 
 export type ApiValidationDetails = {
     formErrors: string[];
@@ -19,7 +18,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function asString(value: unknown): string | null {
-    return typeof value === "string" && value.trim().length > 0 ? value : null;
+    return typeof value === "string" && value.trim().length > 0
+        ? value.trim()
+        : null;
 }
 
 function asStringArray(value: unknown): string[] {
@@ -48,8 +49,13 @@ function parseValidationDetails(value: unknown): ApiValidationDetails | null {
         }
     }
 
+    const formErrors = asStringArray(value.formErrors);
+    if (formErrors.length === 0 && Object.keys(fieldErrors).length === 0) {
+        return null;
+    }
+
     return {
-        formErrors: asStringArray(value.formErrors),
+        formErrors,
         fieldErrors,
     };
 }
@@ -79,6 +85,10 @@ function getFirstValidationMessage(details: ApiValidationDetails | null): string
     return null;
 }
 
+function getNumericStatus(value: Record<string, unknown> | null): number | null {
+    return value && typeof value.status === "number" ? value.status : null;
+}
+
 export function normalizeApiError(error: unknown): UiApiError {
     if (!isRecord(error)) {
         return {
@@ -90,15 +100,21 @@ export function normalizeApiError(error: unknown): UiApiError {
     }
 
     const response = isRecord(error.response) ? error.response : null;
-    const status = typeof response?.status === "number" ? response.status : null;
+    const status = getNumericStatus(response) ?? getNumericStatus(error);
 
-    const data = response && "data" in response ? response.data : null;
-    const body = isRecord(data) ? data : null;
-
+    const responseData = response && "data" in response ? response.data : null;
+    const body = isRecord(responseData) ? responseData : null;
     const nestedError = isRecord(body?.error) ? body.error : null;
 
-    const code = asString(nestedError?.code);
-    const details = parseValidationDetails(nestedError?.details);
+    const code =
+        asString(nestedError?.code) ??
+        asString(body?.code) ??
+        asString(error.code);
+
+    const details =
+        parseValidationDetails(nestedError?.details) ??
+        parseValidationDetails(body?.details) ??
+        parseValidationDetails(error.details);
 
     const serverMessage =
         asString(nestedError?.message) ??

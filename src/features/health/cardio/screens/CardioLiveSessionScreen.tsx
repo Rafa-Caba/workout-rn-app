@@ -2,6 +2,8 @@
 // Foreground phone-GPS live tracking screen for outdoor walking/running sessions.
 
 import { useQueryClient } from "@tanstack/react-query";
+
+import { invalidateWorkoutDayRelatedQueries } from "@/src/query/invalidateWorkoutDayQueries";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
@@ -203,7 +205,9 @@ export function CardioLiveSessionScreen() {
                 }).catch(buildLocalHealthWriteFailureResult)
                 : null;
 
-            await queryClient.invalidateQueries({ queryKey: ["workoutDay", snapshot.date] });
+            await invalidateWorkoutDayRelatedQueries(queryClient, {
+                date: snapshot.date,
+            });
 
             router.replace({
                 pathname: "/(app)/calendar/cardio/live-summary",

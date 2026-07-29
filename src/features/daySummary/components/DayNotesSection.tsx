@@ -354,6 +354,7 @@ export function DayNotesSection({ date }: Props) {
                     style={styles.modalBackdrop}
                 >
                     <View
+                        accessibilityViewIsModal
                         style={[
                             styles.modalCard,
                             {
@@ -388,6 +389,8 @@ export function DayNotesSection({ date }: Props) {
 
                                 <Pressable
                                     accessibilityRole="button"
+                                    accessibilityLabel="Cerrar formulario de nota"
+                                    hitSlop={8}
                                     onPress={closeModal}
                                     disabled={saving}
                                     style={({ pressed }) => [
@@ -507,6 +510,8 @@ export function DayNotesSection({ date }: Props) {
                             <View style={styles.modalActions}>
                                 <Pressable
                                     accessibilityRole="button"
+                                    accessibilityLabel="Cerrar formulario de nota"
+                                    hitSlop={8}
                                     onPress={closeModal}
                                     disabled={saving}
                                     style={({ pressed }) => [
@@ -619,8 +624,8 @@ const styles = StyleSheet.create({
     },
     modalTitle: { fontSize: 19, fontWeight: "900" },
     closeButton: {
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         borderWidth: 1,
         borderRadius: 10,
         alignItems: "center",

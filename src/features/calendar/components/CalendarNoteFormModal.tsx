@@ -126,6 +126,7 @@ export function CalendarNoteFormModal({
         >
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
+                accessibilityViewIsModal
                 style={[styles.root, { backgroundColor: colors.background }]}
             >
                 <View
@@ -362,8 +363,8 @@ const styles = StyleSheet.create({
     title: { fontSize: 21, fontWeight: "900" },
     subtitle: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
     closeButton: {
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         borderRadius: 12,
         borderWidth: 1,
         alignItems: "center",

@@ -110,6 +110,7 @@ export default function AppLayout() {
                     }}
                 >
                     <View
+                        accessibilityViewIsModal
                         style={{
                             borderWidth: 1,
                             borderColor: colors.border,
@@ -129,6 +130,9 @@ export default function AppLayout() {
                             </View>
 
                             <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Cerrar menú Más"
+                                hitSlop={8}
                                 onPress={closeMore}
                                 style={({ pressed }) => ({
                                     paddingHorizontal: 12,
@@ -151,6 +155,9 @@ export default function AppLayout() {
                                 {moreItems.map((item) => (
                                     <Pressable
                                         key={item.key}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={item.title}
+                                        accessibilityHint={`Abrir ${item.title}`}
                                         onPress={() => goTo(item.href)}
                                         style={({ pressed }) => ({
                                             borderWidth: 1,
@@ -159,6 +166,7 @@ export default function AppLayout() {
                                             borderRadius: 14,
                                             paddingHorizontal: 12,
                                             paddingVertical: 12,
+                                            minHeight: 48,
                                             opacity: pressed ? 0.92 : 1,
                                             flexDirection: "row",
                                             alignItems: "center",

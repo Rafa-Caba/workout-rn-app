@@ -11,6 +11,7 @@ import {
 import { getWorkoutDayServ } from "@/src/services/workout/days.service";
 import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment, WorkoutDay, WorkoutSession } from "@/src/types/workoutDay.types";
+import { normalizeApiError } from "@/src/utils/api/apiErrorMessage";
 import { normalizeCardioHealthErrorMessage } from "@/src/utils/health/cardio/cardioHealthError.helpers";
 import {
     getCardioSessionsForDate,
@@ -38,52 +39,14 @@ type UseCardioBootstrapResult = {
 };
 
 function extractHttpStatus(error: unknown): number | null {
-    if (typeof error !== "object" || error === null) {
-        return null;
-    }
-
-    if (
-        "status" in error &&
-        typeof (error as { status?: unknown }).status === "number"
-    ) {
-        return (error as { status: number }).status;
-    }
-
-    if (
-        "response" in error &&
-        typeof (error as { response?: unknown }).response === "object" &&
-        (error as { response?: unknown }).response !== null &&
-        "status" in ((error as { response: { status?: unknown } }).response) &&
-        typeof (error as { response: { status?: unknown } }).response.status === "number"
-    ) {
-        return (error as { response: { status: number } }).response.status;
-    }
-
-    return null;
+    return normalizeApiError(error).status;
 }
 
 function toErrorMessage(error: unknown, fallback: string): string {
-    if (
-        typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        typeof (error as { response?: unknown }).response === "object" &&
-        (error as { response?: unknown }).response !== null
-    ) {
-        const response = (error as {
-            response: {
-                data?: {
-                    error?: {
-                        message?: string;
-                    };
-                };
-            };
-        }).response;
+    const apiError = normalizeApiError(error);
 
-        const apiMessage = response.data?.error?.message;
-        if (typeof apiMessage === "string" && apiMessage.trim().length > 0) {
-            return apiMessage;
-        }
+    if (apiError.status !== null || apiError.code !== null) {
+        return apiError.message;
     }
 
     return normalizeCardioHealthErrorMessage(error, fallback);

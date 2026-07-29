@@ -1,4 +1,8 @@
+// /src/hooks/trainer/useTrainerCoachProfile.ts
+
 import { useQuery } from "@tanstack/react-query";
+
+import { queryKeys } from "@/src/query/queryKeys";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { getTraineeCoachProfile } from "@/src/services/workout/trainer.service";
@@ -8,7 +12,7 @@ export function useTrainerCoachProfile(args: { traineeId: string }) {
     const enabled = Boolean(args?.traineeId);
 
     return useQuery<GetTraineeCoachProfileResponse, ApiAxiosError>({
-        queryKey: ["trainer", "coachProfile", args.traineeId],
+        queryKey: queryKeys.trainer.coachProfile(args.traineeId),
         queryFn: () => getTraineeCoachProfile(args.traineeId),
         enabled,
         staleTime: 30_000,

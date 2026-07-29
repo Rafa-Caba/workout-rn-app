@@ -2,6 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { queryKeys } from "@/src/query/queryKeys";
+
 import { upsertMyBodyMetricByDate } from "@/src/services/bodyMetrics.service";
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { useUserStore } from "@/src/store/user.store";
@@ -24,9 +26,9 @@ export function useUpsertBodyMetric() {
         mutationFn: ({ date, payload }) => upsertMyBodyMetricByDate(date, payload),
         onSuccess: async () => {
             await Promise.allSettled([
-                qc.invalidateQueries({ queryKey: ["bodyMetrics"] }),
-                qc.invalidateQueries({ queryKey: ["bodyProgress"] }),
-                qc.invalidateQueries({ queryKey: ["workoutProgressOverview"] }),
+                qc.invalidateQueries({ queryKey: queryKeys.bodyMetrics.root }),
+                qc.invalidateQueries({ queryKey: queryKeys.bodyProgress.root }),
+                qc.invalidateQueries({ queryKey: queryKeys.progress.root }),
             ]);
 
             await useUserStore.getState().fetchMe();

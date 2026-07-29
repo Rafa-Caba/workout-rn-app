@@ -15,7 +15,12 @@ import type {
     HealthImportedCardioSessionsResult,
 } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, ISODateTime, WorkoutCardioEnvironment } from "@/src/types/workoutDay.types";
+import {
+    enumerateLocalDatesInDateTimeRange,
+    resolveLocalISODateFromDateTime,
+} from "@/src/utils/dates/localDateTime";
 import { resolveCardioEnvironmentFromMinimalWorkout } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
+import { dedupeImportedCardioSessions } from "@/src/utils/health/cardio/importedCardioSession.dedupe";
 
 export type CardioAndroidReadSessionsInput = HealthImportedCardioQuery & {
     includeRoutes?: boolean;
@@ -44,34 +49,6 @@ function buildUnknownPermissionsStatus(
         permissions,
         checkedAt: toIsoNow(),
     };
-}
-
-function addDays(date: ISODate, deltaDays: number): ISODate {
-    const value = new Date(`${date}T00:00:00.000Z`);
-    value.setUTCDate(value.getUTCDate() + deltaDays);
-    return value.toISOString().slice(0, 10);
-}
-
-function enumerateDatesInRange(from: ISODateTime, to: ISODateTime): ISODate[] {
-    const start = new Date(from);
-    const end = new Date(to);
-
-    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start > end) {
-        return [];
-    }
-
-    const startDate = start.toISOString().slice(0, 10);
-    const endDate = end.toISOString().slice(0, 10);
-
-    const output: ISODate[] = [];
-    let currentDate = startDate;
-
-    while (currentDate <= endDate) {
-        output.push(currentDate);
-        currentDate = addDays(currentDate, 1);
-    }
-
-    return output;
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -253,7 +230,7 @@ async function enrichCardioWorkout(
 
     return {
         externalId: workout.externalId ?? null,
-        date,
+        date: resolveLocalISODateFromDateTime(workout.startAt) ?? date,
         activityType,
         cardioEnvironment,
         providerWorkoutType: buildProviderWorkoutType(workout),
@@ -388,7 +365,7 @@ export async function readCardioAndroidSessions(
     }
 
     if (input.from && input.to) {
-        const dates = enumerateDatesInRange(input.from, input.to);
+        const dates = enumerateLocalDatesInDateTimeRange(input.from, input.to);
 
         for (const date of dates) {
             const byDate = await readCardioSessionsByDate(
@@ -411,7 +388,7 @@ export async function readCardioAndroidSessions(
             activityTypes: input.activityTypes,
             cardioEnvironments: input.cardioEnvironments,
         },
-        sessions,
+        sessions: dedupeImportedCardioSessions(sessions),
         syncedAt: toIsoNow(),
     };
 }

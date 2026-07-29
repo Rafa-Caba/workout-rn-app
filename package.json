@@ -10,36 +10,43 @@
     "postinstall": "patch-package",
     "verify:health-sleep": "node scripts/verify-health-sleep-normalizer.cjs",
     "verify:health-gym-check": "node scripts/verify-health-gym-check.cjs",
-    "verify:insights": "node scripts/verify-insights.cjs"
+    "verify:insights": "node scripts/verify-insights.cjs",
+    "typecheck": "tsc --noEmit",
+    "verify:date-boundaries": "node scripts/verify-date-boundaries.cjs",
+    "verify:qa": "npm run typecheck && npm run verify:health-sleep && npm run verify:health-gym-check && npm run verify:cardio-sync && npm run verify:insights && npm run verify:date-boundaries",
+    "build:ios:local": "npx eas-cli@latest build --platform ios --profile production --local",
+    "build:android:apk": "npx eas-cli@latest build --platform android --profile production-apk",
+    "build:android:apk:local": "npx eas-cli@latest build --platform android --profile production-apk --local",
+    "verify:cardio-sync": "node scripts/verify-cardio-sync-contract.cjs && node scripts/verify-cardio-sync-dedupe.cjs && node scripts/verify-cardio-sync-orchestration.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/netinfo": "11.4.1",
-    "@react-navigation/bottom-tabs": "^7.14.0",
-    "@react-navigation/native": "^7.1.28",
-    "@react-navigation/native-stack": "^7.13.0",
+    "@react-navigation/bottom-tabs": "^7.4.0",
+    "@react-navigation/native": "^7.1.8",
+    "@react-navigation/native-stack": "^7.3.16",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-persist-client": "^5.90.22",
     "axios": "^1.13.5",
     "date-fns": "^4.1.0",
-    "expo": "~54.0.33",
+    "expo": "~54.0.36",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
-    "expo-dev-client": "~6.0.20",
+    "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~14.0.8",
-    "expo-font": "~14.0.11",
+    "expo-font": "~14.0.12",
     "expo-health-connect": "^0.1.1",
-    "expo-image-picker": "~17.0.10",
-    "expo-linking": "~8.0.11",
+    "expo-image-picker": "~17.0.11",
+    "expo-linking": "~8.0.12",
     "expo-location": "~19.0.8",
-    "expo-router": "~6.0.23",
+    "expo-router": "~6.0.24",
     "expo-secure-store": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
-    "expo-updates": "~29.0.16",
-    "expo-web-browser": "~15.0.10",
+    "expo-updates": "~29.0.19",
+    "expo-web-browser": "~15.0.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -59,10 +66,20 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "expo-build-properties": "^55.0.10",
+    "expo-build-properties": "~1.0.10",
     "patch-package": "^8.0.1",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-health"
+        ],
+        "listUnknownPackages": false
+      }
+    }
   },
   "private": true
 }

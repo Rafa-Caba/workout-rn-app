@@ -3,6 +3,7 @@
 
 import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, WorkoutCardioEnvironment, WorkoutSession } from "@/src/types/workoutDay.types";
+import { doesDateTimeRangeOverlapLocalDay } from "@/src/utils/dates/localDateTime";
 import {
     isCardioActivityType,
     isCardioEnvironment,
@@ -19,15 +20,6 @@ function getStartTimeValue(session: WorkoutSession): number {
 
     const value = new Date(session.startAt).getTime();
     return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
-}
-
-function toDateKey(value: string | null | undefined): ISODate | null {
-    if (!value) return null;
-
-    const time = new Date(value).getTime();
-    if (!Number.isFinite(time)) return null;
-
-    return new Date(value).toISOString().slice(0, 10);
 }
 
 export function filterCardioSessions(
@@ -77,12 +69,9 @@ export function getCardioSessionsForDate(
 ): WorkoutSession[] {
     const cardioSessions = filterCardioSessions(sessions, activityTypes, cardioEnvironments);
 
-    return cardioSessions.filter((session) => {
-        const startDate = toDateKey(session.startAt);
-        const endDate = toDateKey(session.endAt);
-
-        return startDate === date || endDate === date;
-    });
+    return cardioSessions.filter((session) =>
+        doesDateTimeRangeOverlapLocalDay(session.startAt, session.endAt, date)
+    );
 }
 
 export function groupCardioSessionsByEnvironmentAndActivity(

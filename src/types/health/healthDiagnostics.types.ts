@@ -1,7 +1,14 @@
 // /src/types/health/healthDiagnostics.types.ts
+// Strongly typed local Health diagnostics for sleep, gym workouts, and cardio sync.
 
 import type { HealthProvider } from "@/src/types/health/cardio/health.types";
-import type { ISODate, ISODateTime } from "@/src/types/workoutDay.types";
+import type { CardioActivityType } from "@/src/types/health/cardio/healthCardio.types";
+import type {
+    ISODate,
+    ISODateTime,
+    WorkoutCardioEnvironment,
+    WorkoutDataSource,
+} from "@/src/types/workoutDay.types";
 
 /**
  * JSON-safe values used in local diagnostic snapshots.
@@ -110,6 +117,70 @@ export type HealthWorkoutDiagnosticSample = {
     hasMeaningfulMetrics: boolean;
     metrics: HealthWorkoutDiagnosticMetrics;
     raw: HealthDiagnosticJsonValue | null;
+};
+
+/**
+ * Cardio-specific diagnostic projection. It keeps the useful workout/session
+ * fields plus a bounded route preview without persisting native raw objects to API.
+ */
+export type HealthCardioDiagnosticMetrics = {
+    durationSeconds: number | null;
+    activeKcal: number | null;
+    totalKcal: number | null;
+    totalKcalEstimated: boolean;
+    avgHr: number | null;
+    maxHr: number | null;
+    distanceKm: number | null;
+    steps: number | null;
+    elevationGainM: number | null;
+    paceSecPerKm: number | null;
+    avgSpeedKmh: number | null;
+    maxSpeedKmh: number | null;
+    cadenceRpm: number | null;
+    strideLengthM: number | null;
+};
+
+export type HealthCardioDiagnosticRoutePoint = {
+    latitude: number;
+    longitude: number;
+    altitudeM: number | null;
+    accuracyM: number | null;
+    speedMps: number | null;
+    headingDeg: number | null;
+    recordedAt: ISODateTime | null;
+};
+
+export type HealthCardioDiagnosticRoute = {
+    hasRoute: boolean;
+    pointCount: number;
+    pointsStored: number;
+    pointsTruncated: boolean;
+    points: HealthCardioDiagnosticRoutePoint[];
+    summary: HealthDiagnosticJsonValue | null;
+    raw: HealthDiagnosticJsonValue | null;
+};
+
+export type HealthCardioDiagnosticSession = {
+    externalId: string | null;
+    date: ISODate;
+    activityType: CardioActivityType;
+    cardioEnvironment: WorkoutCardioEnvironment;
+    providerWorkoutType: string | null;
+    startAt: ISODateTime | null;
+    endAt: ISODateTime | null;
+    source: WorkoutDataSource;
+    sourceDevice: string | null;
+    metrics: HealthCardioDiagnosticMetrics;
+    route: HealthCardioDiagnosticRoute;
+    raw: HealthDiagnosticJsonValue | null;
+};
+
+export type HealthCardioPersistenceOperation = {
+    operation: "create" | "patch";
+    sessionId: string | null;
+    externalId: string | null;
+    activityType: CardioActivityType | null;
+    payload: HealthDiagnosticJsonValue | null;
 };
 
 export type HealthDiagnosticEventBase = {
@@ -233,6 +304,68 @@ export type HealthWorkoutPersistenceDiagnosticEvent = HealthDiagnosticEventBase 
     errorMessage: string | null;
 };
 
+export type HealthCardioInspectionDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "cardio-inspection";
+    targetDate: ISODate;
+    includeRoutes: boolean;
+    existingSessionCount: number;
+    importedSessionCount: number;
+    mappedSessionCount: number;
+    routeSessionCount: number;
+    routePointCount: number;
+    sessionsStored: number;
+    sessionsTruncated: boolean;
+    sessions: HealthCardioDiagnosticSession[];
+};
+
+export type HealthCardioMergeDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "cardio-merge";
+    targetDate: ISODate;
+    existingSessionCount: number;
+    mergedSessionCount: number;
+    insertedCount: number;
+    updatedCount: number;
+    unchangedCount: number;
+    operations: HealthCardioPersistenceOperation[];
+};
+
+export type HealthCardioPersistenceDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "cardio-persistence";
+    targetDate: ISODate;
+    operation: "create" | "patch";
+    sessionId: string | null;
+    externalId: string | null;
+    saved: boolean;
+    httpStatus: number | null;
+    apiCode: string | null;
+    message: string;
+    validationDetails: HealthDiagnosticJsonValue | null;
+    payload: HealthDiagnosticJsonValue | null;
+};
+
+export type HealthCardioSyncCompletedDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "cardio-sync-completed";
+    targetDate: ISODate;
+    importedCount: number;
+    insertedCount: number;
+    updatedCount: number;
+    unchangedCount: number;
+    persistedCount: number;
+    routeSessionCount: number;
+    routePointCount: number;
+};
+
+export type HealthCardioSyncErrorDiagnosticEvent = HealthDiagnosticEventBase & {
+    kind: "cardio-sync-error";
+    targetDate: ISODate;
+    stage: "provider" | "inspection" | "merge" | "persistence" | "refresh";
+    httpStatus: number | null;
+    apiCode: string | null;
+    message: string;
+    validationDetails: HealthDiagnosticJsonValue | null;
+    payload: HealthDiagnosticJsonValue | null;
+};
+
 export type HealthDiagnosticEvent =
     | HealthAvailabilityDiagnosticEvent
     | HealthPermissionsDiagnosticEvent
@@ -245,4 +378,9 @@ export type HealthDiagnosticEvent =
     | HealthWorkoutQueryResultDiagnosticEvent
     | HealthWorkoutSelectionDiagnosticEvent
     | HealthWorkoutQueryErrorDiagnosticEvent
-    | HealthWorkoutPersistenceDiagnosticEvent;
+    | HealthWorkoutPersistenceDiagnosticEvent
+    | HealthCardioInspectionDiagnosticEvent
+    | HealthCardioMergeDiagnosticEvent
+    | HealthCardioPersistenceDiagnosticEvent
+    | HealthCardioSyncCompletedDiagnosticEvent
+    | HealthCardioSyncErrorDiagnosticEvent;

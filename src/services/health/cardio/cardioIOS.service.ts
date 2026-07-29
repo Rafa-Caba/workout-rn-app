@@ -15,7 +15,12 @@ import type {
     HealthImportedCardioSessionsResult,
 } from "@/src/types/health/cardio/healthCardio.types";
 import type { ISODate, ISODateTime, WorkoutCardioEnvironment } from "@/src/types/workoutDay.types";
+import {
+    enumerateLocalDatesInDateTimeRange,
+    resolveLocalISODateFromDateTime,
+} from "@/src/utils/dates/localDateTime";
 import { resolveCardioEnvironmentFromMinimalWorkout } from "@/src/utils/health/cardio/cardioEnvironment.mapper";
+import { dedupeImportedCardioSessions } from "@/src/utils/health/cardio/importedCardioSession.dedupe";
 
 export type CardioIOSReadSessionsInput = HealthImportedCardioQuery & {
     includeRoutes?: boolean;
@@ -43,45 +48,6 @@ function buildUnknownPermissionsStatus(
         available: true,
         permissions,
         checkedAt: toIsoNow(),
-    };
-}
-
-function addDays(date: ISODate, deltaDays: number): ISODate {
-    const value = new Date(`${date}T00:00:00.000Z`);
-    value.setUTCDate(value.getUTCDate() + deltaDays);
-    return value.toISOString().slice(0, 10);
-}
-
-function enumerateDatesInRange(from: ISODateTime, to: ISODateTime): ISODate[] {
-    const start = new Date(from);
-    const end = new Date(to);
-
-    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start > end) {
-        return [];
-    }
-
-    const startDate = start.toISOString().slice(0, 10);
-    const endDate = end.toISOString().slice(0, 10);
-
-    const output: ISODate[] = [];
-    let currentDate = startDate;
-
-    while (currentDate <= endDate) {
-        output.push(currentDate);
-        currentDate = addDays(currentDate, 1);
-    }
-
-    return output;
-}
-
-function buildDateRange(date: ISODate): { from: ISODateTime; to: ISODateTime } {
-    const from = new Date(`${date}T00:00:00.000Z`);
-    const to = new Date(from);
-    to.setUTCDate(to.getUTCDate() + 1);
-
-    return {
-        from: from.toISOString(),
-        to: to.toISOString(),
     };
 }
 
@@ -235,6 +201,10 @@ function mergeMetrics(
         durationSeconds: baseMetrics.durationSeconds ?? extraMetrics?.durationSeconds ?? null,
         activeKcal: baseMetrics.activeKcal ?? extraMetrics?.activeKcal ?? null,
         totalKcal: baseMetrics.totalKcal ?? extraMetrics?.totalKcal ?? null,
+        totalKcalEstimated:
+            baseMetrics.totalKcal != null
+                ? baseMetrics.totalKcalEstimated === true
+                : extraMetrics?.totalKcalEstimated === true,
         avgHr: baseMetrics.avgHr ?? extraMetrics?.avgHr ?? null,
         maxHr: baseMetrics.maxHr ?? extraMetrics?.maxHr ?? null,
         distanceKm: baseMetrics.distanceKm ?? extraMetrics?.distanceKm ?? null,
@@ -264,7 +234,7 @@ async function enrichCardioWorkout(
 
     return {
         externalId: workout.externalId ?? null,
-        date,
+        date: resolveLocalISODateFromDateTime(workout.startAt) ?? date,
         activityType,
         cardioEnvironment,
         providerWorkoutType: buildProviderWorkoutType(workout),
@@ -274,6 +244,7 @@ async function enrichCardioWorkout(
             durationSeconds: mergedMetrics.durationSeconds ?? null,
             activeKcal: mergedMetrics.activeKcal ?? null,
             totalKcal: mergedMetrics.totalKcal ?? null,
+            totalKcalEstimated: mergedMetrics.totalKcalEstimated === true,
             avgHr: mergedMetrics.avgHr ?? null,
             maxHr: mergedMetrics.maxHr ?? null,
             distanceKm: mergedMetrics.distanceKm ?? null,
@@ -399,7 +370,7 @@ export async function readCardioIOSSessions(
     }
 
     if (input.from && input.to) {
-        const dates = enumerateDatesInRange(input.from, input.to);
+        const dates = enumerateLocalDatesInDateTimeRange(input.from, input.to);
 
         for (const date of dates) {
             const byDate = await readCardioSessionsByDate(
@@ -422,7 +393,7 @@ export async function readCardioIOSSessions(
             activityTypes: input.activityTypes,
             cardioEnvironments: input.cardioEnvironments,
         },
-        sessions,
+        sessions: dedupeImportedCardioSessions(sessions),
         syncedAt: toIsoNow(),
     };
 }

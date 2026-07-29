@@ -34,6 +34,7 @@ export function InsightsQueryState({
             {kind === "error" && onRetry ? (
                 <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel="Reintentar carga"
                     onPress={onRetry}
                     style={({ pressed }) => [
                         styles.retryButton,
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
     },
     retryButton: {
         marginTop: 3,
-        minHeight: 40,
+        minHeight: 44,
         borderWidth: 1,
         borderRadius: 12,
         paddingHorizontal: 15,

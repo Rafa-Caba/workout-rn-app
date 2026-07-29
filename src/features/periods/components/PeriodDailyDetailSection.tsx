@@ -103,6 +103,9 @@ export function PeriodDailyDetailSection({ days, loading, hasError, period }: Pr
                     return (
                         <Pressable
                             key={value}
+                            accessibilityRole="tab"
+                            accessibilityLabel={value === "training" ? "Entrenamiento" : "Sueño"}
+                            accessibilityState={{ selected: active }}
                             onPress={() => setTab(value)}
                             style={({ pressed }) => [
                                 styles.tab,
@@ -284,7 +287,7 @@ const styles = StyleSheet.create({
     },
     tab: {
         flex: 1,
-        minHeight: 40,
+        minHeight: 44,
         borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",

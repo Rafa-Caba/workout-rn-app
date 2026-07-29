@@ -1,4 +1,8 @@
+// /src/hooks/trainer/useTrainerWeekSummary.ts
+
 import { useQuery } from "@tanstack/react-query";
+
+import { queryKeys } from "@/src/query/queryKeys";
 
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { getTraineeWeekSummary, type GetTraineeWeekSummaryArgs } from "@/src/services/workout/trainer.service";
@@ -30,7 +34,7 @@ export function useTrainerWeekSummary(args: GetTraineeWeekSummaryArgs) {
     });
 
     return useQuery<WeekViewResponse, ApiAxiosError>({
-        queryKey: ["trainer", "weekSummary", args.traineeId, args.weekKey, paramsKey],
+        queryKey: queryKeys.trainer.traineeWeek(args.traineeId, args.weekKey, { paramsKey }),
         queryFn: () => getTraineeWeekSummary(args),
         enabled,
         staleTime: 30_000,

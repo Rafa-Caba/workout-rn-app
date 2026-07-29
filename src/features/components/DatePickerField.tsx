@@ -1,44 +1,39 @@
-// src/features/components/DatePickerField.tsx
-import DateTimePicker from "@react-native-community/datetimepicker";
+// /src/features/components/DatePickerField.tsx
+// Reusable date-only field. Keeps yyyy-MM-dd as the stored value while the
+// native picker follows the app theme and Spanish locale.
+
+import DateTimePicker, {
+    type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { format, parse } from "date-fns";
+import { es } from "date-fns/locale";
 import React from "react";
 import { Modal, Platform, Pressable, Text, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 
-type Props = {
+type DatePickerFieldProps = {
     label?: string;
-    value: string; // "yyyy-MM-dd"
+    value: string;
     onChange: (next: string) => void;
     disabled?: boolean;
-
-    /**
-     * Optional: display format for the input (value remains yyyy-MM-dd)
-     * Example: "MM/dd/yyyy" or "MMM dd, yyyy"
-     */
     displayFormat?: string;
-
-    /**
-     * Optional: display row/column
-     * Example: "column"
-     */
-    flexDirPassed?: "row" | "column" | "row-reverse" | "column-reverse" | undefined;
+    flexDirPassed?: "row" | "column" | "row-reverse" | "column-reverse";
 };
 
-function parseISODateOrToday(s: string): Date {
-    const parsed = parse(String(s ?? "").trim(), "yyyy-MM-dd", new Date());
-    if (Number.isNaN(parsed.getTime())) return new Date();
-    return parsed;
+function parseISODateOrToday(value: string): Date {
+    const parsed = parse(value.trim(), "yyyy-MM-dd", new Date());
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 function safeDisplay(value: string, displayFormat?: string): string {
     if (!value) return "YYYY-MM-DD";
-
     if (!displayFormat) return value;
 
-    const dt = parseISODateOrToday(value);
+    const date = parseISODateOrToday(value);
+
     try {
-        return format(dt, displayFormat);
+        return format(date, displayFormat, { locale: es });
     } catch {
         return value;
     }
@@ -48,64 +43,109 @@ export function DatePickerField({
     label = "Fecha",
     value,
     onChange,
-    disabled,
+    disabled = false,
     displayFormat,
-    flexDirPassed,
-}: Props) {
-    const { colors } = useTheme();
+}: DatePickerFieldProps) {
+    const { colors, resolvedScheme } = useTheme();
 
-    const flexDirection = flexDirPassed ?? 'row';
-
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = React.useState<boolean>(false);
     const [temp, setTemp] = React.useState<Date>(() => parseISODateOrToday(value));
 
     React.useEffect(() => {
+        if (!open) {
+            setTemp(parseISODateOrToday(value));
+        }
+    }, [open, value]);
+
+    function openPicker(): void {
+        if (disabled) return;
+
         setTemp(parseISODateOrToday(value));
-    }, [value]);
+        setOpen(true);
+    }
 
-    const close = () => setOpen(false);
+    function cancelPicker(): void {
+        setTemp(parseISODateOrToday(value));
+        setOpen(false);
+    }
 
-    const confirmIOS = () => {
+    function confirmIOS(): void {
         onChange(format(temp, "yyyy-MM-dd"));
-        close();
-    };
+        setOpen(false);
+    }
+
+    function handlePickerChange(
+        _event: DateTimePickerEvent,
+        selectedDate?: Date
+    ): void {
+        if (!selectedDate) return;
+
+        if (Platform.OS !== "ios") {
+            onChange(format(selectedDate, "yyyy-MM-dd"));
+            setOpen(false);
+            return;
+        }
+
+        setTemp(selectedDate);
+    }
 
     return (
         <View style={{ flex: 1, gap: 6 }}>
-            <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{
-                    fontSize: 12,
-                    fontWeight: "800",
-                    color: colors.mutedText,
-                    // marginBottom: flexDirection === 'column' ? 8 : 0,
-                }}>
+            <View
+                style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                }}
+            >
+                <Text
+                    style={{
+                        fontSize: 12,
+                        fontWeight: "800",
+                        color: colors.mutedText,
+                    }}
+                >
                     {label}
                 </Text>
 
                 <Pressable
-                    onPress={() => !disabled && setOpen(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${label}: ${safeDisplay(value, displayFormat)}`}
+                    onPress={openPicker}
                     disabled={disabled}
                     style={({ pressed }) => ({
                         borderWidth: 1,
                         borderColor: colors.border,
                         backgroundColor: colors.background,
-                        width: `${flexDirection === 'column' ? '60%' : '60%'}`,
-                        // width: '70%',
+                        width: "60%",
                         borderRadius: 12,
                         paddingHorizontal: 12,
                         paddingVertical: 10,
                         opacity: disabled ? 0.6 : pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.text, fontWeight: "800", textAlign: 'center' }}>
+                    <Text
+                        style={{
+                            color: colors.text,
+                            fontWeight: "800",
+                            textAlign: "center",
+                        }}
+                    >
                         {safeDisplay(value, displayFormat)}
                     </Text>
                 </Pressable>
             </View>
 
-            <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+            <Modal
+                visible={open}
+                transparent
+                animationType="fade"
+                onRequestClose={cancelPicker}
+            >
                 <Pressable
-                    onPress={close}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cerrar selector de fecha"
+                    onPress={cancelPicker}
                     style={{
                         flex: 1,
                         backgroundColor: "rgba(0,0,0,0.45)",
@@ -114,7 +154,8 @@ export function DatePickerField({
                     }}
                 >
                     <Pressable
-                        onPress={() => { }}
+                        accessibilityViewIsModal
+                        onPress={() => undefined}
                         style={{
                             borderRadius: 16,
                             borderWidth: 1,
@@ -124,31 +165,47 @@ export function DatePickerField({
                             gap: 12,
                         }}
                     >
-                        <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>
+                        <Text
+                            style={{
+                                fontSize: 16,
+                                fontWeight: "800",
+                                color: colors.text,
+                            }}
+                        >
                             Selecciona fecha
                         </Text>
 
-                        <DateTimePicker
-                            value={temp}
-                            mode="date"
-                            display={Platform.OS === "ios" ? "spinner" : "calendar"}
-                            onChange={(_event, selected) => {
-                                if (!selected) return;
-
-                                if (Platform.OS !== "ios") {
-                                    onChange(format(selected, "yyyy-MM-dd"));
-                                    close();
-                                    return;
-                                }
-
-                                setTemp(selected);
-                            }}
-                        />
+                        {Platform.OS === "ios" ? (
+                            <DateTimePicker
+                                value={temp}
+                                mode="date"
+                                display="spinner"
+                                locale="es-MX"
+                                themeVariant={resolvedScheme}
+                                textColor={colors.text}
+                                onChange={handlePickerChange}
+                            />
+                        ) : (
+                            <DateTimePicker
+                                value={temp}
+                                mode="date"
+                                display="calendar"
+                                onChange={handlePickerChange}
+                            />
+                        )}
 
                         {Platform.OS === "ios" ? (
-                            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10 }}>
+                            <View
+                                style={{
+                                    flexDirection: "row",
+                                    justifyContent: "flex-end",
+                                    gap: 10,
+                                }}
+                            >
                                 <Pressable
-                                    onPress={close}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Cancelar selección de fecha"
+                                    onPress={cancelPicker}
                                     style={({ pressed }) => ({
                                         paddingHorizontal: 14,
                                         paddingVertical: 10,
@@ -159,10 +216,14 @@ export function DatePickerField({
                                         opacity: pressed ? 0.92 : 1,
                                     })}
                                 >
-                                    <Text style={{ color: colors.text, fontWeight: "800" }}>Cancelar</Text>
+                                    <Text style={{ color: colors.text, fontWeight: "800" }}>
+                                        Cancelar
+                                    </Text>
                                 </Pressable>
 
                                 <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Confirmar fecha"
                                     onPress={confirmIOS}
                                     style={({ pressed }) => ({
                                         paddingHorizontal: 14,
@@ -172,7 +233,14 @@ export function DatePickerField({
                                         opacity: pressed ? 0.92 : 1,
                                     })}
                                 >
-                                    <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Elegir</Text>
+                                    <Text
+                                        style={{
+                                            color: colors.primaryText,
+                                            fontWeight: "800",
+                                        }}
+                                    >
+                                        Elegir
+                                    </Text>
                                 </Pressable>
                             </View>
                         ) : null}

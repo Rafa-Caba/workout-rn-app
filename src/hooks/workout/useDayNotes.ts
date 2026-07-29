@@ -1,8 +1,10 @@
-// src/hooks/workout/useDayNotes.ts
+// /src/hooks/workout/useDayNotes.ts
 // React Query mutations for atomic WorkoutDay note CRUD.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
+import { invalidateWorkoutDayRelatedQueries } from "@/src/query/invalidateWorkoutDayQueries";
+import { queryKeys } from "@/src/query/queryKeys";
 import type { ApiAxiosError } from "@/src/services/http.client";
 import {
     createWorkoutDayNote,
@@ -29,6 +31,15 @@ type DeleteDayNoteArgs = {
     noteId: string;
 };
 
+async function updateDayNoteCaches(
+    queryClient: QueryClient,
+    date: string,
+    day: WorkoutDayNoteMutationResponse["day"],
+): Promise<void> {
+    queryClient.setQueryData(queryKeys.workout.day(date), day);
+    await invalidateWorkoutDayRelatedQueries(queryClient, { date });
+}
+
 export function useCreateDayNote() {
     const queryClient = useQueryClient();
 
@@ -39,15 +50,11 @@ export function useCreateDayNote() {
     >({
         mutationFn: ({ date, draft }) => createWorkoutDayNote(date, draft),
         onSuccess: async (result, variables) => {
-            queryClient.setQueryData(["workoutDay", variables.date], result.day);
-
-            await Promise.allSettled([
-                queryClient.invalidateQueries({
-                    queryKey: ["daySummary", variables.date],
-                }),
-                queryClient.invalidateQueries({ queryKey: ["workoutCalendar"] }),
-                queryClient.invalidateQueries({ queryKey: ["workoutWeekView"] }),
-            ]);
+            await updateDayNoteCaches(
+                queryClient,
+                variables.date,
+                result.day,
+            );
         },
     });
 }
@@ -63,15 +70,11 @@ export function useUpdateDayNote() {
         mutationFn: ({ date, noteId, draft }) =>
             updateWorkoutDayNote(date, noteId, draft),
         onSuccess: async (result, variables) => {
-            queryClient.setQueryData(["workoutDay", variables.date], result.day);
-
-            await Promise.allSettled([
-                queryClient.invalidateQueries({
-                    queryKey: ["daySummary", variables.date],
-                }),
-                queryClient.invalidateQueries({ queryKey: ["workoutCalendar"] }),
-                queryClient.invalidateQueries({ queryKey: ["workoutWeekView"] }),
-            ]);
+            await updateDayNoteCaches(
+                queryClient,
+                variables.date,
+                result.day,
+            );
         },
     });
 }
@@ -86,15 +89,11 @@ export function useDeleteDayNote() {
     >({
         mutationFn: ({ date, noteId }) => deleteWorkoutDayNote(date, noteId),
         onSuccess: async (result, variables) => {
-            queryClient.setQueryData(["workoutDay", variables.date], result.day);
-
-            await Promise.allSettled([
-                queryClient.invalidateQueries({
-                    queryKey: ["daySummary", variables.date],
-                }),
-                queryClient.invalidateQueries({ queryKey: ["workoutCalendar"] }),
-                queryClient.invalidateQueries({ queryKey: ["workoutWeekView"] }),
-            ]);
+            await updateDayNoteCaches(
+                queryClient,
+                variables.date,
+                result.day,
+            );
         },
     });
 }

@@ -1,7 +1,9 @@
 // /src/hooks/useMovements.ts
+// Movement catalog queries and mutations under canonical cache keys.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { queryKeys } from "@/src/query/queryKeys";
 import type { ApiAxiosError } from "@/src/services/http.client";
 import {
     createMovement,
@@ -16,75 +18,69 @@ import type {
     MovementsListQuery,
 } from "@/src/types/movements.types";
 
-// -------------------- Query Keys --------------------
-
-function movementsKey(query?: MovementsListQuery) {
-    const q = (query?.q ?? "").trim() || null;
-    const activeOnly = query?.activeOnly === true ? true : null;
-
-    return ["movements", { q, activeOnly }] as const;
+function normalizeMovementQuery(query?: MovementsListQuery) {
+    return {
+        q: query?.q?.trim() || undefined,
+        activeOnly: query?.activeOnly === true ? true : undefined,
+    };
 }
-
-function movementKey(id: string) {
-    return ["movement", id] as const;
-}
-
-// -------------------- Queries --------------------
 
 export function useMovements(query?: MovementsListQuery) {
     return useQuery<Movement[], ApiAxiosError>({
-        queryKey: movementsKey(query),
+        queryKey: queryKeys.movements.list(normalizeMovementQuery(query)),
         queryFn: () => listMovements(query),
         staleTime: 30_000,
     });
 }
 
 export function useMovementById(id: string | null | undefined) {
+    const normalizedId = id ?? "";
+
     return useQuery<Movement, ApiAxiosError>({
-        queryKey: movementKey(String(id ?? "")),
-        queryFn: () => getMovementById(String(id)),
+        queryKey: queryKeys.movements.byId(normalizedId),
+        queryFn: () => getMovementById(normalizedId),
         enabled: Boolean(id),
         staleTime: 30_000,
     });
 }
 
-// -------------------- Mutations --------------------
-
 export function useCreateMovement(queryToRefresh?: MovementsListQuery) {
+    void queryToRefresh;
     const queryClient = useQueryClient();
 
     return useMutation<Movement, ApiAxiosError, FormData>({
-        mutationFn: (formData) => createMovement(formData),
-        onSuccess: (created) => {
-            queryClient.setQueryData(movementKey(created.id), created);
-            queryClient.invalidateQueries({ queryKey: movementsKey(queryToRefresh) });
-            queryClient.invalidateQueries({ queryKey: ["movements"] });
+        mutationFn: createMovement,
+        onSuccess: async (created) => {
+            queryClient.setQueryData(queryKeys.movements.byId(created.id), created);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.movements.root });
         },
     });
 }
 
 export function useUpdateMovement(queryToRefresh?: MovementsListQuery) {
+    void queryToRefresh;
     const queryClient = useQueryClient();
 
     return useMutation<Movement, ApiAxiosError, { id: string; formData: FormData }>({
         mutationFn: ({ id, formData }) => updateMovement(id, formData),
-        onSuccess: (updated) => {
-            queryClient.setQueryData(movementKey(updated.id), updated);
-            queryClient.invalidateQueries({ queryKey: movementsKey(queryToRefresh) });
-            queryClient.invalidateQueries({ queryKey: ["movements"] });
+        onSuccess: async (updated) => {
+            queryClient.setQueryData(queryKeys.movements.byId(updated.id), updated);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.movements.root });
         },
     });
 }
 
 export function useDeleteMovement(queryToRefresh?: MovementsListQuery) {
+    void queryToRefresh;
     const queryClient = useQueryClient();
 
     return useMutation<MovementDeletedResponse, ApiAxiosError, { id: string }>({
         mutationFn: ({ id }) => deleteMovement(id),
-        onSuccess: (_data, variables) => {
-            queryClient.removeQueries({ queryKey: movementKey(variables.id) });
-            queryClient.invalidateQueries({ queryKey: movementsKey(queryToRefresh) });
-            queryClient.invalidateQueries({ queryKey: ["movements"] });
+        onSuccess: async (_data, variables) => {
+            queryClient.removeQueries({
+                queryKey: queryKeys.movements.byId(variables.id),
+            });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.movements.root });
         },
     });
 }

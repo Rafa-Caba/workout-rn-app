@@ -1,8 +1,10 @@
 // /src/hooks/useDashboard.ts
+// Aggregates the dashboard queries under canonical cache keys.
 
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 
+import { queryKeys } from "@/src/query/queryKeys";
 import {
     getDashboardDaySummary,
     getDashboardRangeSummary,
@@ -12,54 +14,69 @@ import {
     getDashboardWeeksTrend,
 } from "@/src/services/dashboard.service";
 import type { ApiAxiosError } from "@/src/services/http.client";
-import type { WeekKey } from "@/src/types/workoutDashboard.types";
 import { last7Range, todayIso, weekKeyFromIso } from "@/src/utils/dashboard/date";
 
 type DashboardQueryError = ApiAxiosError | null;
 
-function pickFirstDashboardError(errors: unknown[]): DashboardQueryError {
-    for (const error of errors) {
-        if (error) {
-            return error as ApiAxiosError;
-        }
-    }
-
-    return null;
+function pickFirstDashboardError(
+    errors: Array<ApiAxiosError | null>,
+): DashboardQueryError {
+    return errors.find((error): error is ApiAxiosError => error !== null) ?? null;
 }
 
 export function useDashboard() {
     const today = todayIso();
-    const weekKey = weekKeyFromIso(today) as WeekKey;
+    const weekKey = weekKeyFromIso(today);
     const range = last7Range(today);
 
-    const daySummary = useQuery({
-        queryKey: ["dashboard", "daySummary", today],
+    const daySummary = useQuery<
+        Awaited<ReturnType<typeof getDashboardDaySummary>>,
+        ApiAxiosError
+    >({
+        queryKey: queryKeys.dashboard.daySummary(today),
         queryFn: () => getDashboardDaySummary(today),
     });
 
-    const rangeSummary = useQuery({
-        queryKey: ["dashboard", "rangeSummary", range.from, range.to],
+    const rangeSummary = useQuery<
+        Awaited<ReturnType<typeof getDashboardRangeSummary>>,
+        ApiAxiosError
+    >({
+        queryKey: queryKeys.dashboard.rangeSummary(range.from, range.to),
         queryFn: () => getDashboardRangeSummary(range.from, range.to),
     });
 
-    const weekSummary = useQuery({
-        queryKey: ["dashboard", "weekSummary", weekKey],
+    const weekSummary = useQuery<
+        Awaited<ReturnType<typeof getDashboardWeekSummary>>,
+        ApiAxiosError
+    >({
+        queryKey: queryKeys.dashboard.weekSummary(weekKey),
         queryFn: () => getDashboardWeekSummary(weekKey),
     });
 
-    const weekTrend = useQuery({
-        queryKey: ["dashboard", "weekTrend", weekKey],
+    const weekTrend = useQuery<
+        Awaited<ReturnType<typeof getDashboardWeeksTrend>>,
+        ApiAxiosError
+    >({
+        queryKey: queryKeys.dashboard.weekTrend(weekKey),
         queryFn: () => getDashboardWeeksTrend(weekKey),
     });
 
-    const streaks = useQuery({
-        queryKey: ["dashboard", "streaks", "training", 0, today],
-        queryFn: () => getDashboardStreaks({ mode: "training", gapDays: 0, asOf: today }),
+    const streaks = useQuery<
+        Awaited<ReturnType<typeof getDashboardStreaks>>,
+        ApiAxiosError
+    >({
+        queryKey: queryKeys.dashboard.streaks("training", 0, today),
+        queryFn: () =>
+            getDashboardStreaks({ mode: "training", gapDays: 0, asOf: today }),
     });
 
-    const media = useQuery({
-        queryKey: ["dashboard", "media", range.from, range.to, 6],
-        queryFn: () => getDashboardRecentMedia({ from: range.from, to: range.to, limit: 6 }),
+    const media = useQuery<
+        Awaited<ReturnType<typeof getDashboardRecentMedia>>,
+        ApiAxiosError
+    >({
+        queryKey: queryKeys.dashboard.media(range.from, range.to, 6),
+        queryFn: () =>
+            getDashboardRecentMedia({ from: range.from, to: range.to, limit: 6 }),
     });
 
     const isLoading =
@@ -96,14 +113,7 @@ export function useDashboard() {
             streaks.refetch(),
             media.refetch(),
         ]);
-    }, [
-        daySummary,
-        rangeSummary,
-        weekSummary,
-        weekTrend,
-        streaks,
-        media,
-    ]);
+    }, [daySummary, rangeSummary, weekSummary, weekTrend, streaks, media]);
 
     return {
         today,

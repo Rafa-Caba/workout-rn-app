@@ -18,6 +18,9 @@ export function DaySessionMediaGrid({ items, colors, onPress }: Props) {
             {items.map((item) => (
                 <Pressable
                     key={item.publicId}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Abrir ${item.resourceType === "image" ? "imagen" : "video"}`}
+                    accessibilityHint="Abre el visor de media de la sesión"
                     onPress={() => onPress(item)}
                     style={[styles.mediaTile, { borderColor: colors.border, backgroundColor: colors.surface }]}
                 >
@@ -53,6 +56,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     mediaTile: {
+        minHeight: 44,
         width: "48%",
         borderWidth: 1,
         borderRadius: 14,

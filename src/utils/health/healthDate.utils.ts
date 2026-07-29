@@ -1,18 +1,19 @@
 // /src/utils/health/healthDate.utils.ts
+// Shared date helpers for health sync flows. Date-only values always use the
+// device's local calendar so HealthKit and Health Connect agree with the UI.
 
 import type { ISODate, ISODateTime } from "@/src/types/workoutDay.types";
-
-/**
- * Small date helpers for health sync flows.
- * We keep them isolated so iOS/Android bridges, mappers and hooks use
- * the same date boundaries and canonical formats.
- */
-
-function pad2(value: number): string {
-    return String(value).padStart(2, "0");
-}
+import {
+    addLocalDaysISO,
+    buildLocalDayRangeISO,
+    formatLocalISODate,
+    parseISODateLocal,
+    resolveLocalISODateFromDateTime,
+} from "@/src/utils/dates/localDateTime";
 
 export function isValidDateInput(value: string): boolean {
+    if (parseISODateLocal(value)) return true;
+
     const date = new Date(value);
     return Number.isFinite(date.getTime());
 }
@@ -22,65 +23,55 @@ export function toIsoNow(): ISODateTime {
 }
 
 export function toISODateLocal(date: Date): ISODate {
-    const year = date.getFullYear();
-    const month = pad2(date.getMonth() + 1);
-    const day = pad2(date.getDate());
-
-    return `${year}-${month}-${day}`;
+    return formatLocalISODate(date);
 }
 
 export function startOfDayISO(date: ISODate): ISODateTime {
-    return new Date(`${date}T00:00:00.000`).toISOString();
+    return buildLocalDayRangeISO(date).startAt;
 }
 
 export function endOfDayISO(date: ISODate): ISODateTime {
-    return new Date(`${date}T23:59:59.999`).toISOString();
+    const range = buildLocalDayRangeISO(date);
+    return new Date(new Date(range.endAtExclusive).getTime() - 1).toISOString();
 }
 
 export function buildDayRangeISO(date: ISODate): {
     startAt: ISODateTime;
     endAt: ISODateTime;
 } {
+    const range = buildLocalDayRangeISO(date);
+
     return {
-        startAt: startOfDayISO(date),
-        endAt: endOfDayISO(date),
+        startAt: range.startAt,
+        endAt: range.endAtExclusive,
     };
 }
 
 export function addDaysISO(date: ISODate, amount: number): ISODate {
-    const base = new Date(`${date}T00:00:00.000`);
-    base.setDate(base.getDate() + amount);
-    return toISODateLocal(base);
+    return addLocalDaysISO(date, amount);
 }
 
 export function buildDateRangeInclusive(from: ISODate, to: ISODate): ISODate[] {
-    const start = new Date(`${from}T00:00:00.000`);
-    const end = new Date(`${to}T00:00:00.000`);
+    const start = parseISODateLocal(from);
+    const end = parseISODateLocal(to);
 
-    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
-        return [];
-    }
-
-    if (start.getTime() > end.getTime()) {
+    if (!start || !end || start.getTime() > end.getTime()) {
         return [];
     }
 
     const dates: ISODate[] = [];
-    const current = new Date(start);
+    let current = from;
 
-    while (current.getTime() <= end.getTime()) {
-        dates.push(toISODateLocal(current));
-        current.setDate(current.getDate() + 1);
+    while (current <= to) {
+        dates.push(current);
+        const next = addLocalDaysISO(current, 1);
+        if (next === current) break;
+        current = next;
     }
 
     return dates;
 }
 
 export function resolveWorkoutDateFromDateTime(value: ISODateTime | null): ISODate | null {
-    if (!value) return null;
-
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) return null;
-
-    return toISODateLocal(date);
+    return resolveLocalISODateFromDateTime(value);
 }

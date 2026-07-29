@@ -183,7 +183,7 @@ function CalendarCell({
                             key={note.id}
                             accessibilityRole="button"
                             accessibilityLabel={`Abrir nota: ${note.title}`}
-                            hitSlop={4}
+                            hitSlop={8}
                             onPress={(event) => {
                                 event.stopPropagation();
                                 onOpenNote(note);
@@ -407,6 +407,8 @@ export function CalendarMonthScreen() {
                     <View style={styles.heroActions}>
                         <Pressable
                             accessibilityRole="button"
+                            accessibilityLabel="Agregar nota"
+                            accessibilityState={{ disabled: savingNote || deleteNote.isPending }}
                             onPress={openCreateNote}
                             disabled={savingNote || deleteNote.isPending}
                             style={({ pressed }) => [
@@ -427,6 +429,7 @@ export function CalendarMonthScreen() {
 
                         <Pressable
                             accessibilityRole="button"
+                            accessibilityLabel="Abrir acciones del calendario"
                             onPress={() => setActionsVisible(true)}
                             style={({ pressed }) => [
                                 styles.headerButton,
@@ -509,6 +512,7 @@ export function CalendarMonthScreen() {
                             <Text style={[styles.stateDescription, { color: colors.mutedText }]}>{readErrorMessage(calendarQuery.error, "Revisa tu conexión e inténtalo de nuevo.")}</Text>
                             <Pressable
                                 accessibilityRole="button"
+                                accessibilityLabel="Reintentar carga del calendario"
                                 onPress={() => {
                                     void calendarQuery.refetch();
                                 }}
@@ -651,7 +655,7 @@ const styles = StyleSheet.create({
     },
     headerButton: {
         flex: 1,
-        minHeight: 42,
+        minHeight: 44,
         borderWidth: 1,
         borderRadius: 13,
         paddingHorizontal: 10,
@@ -675,8 +679,8 @@ const styles = StyleSheet.create({
         gap: 9,
     },
     monthButton: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         borderRadius: 13,
         borderWidth: 1,
         alignItems: "center",
@@ -703,6 +707,7 @@ const styles = StyleSheet.create({
     stateTitle: { fontSize: 18, fontWeight: "900", textAlign: "center" },
     stateDescription: { fontSize: 13, lineHeight: 19, fontWeight: "600", textAlign: "center" },
     retryButton: {
+        minHeight: 44,
         marginTop: 4,
         borderRadius: 13,
         paddingHorizontal: 18,
@@ -758,8 +763,8 @@ const styles = StyleSheet.create({
         gap: 0,
     },
     noteIndicatorButton: {
-        width: 18,
-        height: 20,
+        width: 28,
+        height: 28,
         alignItems: "center",
         justifyContent: "center",
     },

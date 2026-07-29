@@ -73,7 +73,40 @@ export type AttachSessionMediaBody = {
 export type ReturnDay = WorkoutDay;
 export type ReturnSession = { session: WorkoutSession | null; day?: WorkoutDay | null };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractHttpStatus(error: unknown): number | null {
+    if (!isRecord(error)) return null;
+
+    if (typeof error.status === "number") {
+        return error.status;
+    }
+
+    const response = isRecord(error.response) ? error.response : null;
+    return response && typeof response.status === "number" ? response.status : null;
+}
+
+/**
+ * Ensures the canonical WorkoutDay exists without rewriting an existing day.
+ * This avoids regenerating embedded session IDs before a dedicated PATCH.
+ */
 export async function ensureWorkoutDayExists(date: string): Promise<void> {
+    try {
+        const response = await api.get<unknown>(
+            `/workout/days/${encodeURIComponent(date)}`
+        );
+
+        if (isRecord(response.data)) {
+            return;
+        }
+    } catch (error: unknown) {
+        if (extractHttpStatus(error) !== 404) {
+            throw error;
+        }
+    }
+
     await api.put(`/workout/days/${encodeURIComponent(date)}`, {});
 }
 

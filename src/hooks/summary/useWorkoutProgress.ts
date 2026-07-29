@@ -1,8 +1,9 @@
-// src/hooks/summary/useWorkoutProgress.ts
+// /src/hooks/summary/useWorkoutProgress.ts
 // React Query hook for the Workout Progress overview endpoint.
 
 import { useQuery } from "@tanstack/react-query";
 
+import { queryKeys } from "@/src/query/queryKeys";
 import type { ApiAxiosError } from "@/src/services/http.client";
 import { getWorkoutProgressOverview } from "@/src/services/workout/progress.service";
 import type {
@@ -21,26 +22,22 @@ type UseWorkoutProgressArgs = {
 };
 
 function isCustomRangeValid(args: UseWorkoutProgressArgs): boolean {
-    if (args.mode !== "customRange") {
-        return true;
-    }
-
-    return Boolean(args.from) && Boolean(args.to);
+    return args.mode !== "customRange" || (Boolean(args.from) && Boolean(args.to));
 }
 
 export function useWorkoutProgress(args: UseWorkoutProgressArgs) {
     const enabled = isCustomRangeValid(args);
+    const params = {
+        mode: args.mode,
+        from: args.from ?? null,
+        to: args.to ?? null,
+        compareTo: args.compareTo ?? "previous_period",
+        weekKey: args.weekKey ?? null,
+        includeExerciseProgress: args.includeExerciseProgress ?? true,
+    };
 
     return useQuery<WorkoutProgressOverviewResponse, ApiAxiosError>({
-        queryKey: [
-            "workoutProgressOverview",
-            args.mode,
-            args.from ?? null,
-            args.to ?? null,
-            args.compareTo ?? "previous_period",
-            args.weekKey ?? null,
-            args.includeExerciseProgress ?? true,
-        ],
+        queryKey: queryKeys.progress.overview(params),
         queryFn: () =>
             getWorkoutProgressOverview({
                 mode: args.mode,

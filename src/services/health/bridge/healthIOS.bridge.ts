@@ -19,6 +19,7 @@ import type {
     HealthImportedWorkoutSessionMinimal,
     HealthPermissionsStatus,
 } from "@/src/types/health/cardio/health.types";
+import { buildLocalDayRangeISO } from "@/src/utils/dates/localDateTime";
 import {
     buildHealthKitSleepQueryRange,
     normalizeHealthKitSleepSamples,
@@ -69,14 +70,12 @@ function buildDayRange(date: string): {
     endDate: string;
     strategy: "local-calendar-day";
 } {
-    const start = new Date(`${date}T00:00:00`);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const range = buildLocalDayRangeISO(date);
 
     return {
         targetDate: date,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: range.startAt,
+        endDate: range.endAtExclusive,
         strategy: "local-calendar-day",
     };
 }

@@ -71,7 +71,8 @@ export function InsightsFiltersCard({
                             return (
                                 <Pressable
                                     key={option.value}
-                                    accessibilityRole="button"
+                                    accessibilityRole="tab"
+                                    accessibilityLabel={option.label}
                                     accessibilityState={{ selected }}
                                     onPress={() => onModeChange(option.value)}
                                     style={({ pressed }) => [
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
     },
     modeButton: {
         flex: 1,
-        minHeight: 38,
+        minHeight: 44,
         borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",

@@ -86,6 +86,9 @@ export type HealthImportedCardioMetrics = {
     activeKcal: number | null;
     totalKcal: number | null;
 
+    /** True when totalKcal was reconstructed from active + basal energy. */
+    totalKcalEstimated?: boolean;
+
     avgHr: number | null;
     maxHr: number | null;
 

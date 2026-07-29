@@ -1,11 +1,17 @@
-// src/hooks/health/useDayAutoBootstrap.ts
+// /src/hooks/health/useDayAutoBootstrap.ts
+// Automatically imports missing sleep/workout data when a day is opened.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
 import { useBootstrapSleep } from "@/src/hooks/health/useBootstrapSleep";
 import { useBootstrapWorkoutSession } from "@/src/hooks/health/useBootstrapWorkoutSession";
-import { ensureWorkoutDayExistsDays, getWorkoutDayServ } from "@/src/services/workout/days.service";
+import { invalidateWorkoutDayRelatedQueries } from "@/src/query/invalidateWorkoutDayQueries";
+import { queryKeys } from "@/src/query/queryKeys";
+import {
+    ensureWorkoutDayExistsDays,
+    getWorkoutDayServ,
+} from "@/src/services/workout/days.service";
 import type { WorkoutDay } from "@/src/types/workoutDay.types";
 
 type DayAutoBootstrapArgs = {
@@ -19,9 +25,7 @@ type DayAutoBootstrapResult = {
 };
 
 function hasExistingSleep(day: WorkoutDay | null): boolean {
-    if (!day?.sleep) {
-        return false;
-    }
+    if (!day?.sleep) return false;
 
     return [
         day.sleep.timeAsleepMinutes,
@@ -39,8 +43,7 @@ function hasExistingWorkoutSessions(day: WorkoutDay | null): boolean {
 }
 
 export function useDayAutoBootstrap() {
-    const qc = useQueryClient();
-
+    const queryClient = useQueryClient();
     const bootstrapSleep = useBootstrapSleep();
     const bootstrapWorkout = useBootstrapWorkoutSession();
 
@@ -66,12 +69,7 @@ export function useDayAutoBootstrap() {
             if (!hasExistingWorkoutSessions(currentDay)) {
                 const workoutResult = await bootstrapWorkout.mutateAsync({ date });
 
-                if (workoutResult.day) {
-                    currentDay = workoutResult.day;
-                } else {
-                    currentDay = await getWorkoutDayServ(date);
-                }
-
+                currentDay = workoutResult.day ?? await getWorkoutDayServ(date);
                 bootstrappedWorkout = workoutResult.mode !== "noop";
             }
 
@@ -81,18 +79,22 @@ export function useDayAutoBootstrap() {
                 bootstrappedWorkout,
             };
         },
-        onSuccess: (result, vars) => {
-            if (!result.day) {
-                return;
-            }
+        onSuccess: async (result, variables) => {
+            if (!result.day) return;
 
-            qc.setQueryData(["workoutDay", vars.date], result.day);
+            queryClient.setQueryData(
+                queryKeys.workout.day(variables.date),
+                result.day,
+            );
+            await invalidateWorkoutDayRelatedQueries(queryClient, {
+                date: variables.date,
+            });
         },
     });
 
     const autoBootstrapDay = React.useCallback(
         async (args: DayAutoBootstrapArgs) => mutation.mutateAsync(args),
-        [mutation]
+        [mutation],
     );
 
     return {
