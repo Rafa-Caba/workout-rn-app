@@ -25,6 +25,18 @@ type RangeSleep = {
     avgScore: number | null;
 } | null;
 
+/**
+ * Formats average values as a whole number for compact dashboard display.
+ * Returns an em dash when the API value is missing or not finite.
+ */
+function formatRoundedAverage(value: number | null | undefined): string {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return "—";
+    }
+
+    return String(Math.round(value));
+}
+
 type Props = {
     from: string;
     to: string;
@@ -79,15 +91,15 @@ export default function DashboardRangeSection({
                     />
                     <DashboardStatRow
                         label="Promedio Deep (min)"
-                        value={sleep?.avgDeepMinutes ?? "—"}
+                        value={formatRoundedAverage(sleep?.avgDeepMinutes)}
                     />
                     <DashboardStatRow
                         label="Promedio REM (min)"
-                        value={sleep?.avgRemMinutes ?? "—"}
+                        value={formatRoundedAverage(sleep?.avgRemMinutes)}
                     />
                     <DashboardStatRow
                         label="Promedio score"
-                        value={sleep?.avgScore ?? "—"}
+                        value={formatRoundedAverage(sleep?.avgScore)}
                     />
                 </DashboardSectionBox>
             </View>
