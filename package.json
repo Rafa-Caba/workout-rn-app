@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "postinstall": "patch-package",
     "verify:health-sleep": "node scripts/verify-health-sleep-normalizer.cjs",
-    "verify:health-gym-check": "node scripts/verify-health-gym-check.cjs"
+    "verify:health-gym-check": "node scripts/verify-health-gym-check.cjs",
+    "verify:insights": "node scripts/verify-insights.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
