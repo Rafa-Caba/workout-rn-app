@@ -13,11 +13,12 @@
     "verify:insights": "node scripts/verify-insights.cjs",
     "typecheck": "tsc --noEmit",
     "verify:date-boundaries": "node scripts/verify-date-boundaries.cjs",
-    "verify:qa": "npm run typecheck && npm run verify:health-sleep && npm run verify:health-gym-check && npm run verify:cardio-sync && npm run verify:insights && npm run verify:date-boundaries",
+    "verify:qa": "npm run typecheck && npm run verify:health-sleep && npm run verify:health-gym-check && npm run verify:metadata-preservation && npm run verify:cardio-sync && npm run verify:insights && npm run verify:date-boundaries",
     "build:ios:local": "npx eas-cli@latest build --platform ios --profile production --local",
     "build:android:apk": "npx eas-cli@latest build --platform android --profile production-apk",
     "build:android:apk:local": "npx eas-cli@latest build --platform android --profile production-apk --local",
-    "verify:cardio-sync": "node scripts/verify-cardio-sync-contract.cjs && node scripts/verify-cardio-sync-dedupe.cjs && node scripts/verify-cardio-sync-orchestration.cjs && node scripts/verify-cardio-healthkit-route.cjs"
+    "verify:cardio-sync": "node scripts/verify-cardio-sync-contract.cjs && node scripts/verify-cardio-sync-dedupe.cjs && node scripts/verify-cardio-sync-orchestration.cjs && node scripts/verify-cardio-healthkit-route.cjs",
+    "verify:metadata-preservation": "node scripts/verify-import-metadata-preservation.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

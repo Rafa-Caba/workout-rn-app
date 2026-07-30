@@ -11,6 +11,7 @@ import type {
     WorkoutRouteSummary,
     WorkoutSession,
 } from "@/src/types/workoutDay.types";
+import { mergeGymCheckSessionMeta } from "@/src/utils/gymCheck/sessionMeta";
 
 export type SessionReturnMode = "day" | "session";
 
@@ -179,10 +180,19 @@ export async function attachSessionMedia(
     return res.data as ReturnDay | ReturnSession;
 }
 
-function findGymCheckSessionIdFromDay(day: WorkoutDay): string | null {
-    const sessions = Array.isArray(day.training?.sessions) ? day.training.sessions : [];
-    const hit = sessions.find((s) => String(s?.meta?.sessionKey ?? "") === "gym_check") ?? null;
-    return hit?.id ?? null;
+function findGymCheckSessionFromDay(day: WorkoutDay): WorkoutSession | null {
+    const sessions = Array.isArray(day.training?.sessions)
+        ? day.training.sessions
+        : [];
+
+    return (
+        sessions.find((session) => {
+            const sessionKey = String(session.meta?.sessionKey ?? "");
+            const sessionKind = String(session.meta?.sessionKind ?? "");
+
+            return sessionKey === "gym_check" || sessionKind === "gym-check";
+        }) ?? null
+    );
 }
 
 function extractSessionIdFromReturn(payload: ReturnDay | ReturnSession): string | null {
@@ -202,13 +212,31 @@ export async function upsertGymCheckSession(
     await ensureWorkoutDayExists(date);
 
     const day = await getWorkoutDay(date);
-    const existingId = findGymCheckSessionIdFromDay(day);
+    const existingSession = findGymCheckSessionFromDay(day);
 
     const returnMode: SessionReturnMode = opts?.returnMode ?? "day";
 
-    if (existingId) {
-        const data = await patchSession(date, existingId, payload, { returnMode });
-        return { mode: "patched", data, sessionId: existingId };
+    if (existingSession) {
+        const mergedMeta = mergeGymCheckSessionMeta(
+            existingSession.meta,
+            payload.meta
+        );
+        const patchPayload: PatchSessionBody = {
+            ...payload,
+            ...(mergedMeta !== undefined ? { meta: mergedMeta } : {}),
+        };
+
+        const data = await patchSession(
+            date,
+            existingSession.id,
+            patchPayload,
+            { returnMode }
+        );
+        return {
+            mode: "patched",
+            data,
+            sessionId: existingSession.id,
+        };
     }
 
     const created = await createSession(date, payload, { returnMode: "session" });
