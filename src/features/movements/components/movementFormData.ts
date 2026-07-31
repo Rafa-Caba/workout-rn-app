@@ -1,5 +1,9 @@
 // /src/features/movements/components/movementFormData.ts
+// Builds the strongly typed multipart payload used to create/update movements.
+
 import type { RNFile } from "@/src/types/upload.types";
+
+import { assertSupportedMovementImage } from "./movementImageValidation";
 
 export type MovementFormState = {
     name: string;
@@ -10,11 +14,13 @@ export type MovementFormState = {
 };
 
 function appendRNFile(formData: FormData, field: string, file: RNFile): void {
+    assertSupportedMovementImage(file);
+
     formData.append(field, {
         uri: file.uri,
         name: file.name,
         type: file.type,
-    } as never);
+    });
 }
 
 function appendStringArray(formData: FormData, field: string, values: string[]): void {
@@ -32,7 +38,7 @@ export function buildMovementFormData(
     form: MovementFormState,
     opts?: {
         imageFieldName?: string;
-    }
+    },
 ): FormData {
     const formData = new FormData();
 

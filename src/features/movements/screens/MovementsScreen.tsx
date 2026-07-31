@@ -1,21 +1,33 @@
 // /src/features/movements/screens/MovementsScreen.tsx
+// Movement catalog with search, local ordering, grouped sections, and media preview.
+
 import { useRouter, type Href } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import {
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    Text,
+    View,
+} from "react-native";
 
-import { useCreateMovement, useDeleteMovement, useMovements } from "@/src/hooks/useMovements";
+import { useDeleteMovement, useMovements } from "@/src/hooks/useMovements";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { Movement, MovementsListQuery } from "@/src/types/movements.types";
 
-import { MediaViewerItem, MediaViewerModal } from "../../components/media/MediaViewerModal";
+import {
+    MediaViewerModal,
+    type MediaViewerItem,
+} from "../../components/media/MediaViewerModal";
+import { getMovementErrorMessage } from "../components/movementErrorMessage";
 import { MovementsFilters } from "../components/MovementsFilters";
 import { MovementsList } from "../components/MovementsList";
-import { buildMovementFormData, type MovementFormState } from "../components/movementFormData";
-
-function safeText(value: unknown): string {
-    const text = String(value ?? "").trim();
-    return text.length ? text : "—";
-}
+import {
+    sortMovements,
+    type MovementSortMode,
+} from "../components/movementSorting";
 
 export default function MovementsScreen() {
     const router = useRouter();
@@ -23,6 +35,7 @@ export default function MovementsScreen() {
 
     const [search, setSearch] = React.useState("");
     const [activeOnly, setActiveOnly] = React.useState(true);
+    const [sortMode, setSortMode] = React.useState<MovementSortMode>("name");
     const [viewer, setViewer] = React.useState<MediaViewerItem | null>(null);
 
     const [debouncedSearch, setDebouncedSearch] = React.useState("");
@@ -47,26 +60,23 @@ export default function MovementsScreen() {
             q: debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
             activeOnly: activeOnly ? true : undefined,
         }),
-        [debouncedSearch, activeOnly]
+        [debouncedSearch, activeOnly],
     );
 
     const movementsQuery = useMovements(query);
-    const createMovementMutation = useCreateMovement(query);
     const deleteMovementMutation = useDeleteMovement(query);
 
-    const items = movementsQuery.data ?? [];
+    const items = React.useMemo(
+        () => sortMovements(movementsQuery.data ?? [], sortMode),
+        [movementsQuery.data, sortMode],
+    );
     const loading = movementsQuery.isLoading || movementsQuery.isFetching;
     const error = movementsQuery.error
-        ? safeText((movementsQuery.error as { message?: string }).message)
+        ? getMovementErrorMessage(
+            movementsQuery.error,
+            "No se pudieron cargar los movimientos.",
+        )
         : "";
-
-    const [form, setForm] = React.useState<MovementFormState>({
-        name: "",
-        muscleGroup: [],
-        equipment: [],
-        isActive: true,
-        image: null,
-    });
 
     async function onRefresh() {
         await movementsQuery.refetch();
@@ -100,38 +110,19 @@ export default function MovementsScreen() {
                         try {
                             await deleteMovementMutation.mutateAsync({ id: movement.id });
                         } catch (errorValue: unknown) {
-                            Alert.alert("Error", safeText(errorValue));
+                            Alert.alert(
+                                "Error",
+                                getMovementErrorMessage(
+                                    errorValue,
+                                    "No se pudo eliminar el movimiento.",
+                                ),
+                            );
                         }
                     },
                 },
             ],
-            { cancelable: true }
+            { cancelable: true },
         );
-    }
-
-    async function onCreate() {
-        const trimmedName = form.name.trim();
-        if (!trimmedName) {
-            return;
-        }
-
-        const formData = buildMovementFormData(
-            { ...form, name: trimmedName },
-            { imageFieldName: "media" }
-        );
-
-        try {
-            await createMovementMutation.mutateAsync(formData);
-            setForm({
-                name: "",
-                muscleGroup: [],
-                equipment: [],
-                isActive: true,
-                image: null,
-            });
-        } catch (errorValue: unknown) {
-            Alert.alert("Error", safeText(errorValue));
-        }
     }
 
     function onOpenMedia(item: MediaViewerItem) {
@@ -141,13 +132,26 @@ export default function MovementsScreen() {
     return (
         <ScrollView
             style={{ flex: 1, backgroundColor: colors.background }}
-            contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 28 }}
-            refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
+            contentContainerStyle={{ padding: 16, paddingTop: 12, gap: 10, paddingBottom: 28 }}
+            refreshControl={
+                <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+            }
         >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Movimientos</Text>
-                    <Text style={{ color: colors.mutedText }}>
+            <View
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                }}
+            >
+                <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                        style={{ fontSize: 22, fontWeight: "800", color: colors.text }}
+                    >
+                        Movimientos
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.mutedText }}>
                         Catálogo para el selector de ejercicios en rutinas.
                     </Text>
                 </View>
@@ -162,15 +166,19 @@ export default function MovementsScreen() {
                         opacity: pressed ? 0.92 : 1,
                     })}
                 >
-                    <Text style={{ color: colors.primaryText, fontWeight: "800" }}>Nuevo</Text>
+                    <Text style={{ color: colors.primaryText, fontWeight: "800" }}>
+                        Nuevo
+                    </Text>
                 </Pressable>
             </View>
 
             <MovementsFilters
                 search={search}
                 activeOnly={activeOnly}
+                sortMode={sortMode}
                 onChangeSearch={setSearch}
                 onChangeActiveOnly={setActiveOnly}
+                onChangeSortMode={setSortMode}
             />
 
             {error ? (
@@ -192,22 +200,31 @@ export default function MovementsScreen() {
             {loading && items.length === 0 ? (
                 <View style={{ paddingVertical: 18, alignItems: "center", gap: 10 }}>
                     <ActivityIndicator />
-                    <Text style={{ color: colors.mutedText }}>Cargando movimientos...</Text>
+                    <Text style={{ color: colors.mutedText }}>
+                        Cargando movimientos...
+                    </Text>
                 </View>
             ) : null}
 
-            <Text style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700" }}>
+            <Text
+                style={{ color: colors.mutedText, fontSize: 12, fontWeight: "700" }}
+            >
                 Mostrando {items.length}
             </Text>
 
             <MovementsList
                 items={items}
+                sortMode={sortMode}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onOpenMedia={onOpenMedia}
             />
 
-            <MediaViewerModal visible={Boolean(viewer)} item={viewer} onClose={() => setViewer(null)} />
+            <MediaViewerModal
+                visible={Boolean(viewer)}
+                item={viewer}
+                onClose={() => setViewer(null)}
+            />
         </ScrollView>
     );
 }

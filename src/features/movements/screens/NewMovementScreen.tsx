@@ -7,13 +7,9 @@ import { useCreateMovement } from "@/src/hooks/useMovements";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { MovementsListQuery } from "@/src/types/movements.types";
 
+import { getMovementErrorMessage } from "../components/movementErrorMessage";
 import { MovementForm } from "../components/MovementForm";
 import { buildMovementFormData, type MovementFormState } from "../components/movementFormData";
-
-function safeText(value: unknown): string {
-    const text = String(value ?? "").trim();
-    return text.length ? text : "—";
-}
 
 const REFRESH_QUERY: MovementsListQuery = { activeOnly: true };
 
@@ -37,19 +33,24 @@ export default function NewMovementScreen() {
             return;
         }
 
-        const formData = buildMovementFormData(
-            { ...form, name: trimmedName },
-            { imageFieldName: "media" }
-        );
-
         try {
+            const formData = buildMovementFormData(
+                { ...form, name: trimmedName },
+                { imageFieldName: "media" },
+            );
             const created = await createMovementMutation.mutateAsync(formData);
             router.replace({
                 pathname: "/(app)/movements/[id]",
                 params: { id: created.id },
             });
         } catch (errorValue: unknown) {
-            Alert.alert("Error", safeText(errorValue));
+            Alert.alert(
+                "Error",
+                getMovementErrorMessage(
+                    errorValue,
+                    "No se pudo crear el movimiento.",
+                ),
+            );
         }
     }
 

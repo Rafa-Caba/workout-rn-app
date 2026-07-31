@@ -7,13 +7,10 @@ import { useDeleteMovement, useMovementById, useUpdateMovement } from "@/src/hoo
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { MovementsListQuery } from "@/src/types/movements.types";
 
+
+import { getMovementErrorMessage } from "../components/movementErrorMessage";
 import { MovementForm } from "../components/MovementForm";
 import { buildMovementFormData, type MovementFormState } from "../components/movementFormData";
-
-function safeText(value: unknown): string {
-    const text = String(value ?? "").trim();
-    return text.length ? text : "—";
-}
 
 const REFRESH_QUERY: MovementsListQuery = { activeOnly: true };
 
@@ -64,16 +61,21 @@ export default function MovementDetailScreen() {
             return;
         }
 
-        const formData = buildMovementFormData(
-            { ...form, name: trimmedName },
-            { imageFieldName: "media" }
-        );
-
         try {
+            const formData = buildMovementFormData(
+                { ...form, name: trimmedName },
+                { imageFieldName: "media" },
+            );
             await updateMovementMutation.mutateAsync({ id, formData });
             Alert.alert("Listo", "Movimiento actualizado.");
         } catch (errorValue: unknown) {
-            Alert.alert("Error", safeText(errorValue));
+            Alert.alert(
+                "Error",
+                getMovementErrorMessage(
+                    errorValue,
+                    "No se pudo actualizar el movimiento.",
+                ),
+            );
         }
     }
 
@@ -95,7 +97,13 @@ export default function MovementDetailScreen() {
                             await deleteMovementMutation.mutateAsync({ id });
                             router.back();
                         } catch (errorValue: unknown) {
-                            Alert.alert("Error", safeText(errorValue));
+                            Alert.alert(
+                                "Error",
+                                getMovementErrorMessage(
+                                    errorValue,
+                                    "No se pudo eliminar el movimiento.",
+                                ),
+                            );
                         }
                     },
                 },

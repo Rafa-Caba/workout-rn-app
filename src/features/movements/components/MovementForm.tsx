@@ -1,10 +1,11 @@
 // /src/features/movements/components/MovementForm.tsx
 import React from "react";
-import { ActivityIndicator, Image, Pressable, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, Switch, Text, TextInput, View } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { RNFile } from "@/src/types/upload.types";
 
+import { getMovementErrorMessage } from "./movementErrorMessage";
 import type { MovementFormState } from "./movementFormData";
 import { EquipmentSelectRN, MuscleGroupSelectRN } from "./MovementSelects";
 import { pickMovementImage } from "./pickMovementImage";
@@ -37,12 +38,19 @@ export function MovementForm({
             return;
         }
 
-        const file = await pickMovementImage();
-        if (!file) {
-            return;
-        }
+        try {
+            const file = await pickMovementImage();
+            if (!file) {
+                return;
+            }
 
-        onChange({ ...value, image: file });
+            onChange({ ...value, image: file });
+        } catch (error: unknown) {
+            Alert.alert(
+                "Tipo de imagen no soportado",
+                getMovementErrorMessage(error),
+            );
+        }
     }
 
     function onClearImage() {

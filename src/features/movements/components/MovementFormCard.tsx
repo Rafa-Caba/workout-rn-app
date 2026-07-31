@@ -1,12 +1,13 @@
 // /src/features/movements/components/MovementFormCard.tsx
 import React from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import { EquipmentSelectRN } from "@/src/features/components/EquipmentSelectRN";
 import { MuscleGroupSelectRN } from "@/src/features/components/MuscleGroupSelectRN";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { RNFile } from "@/src/types/upload.types";
 
+import { getMovementErrorMessage } from "./movementErrorMessage";
 import type { MovementFormState } from "./movementFormData";
 import { pickMovementImage } from "./pickMovementImage";
 
@@ -36,12 +37,19 @@ export function MovementFormCard({
             return;
         }
 
-        const file = await pickMovementImage();
-        if (!file) {
-            return;
-        }
+        try {
+            const file = await pickMovementImage();
+            if (!file) {
+                return;
+            }
 
-        onChange({ ...value, image: file });
+            onChange({ ...value, image: file });
+        } catch (error: unknown) {
+            Alert.alert(
+                "Tipo de imagen no soportado",
+                getMovementErrorMessage(error),
+            );
+        }
     }
 
     function clearImage() {
