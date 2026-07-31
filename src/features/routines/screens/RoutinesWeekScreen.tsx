@@ -7,7 +7,9 @@ import { Pressable, ScrollView, Switch, Text, TextInput, View } from "react-nati
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 import type { Movement } from "@/src/types/movements.types";
-import type { WorkoutRoutineDay, WorkoutRoutineStatus, WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
+import type { RNFile } from "@/src/types/upload.types";
+import type { UploadQuery } from "@/src/types/uploadQuery";
+import type { WorkoutRoutineDay, WorkoutRoutineWeek } from "@/src/types/workoutRoutine.types";
 
 import { useInitRoutineWeek, useRoutineWeek, useSetRoutineArchived, useUpdateRoutineWeek } from "@/src/hooks/routines/useRoutineWeek";
 import { useMovements } from "@/src/hooks/useMovements";
@@ -15,9 +17,12 @@ import { useMovements } from "@/src/hooks/useMovements";
 import { uploadRoutineAttachments } from "@/src/services/workout/routineAttachments.service";
 
 import { extractAttachments, toAttachmentOptions, type AttachmentOption } from "@/src/utils/routines/attachments";
+import { safeParseJson, safeStringify } from "@/src/utils/routines/json";
+import { normalizeRoutineJsonExerciseIds } from "@/src/utils/routines/jsonIds";
 import {
     DAY_KEYS,
     getPlanFromMeta,
+    isDayKey,
     normalizePlans,
     setPlanIntoMeta,
     type DayKey,
@@ -32,6 +37,8 @@ import type { MovementOption } from "../components/MovementPickerInline";
 import { PlannedDaysTabs } from "../components/PlannedDaysTabs";
 import { RoutineDayEditor } from "../components/RoutineDayEditor";
 import { RoutineExercisesEditor, type RoutineExerciseDraft } from "../components/RoutineExercisesEditor";
+import { RoutinesJsonEditor } from "../components/RoutinesJsonEditor";
+import { RoutinesModeToggle, type RoutineEditorMode } from "../components/RoutinesModeToggle";
 
 type Props = { weekKey: string };
 type InitFormState = { title: string; split: string; unarchive: boolean };
@@ -187,10 +194,41 @@ function isRecord(v: unknown): v is Record<string, unknown> {
     return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+
+    if (!isRecord(error)) return fallback;
+
+    const response = error.response;
+    if (isRecord(response)) {
+        const data = response.data;
+        if (isRecord(data)) {
+            const apiError = data.error;
+            if (isRecord(apiError) && typeof apiError.message === "string" && apiError.message.trim().length > 0) {
+                return apiError.message;
+            }
+        }
+    }
+
+    return typeof error.message === "string" && error.message.trim().length > 0
+        ? error.message
+        : fallback;
+}
+
 function makeId(): string {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const g: any = globalThis as any;
-    if (g?.crypto?.randomUUID) return g.crypto.randomUUID();
+    const cryptoValue: unknown = Reflect.get(globalThis, "crypto");
+
+    if (isRecord(cryptoValue)) {
+        const randomUUID: unknown = cryptoValue.randomUUID;
+
+        if (typeof randomUUID === "function") {
+            const result: unknown = Reflect.apply(randomUUID, cryptoValue, []);
+            if (typeof result === "string" && result.trim().length > 0) return result;
+        }
+    }
+
     return `ex_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
@@ -200,7 +238,7 @@ function ensureExerciseIds(input: DayPlan[]): DayPlan[] {
         exercises: p.exercises?.map((e) => ({
             ...e,
             id: e.id || makeId(),
-            attachmentPublicIds: Array.isArray((e as any).attachmentPublicIds) ? (e as any).attachmentPublicIds : [],
+            attachmentPublicIds: Array.isArray(e.attachmentPublicIds) ? e.attachmentPublicIds : [],
         })),
     }));
 }
@@ -212,11 +250,11 @@ function normalizePlansForUi(plans: DayPlan[]): DayPlan[] {
 function routineDaysToPlans(days: WorkoutRoutineDay[] | null | undefined): DayPlan[] {
     const list = Array.isArray(days) ? days : [];
     const mapped: DayPlan[] = list
-        .filter((d) => d && DAY_KEYS.includes(d.dayKey as DayKey))
-        .map((d) => {
-            const dayKey = d.dayKey as DayKey;
-            const exercises: ExerciseItem[] | undefined = Array.isArray(d.exercises)
-                ? d.exercises.map((e) => ({
+        .filter((day) => isDayKey(day.dayKey))
+        .map((day) => {
+            const dayKey = day.dayKey;
+            const exercises: ExerciseItem[] | undefined = Array.isArray(day.exercises)
+                ? day.exercises.map((e) => ({
                     id: String(e.id || makeId()),
                     name: String(e.name ?? ""),
                     sets: e.sets == null ? undefined : String(e.sets),
@@ -232,10 +270,10 @@ function routineDaysToPlans(days: WorkoutRoutineDay[] | null | undefined): DayPl
 
             return {
                 dayKey,
-                sessionType: d.sessionType ?? undefined,
-                focus: d.focus ?? undefined,
-                tags: Array.isArray(d.tags) ? d.tags : undefined,
-                notes: d.notes ?? undefined,
+                sessionType: day.sessionType ?? undefined,
+                focus: day.focus ?? undefined,
+                tags: Array.isArray(day.tags) ? day.tags : undefined,
+                notes: day.notes ?? undefined,
                 exercises,
             };
         });
@@ -268,7 +306,7 @@ function mapMovementsToOptions(movements: Movement[]): MovementOption[] {
 }
 
 function buildAttachmentsSet(routine: unknown): Set<string> {
-    const list = extractAttachments(routine as any);
+    const list = extractAttachments(routine);
     const s = new Set<string>();
     for (const a of list) {
         if (a && typeof a.publicId === "string" && a.publicId.trim()) s.add(a.publicId.trim());
@@ -294,7 +332,7 @@ function mergeAttachmentOptions(base: AttachmentOption[], extra: AttachmentOptio
 
 function pickAttachmentOptionByPublicId(routine: unknown, publicId: string): AttachmentOption | null {
     if (!routine) return null;
-    const list = extractAttachments(routine as any);
+    const list = extractAttachments(routine);
     const opts = toAttachmentOptions(list);
     const found = opts.find((o) => o.publicId === publicId);
     return found ?? null;
@@ -315,7 +353,7 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
     }, [weekStart]);
 
     const routineQuery = useRoutineWeek(wk);
-    const routine = (routineQuery.data ?? null) as WorkoutRoutineWeek | null;
+    const routine: WorkoutRoutineWeek | null = routineQuery.data ?? null;
 
     const [localAttachments, setLocalAttachments] = React.useState<AttachmentOption[]>([]);
 
@@ -342,6 +380,10 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         meta: null,
     });
 
+    const [mode, setMode] = React.useState<RoutineEditorMode>("form");
+    const [editor, setEditor] = React.useState("");
+    const [metaEditor, setMetaEditor] = React.useState("{}");
+
     const [plans, setPlans] = React.useState<DayPlan[]>(() => normalizePlansForUi([]));
     const plansRef = React.useRef<DayPlan[]>(plans);
     React.useEffect(() => {
@@ -350,9 +392,9 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
 
     const [selectedDay, setSelectedDay] = React.useState<DayKey>("Mon");
 
-    const activePlan = React.useMemo(
-        () => plans.find((p) => p.dayKey === selectedDay) ?? ({ dayKey: selectedDay } as DayPlan),
-        [plans, selectedDay]
+    const activePlan = React.useMemo<DayPlan>(
+        () => plans.find((plan) => plan.dayKey === selectedDay) ?? { dayKey: selectedDay },
+        [plans, selectedDay],
     );
 
     const [dayDraft, setDayDraft] = React.useState({
@@ -372,8 +414,8 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
     );
 
     const uploadMutation = useMutation({
-        mutationFn: (args: { files: any[]; query?: Record<string, any> }) =>
-            uploadRoutineAttachments(wk, args.files as any[], args.query),
+        mutationFn: (args: { files: RNFile[]; query?: UploadQuery }) =>
+            uploadRoutineAttachments(wk, args.files, args.query),
     });
 
     const busy =
@@ -395,9 +437,23 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         setPutBody({
             title,
             split,
-            plannedDays: plannedDays as any,
-            meta: isRecord(routine.meta) ? (routine.meta as any) : null,
+            plannedDays,
+            meta: isRecord(routine.meta) ? routine.meta : null,
         });
+
+        setEditor(
+            safeStringify({
+                title: routine.title ?? null,
+                split: routine.split ?? null,
+                plannedDays: routine.plannedDays ?? null,
+                meta: routine.meta ?? null,
+                status: routine.status ?? null,
+                range: routine.range ?? null,
+                days: routine.days ?? null,
+                attachments: routine.attachments ?? null,
+            }),
+        );
+        setMetaEditor(safeStringify(isRecord(routine.meta) ? routine.meta : {}));
 
         const canonicalPlans = routineDaysToPlans(routine.days);
         const fallbackPlans = normalizePlansForUi(getPlanFromMeta(routine?.meta ?? {}));
@@ -407,7 +463,7 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         setPlans(chosenPlans);
         plansRef.current = chosenPlans;
 
-        const plannedList = (plannedDays ?? []).filter((d) => DAY_KEYS.includes(d as any)) as DayKey[];
+        const plannedList = (plannedDays ?? []).filter(isDayKey);
         if (plannedList.length > 0 && !plannedList.includes(selectedDay)) setSelectedDay(plannedList[0]);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [routine?.id, routine?.updatedAt]);
@@ -421,9 +477,23 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         setPutBody((prev) => {
             const baseMeta = isRecord(prev.meta) ? prev.meta : null;
             const nextMeta = setPlanIntoMeta(baseMeta, plans);
-            return { ...prev, meta: nextMeta as any };
+            return { ...prev, meta: nextMeta };
         });
     }, [plans]);
+
+    React.useEffect(() => {
+        if (mode !== "form") return;
+
+        setEditor(
+            safeStringify({
+                title: putBody.title ?? null,
+                split: putBody.split ?? null,
+                plannedDays: putBody.plannedDays ?? null,
+                meta: putBody.meta ?? null,
+            }),
+        );
+        setMetaEditor(safeStringify(isRecord(putBody.meta) ? putBody.meta : {}));
+    }, [mode, putBody]);
 
     React.useEffect(() => {
         const p = activePlan;
@@ -436,11 +506,11 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         });
 
         setExerciseDrafts(toDraftExercises(p.exercises));
-    }, [activePlan.dayKey]);
+    }, [activePlan.dayKey, mode, routine?.id, routine?.updatedAt]);
 
     function togglePlannedDay(dayKey: DayKey) {
         setPutBody((prev) => {
-            const current = (prev.plannedDays ?? []) as DayKey[];
+            const current = (prev.plannedDays ?? []).filter(isDayKey);
             const exists = current.includes(dayKey);
             const next = exists ? current.filter((d) => d !== dayKey) : [...current, dayKey];
             return { ...prev, plannedDays: next.length ? next : null };
@@ -514,12 +584,20 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
 
     const goPrevWeek = () => {
         if (!weekStart) return;
-        router.replace(`/(app)/calendar/routines/week/${weekKeyFromDate(addWeeks(weekStart, -1))}` as any);
+
+        router.replace({
+            pathname: "/(app)/calendar/routines/week/[weekKey]",
+            params: { weekKey: weekKeyFromDate(addWeeks(weekStart, -1)) },
+        });
     };
 
     const goNextWeek = () => {
         if (!weekStart) return;
-        router.replace(`/(app)/calendar/routines/week/${weekKeyFromDate(addWeeks(weekStart, 1))}` as any);
+
+        router.replace({
+            pathname: "/(app)/calendar/routines/week/[weekKey]",
+            params: { weekKey: weekKeyFromDate(addWeeks(weekStart, 1)) },
+        });
     };
 
     async function initRoutine() {
@@ -531,8 +609,8 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
             });
             toastSuccess("Rutina inicializada", "Ya puedes editar días y ejercicios.");
             await routineQuery.refetch();
-        } catch (e: any) {
-            toastError("Error", e?.message ?? "No se pudo inicializar la rutina.");
+        } catch (error: unknown) {
+            toastError("Error", getErrorMessage(error, "No se pudo inicializar la rutina."));
         }
     }
 
@@ -550,10 +628,10 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         for (const item of pending) {
             const before = buildAttachmentsSet(routineQuery.data ?? routine);
 
-            await uploadMutation.mutateAsync({ files: item.files as any[], query: {} });
+            await uploadMutation.mutateAsync({ files: item.files, query: {} });
 
             const ref = await routineQuery.refetch();
-            const nextRoutine = (ref.data ?? null) as WorkoutRoutineWeek | null;
+            const nextRoutine: WorkoutRoutineWeek | null = ref.data ?? null;
 
             const after = buildAttachmentsSet(nextRoutine);
             const added = diffNewAttachmentPublicIds(before, after);
@@ -594,6 +672,27 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         if (!routine) return;
 
         try {
+            if (mode === "json") {
+                const parsed = safeParseJson(editor);
+
+                if (!parsed.ok) {
+                    toastError("JSON inválido", parsed.error);
+                    return;
+                }
+
+                if (!isRecord(parsed.value)) {
+                    toastError("JSON inválido", "El body principal debe ser un objeto JSON.");
+                    return;
+                }
+
+                const normalizedJson = normalizeRoutineJsonExerciseIds(parsed.value);
+                await updateMutation.mutateAsync(normalizedJson);
+
+                toastSuccess("Guardado", "Rutina JSON guardada ✅");
+                await routineQuery.refetch();
+                return;
+            }
+
             const updatedPlans = await uploadPendingExerciseFilesIfAny();
 
             const baseMeta = isRecord(putBody.meta) ? putBody.meta : null;
@@ -601,7 +700,7 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
 
             const bodyWithUpdatedMeta: RoutineUpsertBody = {
                 ...putBody,
-                meta: nextMeta as any,
+                meta: nextMeta,
             };
 
             setPutBody(bodyWithUpdatedMeta);
@@ -612,26 +711,63 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
                 weekKey: wk,
                 baseBody: apiBody,
                 plans: updatedPlans,
-                mutateAsync: (payload: any) => updateMutation.mutateAsync({ routine: payload as any }) as any,
+                mutateAsync: (payload) => updateMutation.mutateAsync(payload),
             });
 
             toastSuccess("Guardado", "Rutina guardada ✅");
             await routineQuery.refetch();
-        } catch (e: any) {
-            toastError("Error", e?.message ?? "No se pudo guardar la rutina.");
+        } catch (error: unknown) {
+            toastError("Error", getErrorMessage(error, "No se pudo guardar la rutina."));
         }
+    }
+
+    function applyMetaFromEditor() {
+        const parsedMeta = safeParseJson(metaEditor);
+
+        if (!parsedMeta.ok) {
+            toastError("Meta inválida", parsedMeta.error);
+            return;
+        }
+
+        if (parsedMeta.value !== null && !isRecord(parsedMeta.value)) {
+            toastError("Meta inválida", "El JSON de meta debe ser un objeto o null.");
+            return;
+        }
+
+        const parsedBody = safeParseJson(editor);
+
+        if (!parsedBody.ok) {
+            toastError("JSON inválido", parsedBody.error);
+            return;
+        }
+
+        if (!isRecord(parsedBody.value)) {
+            toastError("JSON inválido", "El body principal debe ser un objeto JSON.");
+            return;
+        }
+
+        const nextBody: Record<string, unknown> = {
+            ...parsedBody.value,
+            meta: parsedMeta.value,
+        };
+
+        const nextPlans = normalizePlansForUi(getPlanFromMeta(parsedMeta.value));
+        setPlans(nextPlans);
+        plansRef.current = nextPlans;
+        setEditor(safeStringify(nextBody));
+        toastSuccess("Meta aplicada", "El bloque meta se copió al JSON principal.");
     }
 
     async function setArchived(archived: boolean) {
         try {
             await archiveMutation.mutateAsync({ weekKey: wk, archived, status: routine?.status });
             toastSuccess(archived ? "Archivada" : "Desarchivada", "OK");
-        } catch (e: any) {
-            toastError("Error", (e as any)?.message ?? "No se pudo actualizar el estado.");
+        } catch (error: unknown) {
+            toastError("Error", getErrorMessage(error, "No se pudo actualizar el estado."));
         }
     }
 
-    const plannedDaysList = ((putBody.plannedDays ?? []) as DayKey[]).filter((d) => DAY_KEYS.includes(d as any));
+    const plannedDaysList = (putBody.plannedDays ?? []).filter(isDayKey);
     const dayTabs = plannedDaysList.length > 0 ? plannedDaysList : [...DAY_KEYS];
 
     const selectedDayDate = React.useMemo(() => {
@@ -642,10 +778,14 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
         return formatISODate(d);
     }, [weekStart, selectedDay]);
 
-    const status = (routine?.status ?? "active") as WorkoutRoutineStatus;
+    const status = routine?.status ?? "active";
 
     return (
-        <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+        <ScrollView
+            style={{ flex: 1, backgroundColor: colors.background }}
+            contentContainerStyle={{ padding: 16, gap: 12 }}
+            keyboardShouldPersistTaps="handled"
+        >
             <View style={{ gap: 6 }}>
                 <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text }}>Rutinas</Text>
                 <Text style={{ color: colors.mutedText }}>
@@ -662,25 +802,41 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
                 </View>
             </View>
 
+            {routine ? (
+                <Card
+                    title="Modo de edición"
+                    subtitle="Usa el formulario o pega el JSON semanal igual que en la web."
+                >
+                    <RoutinesModeToggle
+                        mode={mode}
+                        busy={busy}
+                        onModeChange={setMode}
+                    />
+                </Card>
+            ) : null}
+
             {!routine ? (
                 <Card title="Inicializar rutina" subtitle="Esta semana no existe aún. Inicialízala para empezar.">
                     <Input
                         label="Título (opcional)"
                         value={initForm.title}
-                        onChange={(v) => setInitForm((s) => ({ ...s, title: v }))}
+                        onChange={(value) => setInitForm((state) => ({ ...state, title: value }))}
                     />
                     <Input
                         label="Split (opcional)"
                         value={initForm.split}
-                        onChange={(v) => setInitForm((s) => ({ ...s, split: v }))}
+                        onChange={(value) => setInitForm((state) => ({ ...state, split: value }))}
                     />
 
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <View style={{ flex: 1 }}>
                             <Text style={{ fontWeight: "800", color: colors.text }}>Desarchivar si ya estaba archivada</Text>
                             <Text style={{ color: colors.mutedText }}>Si existía como archivada, la reactiva.</Text>
                         </View>
-                        <Switch value={initForm.unarchive} onValueChange={(v) => setInitForm((s) => ({ ...s, unarchive: v }))} />
+                        <Switch
+                            value={initForm.unarchive}
+                            onValueChange={(value) => setInitForm((state) => ({ ...state, unarchive: value }))}
+                        />
                     </View>
 
                     <Button
@@ -692,39 +848,72 @@ export function RoutinesWeekScreen({ weekKey }: Props) {
                 </Card>
             ) : (
                 <>
-                    <Card title="Semana">
-                        <Input label="Título" value={putBody.title ?? ""} onChange={(v) => setPutBody((p) => ({ ...p, title: v }))} />
-                        <Input label="Split" value={putBody.split ?? ""} onChange={(v) => setPutBody((p) => ({ ...p, split: v }))} />
+                    {mode === "form" ? (
+                        <>
+                            <Card title="Semana">
+                                <Input
+                                    label="Título"
+                                    value={putBody.title ?? ""}
+                                    onChange={(value) => setPutBody((body) => ({ ...body, title: value }))}
+                                />
+                                <Input
+                                    label="Split"
+                                    value={putBody.split ?? ""}
+                                    onChange={(value) => setPutBody((body) => ({ ...body, split: value }))}
+                                />
 
-                        <View style={{ gap: 8 }}>
-                            <Text style={{ fontWeight: "900", color: colors.text }}>Días planeados</Text>
-                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                                {DAY_KEYS.map((k) => (
-                                    <ToggleChip
-                                        key={k}
-                                        label={dayLabelEs(k)}
-                                        active={plannedDaysList.includes(k)}
-                                        onPress={() => togglePlannedDay(k)}
-                                    />
-                                ))}
-                            </View>
-                        </View>
+                                <View style={{ gap: 8 }}>
+                                    <Text style={{ fontWeight: "900", color: colors.text }}>Días planeados</Text>
+                                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                                        {DAY_KEYS.map((dayKey) => (
+                                            <ToggleChip
+                                                key={dayKey}
+                                                label={dayLabelEs(dayKey)}
+                                                active={plannedDaysList.includes(dayKey)}
+                                                onPress={() => togglePlannedDay(dayKey)}
+                                            />
+                                        ))}
+                                    </View>
+                                </View>
 
-                        <Button title={updateMutation.isPending ? "Guardando..." : "Guardar"} onPress={saveRoutine} disabled={busy} tone="primary" />
-                    </Card>
+                                <Button
+                                    title={updateMutation.isPending ? "Guardando..." : "Guardar"}
+                                    onPress={saveRoutine}
+                                    disabled={busy}
+                                    tone="primary"
+                                />
+                            </Card>
 
-                    <Card title="Editar día" subtitle="Selecciona un día planeado para editar sesión y ejercicios.">
-                        <PlannedDaysTabs days={dayTabs} value={selectedDay} onChange={setSelectedDay} />
+                            <Card title="Editar día" subtitle="Selecciona un día planeado para editar sesión y ejercicios.">
+                                <PlannedDaysTabs days={dayTabs} value={selectedDay} onChange={setSelectedDay} />
 
-                        <RoutineDayEditor dayKey={selectedDay} date={selectedDayDate} value={dayDraft} onChange={commitDayDraft} />
+                                <RoutineDayEditor
+                                    dayKey={selectedDay}
+                                    date={selectedDayDate}
+                                    value={dayDraft}
+                                    onChange={commitDayDraft}
+                                />
 
-                        <RoutineExercisesEditor
-                            movements={movementOptions}
-                            attachmentOptions={attachmentOptions}
-                            value={exerciseDrafts}
-                            onChange={onExercisesChange}
+                                <RoutineExercisesEditor
+                                    movements={movementOptions}
+                                    attachmentOptions={attachmentOptions}
+                                    value={exerciseDrafts}
+                                    onChange={onExercisesChange}
+                                />
+                            </Card>
+                        </>
+                    ) : (
+                        <RoutinesJsonEditor
+                            busy={busy}
+                            isSaving={updateMutation.isPending}
+                            editor={editor}
+                            metaEditor={metaEditor}
+                            onEditorChange={setEditor}
+                            onMetaEditorChange={setMetaEditor}
+                            onApplyMeta={applyMetaFromEditor}
+                            onSave={saveRoutine}
                         />
-                    </Card>
+                    )}
 
                     <Card title="Estado">
                         <Text style={{ color: colors.mutedText }}>

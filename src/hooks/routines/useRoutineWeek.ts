@@ -57,8 +57,8 @@ export function useInitRoutineWeek(weekKey: string) {
 export function useUpdateRoutineWeek(weekKey: string) {
     const queryClient = useQueryClient();
 
-    return useMutation<WorkoutRoutineWeek, ApiAxiosError, { routine: WorkoutRoutineWeek }>({
-        mutationFn: ({ routine }) => updateRoutineWeek(weekKey, routine),
+    return useMutation<WorkoutRoutineWeek, ApiAxiosError, unknown>({
+        mutationFn: (payload) => updateRoutineWeek(weekKey, payload),
         onSuccess: async (data) => {
             queryClient.setQueryData(queryKeys.routines.week(weekKey), data);
             await invalidateRoutineLists(queryClient, weekKey);
