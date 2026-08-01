@@ -56,6 +56,7 @@ import { toastError, toastSuccess } from "@/src/utils/toast";
 import { CalendarActionsSheet } from "../components/CalendarActionsSheet";
 import { CalendarNoteFormModal } from "../components/CalendarNoteFormModal";
 import { CalendarNoteViewerModal } from "../components/CalendarNoteViewerModal";
+import { WorkoutExportModal } from "../components/WorkoutExportModal";
 
 type NoteContext = {
     date: string;
@@ -219,6 +220,7 @@ export function CalendarMonthScreen() {
     );
     const [selectedDate, setSelectedDate] = React.useState<string>(initialDate);
     const [actionsVisible, setActionsVisible] = React.useState(false);
+    const [exportVisible, setExportVisible] = React.useState(false);
     const [noteForm, setNoteForm] = React.useState<NoteFormContext | null>(null);
     const [openNote, setOpenNote] = React.useState<NoteContext | null>(null);
 
@@ -613,6 +615,13 @@ export function CalendarMonthScreen() {
                 onOpenHealthBackfill={() =>
                     router.push("/(app)/calendar/health-backfill")
                 }
+                onOpenExport={() => setExportVisible(true)}
+            />
+
+            <WorkoutExportModal
+                visible={exportVisible}
+                initialDate={selectedDate}
+                onClose={() => setExportVisible(false)}
             />
 
             <CalendarNoteFormModal

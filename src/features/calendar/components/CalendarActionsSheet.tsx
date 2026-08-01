@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 type CalendarAction = {
-    id: "cardio" | "routines" | "gym-check" | "health-backfill";
+    id: "cardio" | "routines" | "gym-check" | "health-backfill" | "export";
     icon: ComponentProps<typeof Ionicons>["name"];
     title: string;
     subtitle: string;
@@ -34,6 +34,7 @@ type Props = {
     onOpenRoutines: () => void;
     onOpenGymCheck: () => void;
     onOpenHealthBackfill: () => void;
+    onOpenExport: () => void;
 };
 
 export function CalendarActionsSheet({
@@ -44,6 +45,7 @@ export function CalendarActionsSheet({
     onOpenRoutines,
     onOpenGymCheck,
     onOpenHealthBackfill,
+    onOpenExport,
 }: Props) {
     const { colors } = useTheme();
     const insets = useSafeAreaInsets();
@@ -76,6 +78,13 @@ export function CalendarActionsSheet({
             title: "Health Backfill",
             subtitle: "Importar histórico desde HealthKit o Health Connect.",
             onPress: onOpenHealthBackfill,
+        },
+        {
+            id: "export",
+            icon: "download-outline",
+            title: "Exportar datos",
+            subtitle: "Crear un XLSX o PDF por día, semana, mes o rango.",
+            onPress: onOpenExport,
         },
     ];
 
