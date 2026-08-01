@@ -4,7 +4,6 @@
 
 import { isAxiosError } from "axios";
 import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
 
 import { api } from "@/src/services/http.client";
 import type {
@@ -31,7 +30,45 @@ const IOS_UTI_TYPES: Record<WorkoutReportFormat, string> = {
     pdf: "com.adobe.pdf",
 };
 
+type ExpoSharingModule = typeof import("expo-sharing");
 type UnknownRecord = Record<string, unknown>;
+
+/**
+ * Detects the native-module mismatch produced when Metro loads current JS
+ * inside an older development client that was compiled without ExpoSharing.
+ */
+function isMissingExpoSharingNativeModule(error: unknown): boolean {
+    const message =
+        error instanceof Error
+            ? error.message
+            : typeof error === "string"
+                ? error
+                : "";
+
+    return (
+        message.includes("Cannot find native module 'ExpoSharing'") ||
+        message.includes('Cannot find native module "ExpoSharing"')
+    );
+}
+
+/**
+ * Loads expo-sharing only when the user requests an export. This prevents an
+ * older native binary from crashing the entire app during module startup.
+ * The export action still requires a binary compiled with ExpoSharing.
+ */
+async function loadSharingModule(): Promise<ExpoSharingModule> {
+    try {
+        return await import("expo-sharing");
+    } catch (error: unknown) {
+        if (isMissingExpoSharingNativeModule(error)) {
+            throw new Error(
+                "Esta instalación de Workout App no incluye el módulo nativo para compartir archivos. Recompila e instala el development client actualizado.",
+            );
+        }
+
+        throw error;
+    }
+}
 
 function isRecord(value: unknown): value is UnknownRecord {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -63,7 +100,9 @@ function toBytes(value: unknown): Uint8Array {
         );
     }
 
-    throw new Error("El API devolvió un archivo con un formato binario inválido.");
+    throw new Error(
+        "El API devolvió un archivo con un formato binario inválido.",
+    );
 }
 
 function readHeaderValue(value: unknown): string | null {
@@ -223,6 +262,7 @@ function readApiErrorMessage(value: unknown): string | null {
 
 function readMessageFromBytes(bytes: Uint8Array): string | null {
     const text = decodeUtf8ErrorBody(bytes).trim();
+
     if (!text) return null;
 
     try {
@@ -238,7 +278,10 @@ function normalizeExportError(error: unknown): Error {
 
         try {
             const message = readMessageFromBytes(toBytes(data));
-            if (message) return new Error(message);
+
+            if (message) {
+                return new Error(message);
+            }
         } catch {
             // The response was not binary; continue with the standard message.
         }
@@ -272,6 +315,7 @@ export async function generateWorkoutReport(
 
         if (!hasExpectedFileSignature(bytes, request.format)) {
             const message = readMessageFromBytes(bytes);
+
             throw new Error(
                 message ??
                 "El API no devolvió un archivo de exportación válido.",
@@ -282,7 +326,9 @@ export async function generateWorkoutReport(
         const contentDisposition = readHeaderValue(
             response.headers["content-disposition"],
         );
-        const contentType = readHeaderValue(response.headers["content-type"]);
+        const contentType = readHeaderValue(
+            response.headers["content-type"],
+        );
         const filename = getFilenameFromContentDisposition(
             contentDisposition,
             fallbackFilename,
@@ -306,6 +352,7 @@ export async function generateWorkoutReport(
 export async function shareWorkoutReport(
     request: WorkoutReportRequest,
 ): Promise<WorkoutReportFile> {
+    const Sharing = await loadSharingModule();
     const sharingAvailable = await Sharing.isAvailableAsync();
 
     if (!sharingAvailable) {
